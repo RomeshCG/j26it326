@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Loader2, Moon, Sun } from "lucide-react"
+import { Loader2, Moon, Sun, LayoutDashboard, Sparkles } from "lucide-react"
 
 import { ThemeProvider, useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import OnboardingWizard from "@/components/c4/onboarding-wizard"
 
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme()
@@ -110,11 +111,62 @@ function SmokeTestPage() {
 }
 
 function App() {
+  const [activeTab, setActiveTab] = useState("onboarding")
+
   return (
     <ThemeProvider>
-      <SmokeTestPage />
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        {/* Navigation / Mode Toggle Bar */}
+        <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50 px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold">
+              μF
+            </div>
+            <span className="font-semibold text-lg tracking-tight">MicroFlow</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-muted rounded-lg p-1">
+              <button
+                onClick={() => setActiveTab("onboarding")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "onboarding"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Sparkles className="size-3.5" />
+                Onboarding Wizard
+              </button>
+              <button
+                onClick={() => setActiveTab("smoke")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "smoke"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <LayoutDashboard className="size-3.5" />
+                Smoke Test
+              </button>
+            </div>
+            
+            {activeTab === "onboarding" && <ThemeToggle />}
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1">
+          {activeTab === "onboarding" ? (
+            <OnboardingWizard />
+          ) : (
+            <SmokeTestPage />
+          )}
+        </main>
+      </div>
     </ThemeProvider>
   )
 }
 
 export default App
+
