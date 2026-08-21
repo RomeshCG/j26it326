@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Loader2, Moon, Sun, LayoutDashboard, Sparkles } from "lucide-react"
+import { Loader2, Moon, Sun, LayoutDashboard, Sparkles, Radio } from "lucide-react"
 
 import { ThemeProvider, useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import C3App from "@/components/c3"
 import OnboardingWizard from "@/components/c4/onboarding-wizard"
 
 function ThemeToggle() {
@@ -111,7 +112,7 @@ function SmokeTestPage() {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState("onboarding")
+  const [activeTab, setActiveTab] = useState("c3")
 
   return (
     <ThemeProvider>
@@ -139,6 +140,17 @@ function App() {
                 Onboarding Wizard
               </button>
               <button
+                onClick={() => setActiveTab("c3")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "c3"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Radio className="size-3.5" />
+                Loan Officer (C3)
+              </button>
+              <button
                 onClick={() => setActiveTab("smoke")}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === "smoke"
@@ -151,7 +163,7 @@ function App() {
               </button>
             </div>
             
-            {activeTab === "onboarding" && <ThemeToggle />}
+            <ThemeToggle />
           </div>
         </header>
 
@@ -159,6 +171,8 @@ function App() {
         <main className="flex-1">
           {activeTab === "onboarding" ? (
             <OnboardingWizard />
+          ) : activeTab === "c3" ? (
+            <C3App />
           ) : (
             <SmokeTestPage />
           )}
