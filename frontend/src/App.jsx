@@ -6,7 +6,9 @@ import OnboardingWizard from "@/components/c4/onboarding-wizard"
 import Payroll from "@/components/c4/payroll"
 import ExecutiveDashboard from "@/components/c4/executive-dashboard"
 import DashboardLayout from "@/components/c4/DashboardLayout"
-import { AgentLog, TierApproval, Settings } from "@/components/c4/Placeholders"
+import AgentLog from "@/components/c4/agent-log"
+import TierApproval from "@/components/c4/tier-approval"
+import Settings from "@/components/c4/settings"
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("mf_auth_token")
