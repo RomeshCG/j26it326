@@ -4,7 +4,9 @@ import Login from "@/components/c4/auth/Login"
 import Signup from "@/components/c4/auth/Signup"
 import OnboardingWizard from "@/components/c4/onboarding-wizard"
 import Payroll from "@/components/c4/payroll"
-import { Dashboard, AgentLog, TierApproval } from "@/components/c4/Placeholders"
+import ExecutiveDashboard from "@/components/c4/executive-dashboard"
+import DashboardLayout from "@/components/c4/DashboardLayout"
+import { AgentLog, TierApproval, Settings } from "@/components/c4/Placeholders"
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("mf_auth_token")
@@ -31,37 +33,18 @@ function App() {
             } 
           />
           <Route 
-            path="/dashboard" 
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <DashboardLayout />
               </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/payroll" 
-            element={
-              <ProtectedRoute>
-                <Payroll />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/agent-log" 
-            element={
-              <ProtectedRoute>
-                <AgentLog />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/tier-approval" 
-            element={
-              <ProtectedRoute>
-                <TierApproval />
-              </ProtectedRoute>
-            } 
-          />
+            }
+          >
+            <Route path="/dashboard" element={<ExecutiveDashboard />} />
+            <Route path="/payroll" element={<Payroll />} />
+            <Route path="/agent-log" element={<AgentLog />} />
+            <Route path="/tier-approval" element={<TierApproval />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
