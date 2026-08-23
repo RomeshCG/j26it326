@@ -47,9 +47,9 @@ export default function CollectionRecording({ stop, onBack }) {
   }
 
   return (
-    <div className="flex justify-center bg-muted/40 px-4 py-6">
-      <div className="flex min-h-[720px] w-full max-w-[390px] flex-col overflow-hidden rounded-[1.75rem] border border-border bg-background shadow-sm">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
           <Button type="button" variant="ghost" size="icon" onClick={onBack} aria-label="Back">
             <ArrowLeft />
           </Button>
@@ -59,7 +59,7 @@ export default function CollectionRecording({ stop, onBack }) {
           <span className="size-8" />
         </div>
 
-        <div className="flex flex-1 flex-col gap-5 p-5">
+        <div className="flex flex-col gap-5 p-4 sm:p-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight">{borrower}</h1>
             <p className="text-sm text-muted-foreground">
@@ -68,7 +68,7 @@ export default function CollectionRecording({ stop, onBack }) {
             <p className="text-sm font-medium tabular-nums">Due today {formatLkr(due)}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {OUTCOMES.map((item) => {
               const Icon = item.icon
               const active = outcome === item.id
@@ -81,10 +81,10 @@ export default function CollectionRecording({ stop, onBack }) {
                     setReceipt(null)
                     if (item.id === "received") setAmount(String(due))
                   }}
-                  className={`flex min-h-28 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-4 text-center text-sm font-medium transition-colors ${
+                  className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-4 text-center text-sm font-medium transition-colors sm:min-h-28 ${
                     active
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card text-foreground hover:bg-muted"
+                      : "border-border bg-background text-foreground hover:bg-muted"
                   }`}
                 >
                   <Icon className="size-6" />
@@ -112,7 +112,7 @@ export default function CollectionRecording({ stop, onBack }) {
             </div>
           ) : null}
 
-          <div className="mt-auto space-y-3">
+          <div className="mt-2 space-y-3 sm:mt-4">
             {receipt ? (
               <div className="rounded-xl border border-border bg-muted/60 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

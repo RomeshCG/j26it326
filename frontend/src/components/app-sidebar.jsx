@@ -1,10 +1,12 @@
 import * as React from "react"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import {
   ActivityIcon,
   CheckCircleIcon,
+  ClipboardListIcon,
   LayoutDashboardIcon,
   SettingsIcon,
+  SmartphoneIcon,
   WalletIcon,
 } from "lucide-react"
 
@@ -21,10 +23,61 @@ import {
 } from "@/components/ui/sidebar"
 import { useStore } from "@/store"
 
+const WORKSPACE_NAV = [
+  {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: <LayoutDashboardIcon />,
+  },
+  {
+    title: "Payroll",
+    url: "/payroll",
+    icon: <WalletIcon />,
+  },
+  {
+    title: "Agent Activity Log",
+    url: "/agent-log",
+    icon: <ActivityIcon />,
+  },
+  {
+    title: "Tier Approvals",
+    url: "/tier-approval",
+    icon: <CheckCircleIcon />,
+  },
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: <SettingsIcon />,
+  },
+]
+
+const LOAN_OFFICER_NAV = [
+  {
+    title: "Dashboard",
+    url: "/loan-officer",
+    icon: <LayoutDashboardIcon />,
+    match: (pathname) =>
+      pathname === "/loan-officer" || pathname.startsWith("/loan-officer/alerts"),
+  },
+  {
+    title: "Loan application",
+    url: "/loan-officer/application",
+    icon: <ClipboardListIcon />,
+  },
+  {
+    title: "Collection",
+    url: "/loan-officer/collection",
+    icon: <SmartphoneIcon />,
+  },
+]
+
 export function AppSidebar({ ...props }) {
+  const location = useLocation()
   const currentUser = useStore((state) => state.currentUser)
   const institution = useStore((state) => state.institution)
   const [tierCount, setTierCount] = React.useState(3)
+
+  const isLoanOfficerArea = location.pathname.startsWith("/loan-officer")
 
   React.useEffect(() => {
     const checkCount = () => {
@@ -44,48 +97,31 @@ export function AppSidebar({ ...props }) {
     avatar: currentUser?.avatar || "",
   }
 
-  const navMain = [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: <LayoutDashboardIcon />,
-    },
-    {
-      title: "Payroll",
-      url: "/payroll",
-      icon: <WalletIcon />,
-    },
-    {
-      title: "Agent Activity Log",
-      url: "/agent-log",
-      icon: <ActivityIcon />,
-    },
-    {
-      title: "Tier Approvals",
-      url: "/tier-approval",
-      icon: <CheckCircleIcon />,
-      badge: tierCount > 0 ? tierCount : undefined,
-    },
-    {
-      title: "Settings",
-      url: "/settings",
-      icon: <SettingsIcon />,
-    },
-  ]
+  const navMain = isLoanOfficerArea
+    ? LOAN_OFFICER_NAV
+    : WORKSPACE_NAV.map((item) =>
+        item.title === "Tier Approvals"
+          ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
+          : item
+      )
+
+  const homePath = isLoanOfficerArea ? "/loan-officer" : "/dashboard"
 
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/dashboard" />}>
+            <SidebarMenuButton size="lg" render={<Link to={homePath} />}>
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <span className="text-sm font-semibold">M</span>
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">MicroFlow</span>
                 <span className="truncate text-xs">
-                  {institution?.name || "IMFS"}
+                  {isLoanOfficerArea
+                    ? "Loan Officer"
+                    : institution?.name || "IMFS"}
                 </span>
               </div>
             </SidebarMenuButton>
@@ -93,7 +129,10 @@ export function AppSidebar({ ...props }) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} label="Workspace" />
+        <NavMain
+          items={navMain}
+          label={isLoanOfficerArea ? "Field operations" : "Workspace"}
+        />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

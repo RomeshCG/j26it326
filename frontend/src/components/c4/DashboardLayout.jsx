@@ -21,11 +21,20 @@ const PAGE_TITLES = {
   "/agent-log": "Agent Activity Log",
   "/tier-approval": "Tier Approvals",
   "/settings": "Settings",
+  "/loan-officer": "Loan Officer Dashboard",
+  "/loan-officer/application": "Loan Application",
+  "/loan-officer/collection": "Collection",
+}
+
+function getPageTitle(pathname) {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname]
+  if (pathname.startsWith("/loan-officer/alerts/")) return "EWS Alert"
+  return "MicroFlow"
 }
 
 export default function DashboardLayout() {
   const location = useLocation()
-  const pageTitle = PAGE_TITLES[location.pathname] || "MicroFlow"
+  const pageTitle = getPageTitle(location.pathname)
 
   return (
     <SidebarProvider>
