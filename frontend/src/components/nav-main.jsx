@@ -9,6 +9,17 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
+function isItemActive(item, pathname) {
+  if (typeof item.match === "function") {
+    return item.match(pathname)
+  }
+
+  return (
+    pathname === item.url ||
+    (item.url !== "/" && pathname.startsWith(`${item.url}/`))
+  )
+}
+
 export function NavMain({ items, label = "Platform" }) {
   const location = useLocation()
 
@@ -17,9 +28,7 @@ export function NavMain({ items, label = "Platform" }) {
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
-          const isActive =
-            location.pathname === item.url ||
-            (item.url !== "/" && location.pathname.startsWith(`${item.url}/`))
+          const isActive = isItemActive(item, location.pathname)
 
           return (
             <SidebarMenuItem key={item.title}>

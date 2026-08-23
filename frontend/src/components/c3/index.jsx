@@ -1,5 +1,4 @@
-import { useState } from "react"
-import { ClipboardList, LayoutDashboard, Smartphone } from "lucide-react"
+import { useNavigate, useParams, useLocation } from "react-router-dom"
 
 import CollectionRecording from "./CollectionRecording"
 import EwsAlertDetail from "./EwsAlertDetail"
@@ -7,85 +6,44 @@ import LoanApplicationForm from "./LoanApplicationForm"
 import LoanOfficerDashboard from "./LoanOfficerDashboard"
 import { COLLECTION_ROUTE } from "./mock-data"
 
-export default function C3App() {
-  const [view, setView] = useState("dashboard")
-  const [alertId, setAlertId] = useState("EWS-1042")
-  const [stop, setStop] = useState(COLLECTION_ROUTE[1])
-
-  function goDashboard() {
-    setView("dashboard")
-  }
+export function LoanOfficerDashboardPage() {
+  const navigate = useNavigate()
 
   return (
-    <div>
-      {view !== "collection" ? (
-        <div className="border-b border-border bg-card/40 px-4">
-          <div className="mx-auto flex max-w-6xl flex-wrap gap-1 py-2">
-            <button
-              type="button"
-              onClick={goDashboard}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                view === "dashboard" || view === "alert"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <LayoutDashboard className="size-3.5" />
-              Officer dashboard
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("application")}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                view === "application"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <ClipboardList className="size-3.5" />
-              Loan application
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStop(COLLECTION_ROUTE[1])
-                setView("collection")
-              }}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                view === "collection"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Smartphone className="size-3.5" />
-              Collection (mobile)
-            </button>
-          </div>
-        </div>
-      ) : null}
+    <LoanOfficerDashboard
+      onOpenAlert={(id) => navigate(`/loan-officer/alerts/${id}`)}
+      onOpenCollection={(stop) =>
+        navigate("/loan-officer/collection", { state: { stop } })
+      }
+    />
+  )
+}
 
-      {view === "dashboard" ? (
-        <LoanOfficerDashboard
-          onOpenAlert={(id) => {
-            setAlertId(id)
-            setView("alert")
-          }}
-          onOpenCollection={(nextStop) => {
-            setStop(nextStop)
-            setView("collection")
-          }}
-        />
-      ) : null}
+export function LoanApplicationPage() {
+  return <LoanApplicationForm />
+}
 
-      {view === "alert" ? (
-        <EwsAlertDetail alertId={alertId} onBack={goDashboard} />
-      ) : null}
+export function CollectionPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const stop = location.state?.stop ?? COLLECTION_ROUTE[0]
 
-      {view === "collection" ? (
-        <CollectionRecording stop={stop} onBack={goDashboard} />
-      ) : null}
+  return (
+    <CollectionRecording
+      stop={stop}
+      onBack={() => navigate("/loan-officer")}
+    />
+  )
+}
 
-      {view === "application" ? <LoanApplicationForm /> : null}
-    </div>
+export function EwsAlertPage() {
+  const navigate = useNavigate()
+  const { alertId } = useParams()
+
+  return (
+    <EwsAlertDetail
+      alertId={alertId}
+      onBack={() => navigate("/loan-officer")}
+    />
   )
 }
