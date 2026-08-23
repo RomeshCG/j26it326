@@ -16,6 +16,9 @@ import DashboardLayout from "@/components/c4/DashboardLayout"
 import AgentLog from "@/components/c4/agent-log"
 import TierApproval from "@/components/c4/tier-approval"
 import Settings from "@/components/c4/settings"
+import RiskReportPage from "@/components/risk-report"
+import TrustProfilePage from "@/components/trust-profile"
+import AbExperimentPage from "@/components/ab-experiment"
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("mf_auth_token")
@@ -65,6 +68,18 @@ function App() {
             <Route
               path="/loan-officer/alerts/:alertId"
               element={<EwsAlertPage />}
+            />
+            <Route
+              path="/loan-officer/risk-report"
+              element={<RiskReportPage />}
+            />
+            <Route
+              path="/loan-officer/trust-profile"
+              element={<TrustProfilePage />}
+            />
+            <Route
+              path="/research/ab-experiment"
+              element={<AbExperimentPage />}
             />
           </Route>
         </Routes>
