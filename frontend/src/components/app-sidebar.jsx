@@ -4,9 +4,11 @@ import {
   ActivityIcon,
   CheckCircleIcon,
   ClipboardListIcon,
+  FlaskConicalIcon,
   LayoutDashboardIcon,
   SettingsIcon,
   SmartphoneIcon,
+  ShieldCheckIcon,
   WalletIcon,
 } from "lucide-react"
 
@@ -49,6 +51,11 @@ const WORKSPACE_NAV = [
     url: "/settings",
     icon: <SettingsIcon />,
   },
+  {
+    title: "A/B Experiment",
+    url: "/research/ab-experiment",
+    icon: <FlaskConicalIcon />,
+  },
 ]
 
 const LOAN_OFFICER_NAV = [
@@ -68,6 +75,11 @@ const LOAN_OFFICER_NAV = [
     title: "Collection",
     url: "/loan-officer/collection",
     icon: <SmartphoneIcon />,
+  },
+  {
+    title: "My trust profile",
+    url: "/loan-officer/trust-profile",
+    icon: <ShieldCheckIcon />,
   },
 ]
 
