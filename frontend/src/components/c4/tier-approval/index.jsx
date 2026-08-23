@@ -43,7 +43,7 @@ const INITIAL_PENDING = [
       accuracy: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "All figures cross-validated against source transactions" },
       compliance: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "Report format matches current CBSL template v4.2" },
       timing: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "Report is within the 5-day submission window" },
-      override: { level: "None", color: "text-slate-400", bg: "bg-slate-800/50", border: "border-slate-700", desc: "This action type has never been overridden previously" },
+      override: { level: "None", color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border", desc: "This action type has never been overridden previously" },
       overall: { level: "Low Risk — safe to approve", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" }
     }
   },
@@ -108,7 +108,7 @@ const INITIAL_PENDING = [
       accuracy: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "Figures match finalized payroll run" },
       compliance: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "Standard statutory formatting applied" },
       timing: { level: "Medium", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", desc: "Due in 3 days. Action needed soon." },
-      override: { level: "None", color: "text-slate-400", bg: "bg-slate-800/50", border: "border-slate-700", desc: "Never overridden" },
+      override: { level: "None", color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border", desc: "Never overridden" },
       overall: { level: "Low Risk — safe to approve", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" }
     }
   }
@@ -172,35 +172,35 @@ export default function TierApproval() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0A0A0A] text-slate-200 font-sans">
+    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background text-foreground font-sans">
       
       {/* Header */}
-      <header className="px-8 py-6 border-b border-slate-800 bg-[#111111] shrink-0">
-        <div className="flex items-center text-xs text-slate-500 mb-3">
-          <Link to="/dashboard" className="hover:text-slate-300 transition-colors">Dashboard</Link>
+      <header className="px-8 py-6 border-b border-border bg-card shrink-0">
+        <div className="flex items-center text-xs text-muted-foreground mb-3">
+          <Link to="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
           <ChevronRight size={12} className="mx-2" />
-          <Link to="/agent-log" className="hover:text-slate-300 transition-colors">Agent Activity Log</Link>
+          <Link to="/agent-log" className="hover:text-foreground transition-colors">Agent Activity Log</Link>
           <ChevronRight size={12} className="mx-2" />
           <span className="text-amber-400">Tier Approval</span>
         </div>
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">Tier 3 Action — Awaiting Your Approval</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Tier 3 Action — Awaiting Your Approval</h1>
           <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-xs font-bold shadow-[0_0_15px_rgba(245,158,11,0.15)] flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
             Tier 3 — Pending Approval
           </div>
         </div>
-        <p className="text-slate-400 mt-2">An AI agent has prepared the following action. Review the full context before approving or rejecting.</p>
+        <p className="text-muted-foreground mt-2">An AI agent has prepared the following action. Review the full context before approving or rejecting.</p>
       </header>
 
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         
         {/* Left Sidebar Queue */}
-        <aside className="w-80 border-r border-slate-800 bg-[#0F0F0F] flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
-          <div className="p-4 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-[#0F0F0F] z-10">
-            <div className="font-semibold text-white">Pending Approvals</div>
-            <div className="bg-slate-800 text-slate-300 text-xs px-2 py-0.5 rounded-full font-medium">{queue.length}</div>
+        <aside className="w-80 border-r border-border bg-muted/40 flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+          <div className="p-4 border-b border-border flex items-center justify-between sticky top-0 bg-muted/40 z-10">
+            <div className="font-semibold text-foreground">Pending Approvals</div>
+            <div className="bg-muted text-foreground/80 text-xs px-2 py-0.5 rounded-full font-medium">{queue.length}</div>
           </div>
           
           <div className="p-3 space-y-2">
@@ -213,16 +213,16 @@ export default function TierApproval() {
                   className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer ${
                     isSelected 
                       ? "bg-amber-500/5 border-amber-500/30 ring-1 ring-amber-500/20" 
-                      : "bg-[#161616] border-slate-800 hover:border-slate-700 hover:bg-[#1A1A1A]"
+                      : "bg-muted border-border hover:border-border hover:bg-muted"
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`w-5 h-5 rounded-full ${item.agentColor} flex items-center justify-center text-[9px] font-bold text-white shrink-0`}>
+                    <span className={`w-5 h-5 rounded-full ${item.agentColor} flex items-center justify-center text-[9px] font-bold text-foreground shrink-0`}>
                       {item.agent}
                     </span>
-                    <span className="text-xs font-medium text-slate-400 truncate">{item.agentName}</span>
+                    <span className="text-xs font-medium text-muted-foreground truncate">{item.agentName}</span>
                   </div>
-                  <div className="font-medium text-sm text-white mb-2 leading-snug">{item.title}</div>
+                  <div className="font-medium text-sm text-foreground mb-2 leading-snug">{item.title}</div>
                   <div className="flex items-center gap-1.5 text-[11px] text-amber-400/80">
                     <Clock size={12} /> {item.timeWaiting}
                   </div>
@@ -231,7 +231,7 @@ export default function TierApproval() {
             })}
             
             {queue.length === 0 && (
-              <div className="p-6 text-center text-slate-500 flex flex-col items-center">
+              <div className="p-6 text-center text-muted-foreground flex flex-col items-center">
                 <CheckCircle size={32} className="mb-3 opacity-20" />
                 <div className="text-sm font-medium">Queue Empty</div>
               </div>
@@ -240,14 +240,14 @@ export default function TierApproval() {
         </aside>
 
         {/* Right Detail Content */}
-        <div className="flex-1 overflow-y-auto bg-[#0A0A0A] p-6 lg:p-10 custom-scrollbar relative">
+        <div className="flex-1 overflow-y-auto bg-background p-6 lg:p-10 custom-scrollbar relative">
           
           {!selectedItem ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-500">
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
               <ShieldAlert size={48} className="mb-4 text-green-500/20" />
-              <h2 className="text-xl font-bold text-white mb-2">All Tier 3 actions reviewed.</h2>
-              <p className="text-slate-400 mb-6">No pending approvals in your queue.</p>
-              <Link to="/agent-log" className="bg-[#161616] hover:bg-slate-800 text-white border border-slate-700 px-6 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer">
+              <h2 className="text-xl font-bold text-foreground mb-2">All Tier 3 actions reviewed.</h2>
+              <p className="text-muted-foreground mb-6">No pending approvals in your queue.</p>
+              <Link to="/agent-log" className="bg-muted hover:bg-muted text-foreground border border-border px-6 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer">
                 Return to Agent Activity Log
               </Link>
             </div>
@@ -258,16 +258,16 @@ export default function TierApproval() {
                   <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mb-6">
                     <CheckCircle size={40} className="text-green-500" />
                   </div>
-                  <h2 className="text-2xl font-bold text-white mb-2 text-center">{actionState.message}</h2>
-                  <p className="text-slate-400 text-center">Loading next item in queue...</p>
+                  <h2 className="text-2xl font-bold text-foreground mb-2 text-center">{actionState.message}</h2>
+                  <p className="text-muted-foreground text-center">Loading next item in queue...</p>
                 </>
               ) : (
                 <>
-                  <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mb-6">
-                    <X size={40} className="text-slate-400" />
+                  <div className="w-20 h-20 bg-muted/50 rounded-full flex items-center justify-center mb-6">
+                    <X size={40} className="text-muted-foreground" />
                   </div>
-                  <h2 className="text-2xl font-bold text-white mb-2 text-center">{actionState.message}</h2>
-                  <p className="text-slate-400 text-center">Loading next item in queue...</p>
+                  <h2 className="text-2xl font-bold text-foreground mb-2 text-center">{actionState.message}</h2>
+                  <p className="text-muted-foreground text-center">Loading next item in queue...</p>
                 </>
               )}
             </div>
@@ -275,48 +275,48 @@ export default function TierApproval() {
             <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
               
               {/* Section 1: Summary Card */}
-              <div className="bg-[#111111] rounded-2xl border border-slate-800 border-l-4 border-l-amber-500 p-6 shadow-lg relative overflow-hidden">
+              <div className="bg-card rounded-2xl border border-border border-l-4 border-l-amber-500 p-6 shadow-lg relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-bl-full pointer-events-none"></div>
                 <div className="flex items-center gap-3 mb-4 relative z-10">
-                  <div className={`w-8 h-8 rounded-full ${selectedItem.agentColor} flex items-center justify-center text-xs font-bold text-white shadow-lg`}>
+                  <div className={`w-8 h-8 rounded-full ${selectedItem.agentColor} flex items-center justify-center text-xs font-bold text-foreground shadow-lg`}>
                     {selectedItem.agent}
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-slate-300">{selectedItem.agentName}</div>
-                    <div className="text-xs text-slate-500">Prepared {selectedItem.preparedTime}</div>
+                    <div className="text-sm font-medium text-foreground/80">{selectedItem.agentName}</div>
+                    <div className="text-xs text-muted-foreground">Prepared {selectedItem.preparedTime}</div>
                   </div>
                 </div>
-                <h2 className="text-xl font-bold text-white mb-6 relative z-10">{selectedItem.title}</h2>
+                <h2 className="text-xl font-bold text-foreground mb-6 relative z-10">{selectedItem.title}</h2>
                 <div className="space-y-3 relative z-10">
                   <div className="flex gap-3 items-start bg-green-500/5 p-4 rounded-xl border border-green-500/10">
                     <CheckCircle className="text-green-500 shrink-0 mt-0.5" size={18} />
                     <p className="text-sm text-green-50 font-medium leading-relaxed">{selectedItem.approveConsequence}</p>
                   </div>
-                  <div className="flex gap-3 items-start bg-slate-800/30 p-4 rounded-xl border border-slate-800">
-                    <X className="text-slate-400 shrink-0 mt-0.5" size={18} />
-                    <p className="text-sm text-slate-300 leading-relaxed">{selectedItem.rejectConsequence}</p>
+                  <div className="flex gap-3 items-start bg-muted/30 p-4 rounded-xl border border-border">
+                    <X className="text-muted-foreground shrink-0 mt-0.5" size={18} />
+                    <p className="text-sm text-foreground/80 leading-relaxed">{selectedItem.rejectConsequence}</p>
                   </div>
                 </div>
               </div>
 
               {/* Section 2: What Agent Prepared */}
               <div>
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                   <FileText className="text-blue-400" size={20} />
                   What {selectedItem.agent} prepared
                 </h3>
-                <div className="bg-[#111111] border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                   <table className="w-full text-sm text-left">
                     <tbody className="divide-y divide-slate-800/50">
                       {selectedItem.data.map((row, idx) => (
-                        <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                          <td className="p-4 text-slate-400 w-1/3 bg-[#161616] font-medium border-r border-slate-800/50">{row.field}</td>
-                          <td className="p-4 text-white font-mono">{row.value}</td>
+                        <tr key={idx} className="hover:bg-muted/30 transition-colors">
+                          <td className="p-4 text-muted-foreground w-1/3 bg-muted font-medium border-r border-border/50">{row.field}</td>
+                          <td className="p-4 text-foreground font-mono">{row.value}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <div className="p-4 bg-[#161616] border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                  <div className="p-4 bg-muted border-t border-border flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center gap-1.5"><Database size={14} /> Data sourced automatically. Last sync: today at 06:00 AM.</div>
                     <button 
                       onClick={() => setShowPreviewModal(true)}
@@ -330,44 +330,44 @@ export default function TierApproval() {
 
               {/* Section 3: Agent Reasoning */}
               <div>
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                   <Activity className="text-purple-400" size={20} />
                   Agent reasoning and data sources
                 </h3>
-                <div className="bg-[#111111] border border-slate-800 rounded-xl p-6 shadow-sm">
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
                   
                   <div className="relative space-y-6 before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-800 before:to-transparent">
                     {selectedItem.timeline.map((step, idx) => (
                       <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full border-2 border-slate-800 bg-[#0A0A0A] text-slate-500 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow z-10">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-full border-2 border-border bg-background text-muted-foreground shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow z-10">
                           <CheckCircle size={12} className="text-blue-500" />
                         </div>
-                        <div className="w-[calc(100%-2rem)] md:w-[calc(50%-1.5rem)] bg-[#161616] p-4 rounded-xl border border-slate-800/50 shadow-sm">
+                        <div className="w-[calc(100%-2rem)] md:w-[calc(50%-1.5rem)] bg-muted p-4 rounded-xl border border-border/50 shadow-sm">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-bold text-slate-500">{step.time}</span>
+                            <span className="text-xs font-bold text-muted-foreground">{step.time}</span>
                           </div>
-                          <div className="text-sm font-medium text-slate-200 leading-snug">{step.step}</div>
+                          <div className="text-sm font-medium text-foreground leading-snug">{step.step}</div>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-8 pt-6 border-t border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-[#0A0A0A] p-3 rounded-lg border border-slate-800/50">
-                      <div className="text-slate-500 text-[10px] uppercase font-bold mb-1">Records Processed</div>
-                      <div className="text-white font-mono text-sm">2,847</div>
+                  <div className="mt-8 pt-6 border-t border-border grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-background p-3 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase font-bold mb-1">Records Processed</div>
+                      <div className="text-foreground font-mono text-sm">2,847</div>
                     </div>
-                    <div className="bg-[#0A0A0A] p-3 rounded-lg border border-slate-800/50">
-                      <div className="text-slate-500 text-[10px] uppercase font-bold mb-1">Validation Errors</div>
+                    <div className="bg-background p-3 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase font-bold mb-1">Validation Errors</div>
                       <div className="text-green-400 font-mono text-sm">0</div>
                     </div>
-                    <div className="bg-[#0A0A0A] p-3 rounded-lg border border-slate-800/50">
-                      <div className="text-slate-500 text-[10px] uppercase font-bold mb-1">Completeness</div>
-                      <div className="text-white font-mono text-sm">100%</div>
+                    <div className="bg-background p-3 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase font-bold mb-1">Completeness</div>
+                      <div className="text-foreground font-mono text-sm">100%</div>
                     </div>
-                    <div className="bg-[#0A0A0A] p-3 rounded-lg border border-slate-800/50">
-                      <div className="text-slate-500 text-[10px] uppercase font-bold mb-1">Data Refresh</div>
-                      <div className="text-slate-300 font-mono text-sm">06:00 AM</div>
+                    <div className="bg-background p-3 rounded-lg border border-border/50">
+                      <div className="text-muted-foreground text-[10px] uppercase font-bold mb-1">Data Refresh</div>
+                      <div className="text-foreground/80 font-mono text-sm">06:00 AM</div>
                     </div>
                   </div>
                 </div>
@@ -375,52 +375,52 @@ export default function TierApproval() {
 
               {/* Section 4: Risk Assessment */}
               <div>
-                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                   <ShieldAlert className="text-amber-400" size={20} />
                   Risk of approving this action
                 </h3>
-                <div className="bg-[#111111] border border-slate-800 rounded-xl p-6 shadow-sm">
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div className={`p-4 rounded-xl border ${selectedItem.risk.accuracy.bg} ${selectedItem.risk.accuracy.border}`}>
-                      <div className="text-slate-400 text-xs font-bold uppercase mb-1">Data Accuracy Risk</div>
+                      <div className="text-muted-foreground text-xs font-bold uppercase mb-1">Data Accuracy Risk</div>
                       <div className={`font-bold mb-1 ${selectedItem.risk.accuracy.color}`}>{selectedItem.risk.accuracy.level}</div>
-                      <div className="text-xs text-slate-300">{selectedItem.risk.accuracy.desc}</div>
+                      <div className="text-xs text-foreground/80">{selectedItem.risk.accuracy.desc}</div>
                     </div>
                     <div className={`p-4 rounded-xl border ${selectedItem.risk.compliance.bg} ${selectedItem.risk.compliance.border}`}>
-                      <div className="text-slate-400 text-xs font-bold uppercase mb-1">Compliance Risk</div>
+                      <div className="text-muted-foreground text-xs font-bold uppercase mb-1">Compliance Risk</div>
                       <div className={`font-bold mb-1 ${selectedItem.risk.compliance.color}`}>{selectedItem.risk.compliance.level}</div>
-                      <div className="text-xs text-slate-300">{selectedItem.risk.compliance.desc}</div>
+                      <div className="text-xs text-foreground/80">{selectedItem.risk.compliance.desc}</div>
                     </div>
                     <div className={`p-4 rounded-xl border ${selectedItem.risk.timing.bg} ${selectedItem.risk.timing.border}`}>
-                      <div className="text-slate-400 text-xs font-bold uppercase mb-1">Timing Risk</div>
+                      <div className="text-muted-foreground text-xs font-bold uppercase mb-1">Timing Risk</div>
                       <div className={`font-bold mb-1 ${selectedItem.risk.timing.color}`}>{selectedItem.risk.timing.level}</div>
-                      <div className="text-xs text-slate-300">{selectedItem.risk.timing.desc}</div>
+                      <div className="text-xs text-foreground/80">{selectedItem.risk.timing.desc}</div>
                     </div>
                     <div className={`p-4 rounded-xl border ${selectedItem.risk.override.bg} ${selectedItem.risk.override.border}`}>
-                      <div className="text-slate-400 text-xs font-bold uppercase mb-1">Override History</div>
+                      <div className="text-muted-foreground text-xs font-bold uppercase mb-1">Override History</div>
                       <div className={`font-bold mb-1 ${selectedItem.risk.override.color}`}>{selectedItem.risk.override.level}</div>
-                      <div className="text-xs text-slate-300">{selectedItem.risk.override.desc}</div>
+                      <div className="text-xs text-foreground/80">{selectedItem.risk.override.desc}</div>
                     </div>
                   </div>
                   <div className={`p-5 rounded-xl border flex items-center justify-between ${selectedItem.risk.overall.bg} ${selectedItem.risk.overall.border}`}>
-                    <div className="font-bold text-slate-300">Overall Assessment</div>
+                    <div className="font-bold text-foreground/80">Overall Assessment</div>
                     <div className={`font-bold text-lg ${selectedItem.risk.overall.color}`}>{selectedItem.risk.overall.level}</div>
                   </div>
                 </div>
               </div>
 
               {/* Section 5: Approval Action */}
-              <div className="bg-[#111111] border border-slate-800 rounded-xl p-6 shadow-lg mb-20">
+              <div className="bg-card border border-border rounded-xl p-6 shadow-lg mb-20">
                 <div 
-                  className="flex items-start gap-3 p-4 bg-[#161616] border border-slate-700 rounded-xl mb-6 cursor-pointer hover:bg-slate-800/50 transition-colors"
+                  className="flex items-start gap-3 p-4 bg-muted border border-border rounded-xl mb-6 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => setHasReviewed(!hasReviewed)}
                 >
                   <div className="mt-0.5 text-blue-500 shrink-0">
                     {hasReviewed ? <CheckSquare size={20} /> : <Square size={20} />}
                   </div>
                   <div>
-                    <div className="font-semibold text-white mb-1">I have reviewed the agent's prepared action and the supporting data above.</div>
-                    <div className="text-xs text-slate-400">This confirmation is required before approval can be granted.</div>
+                    <div className="font-semibold text-foreground mb-1">I have reviewed the agent's prepared action and the supporting data above.</div>
+                    <div className="text-xs text-muted-foreground">This confirmation is required before approval can be granted.</div>
                   </div>
                 </div>
 
@@ -450,16 +450,16 @@ export default function TierApproval() {
       {/* Preview Modal */}
       {showPreviewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[#111111] border border-slate-800 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-              <h2 className="font-bold text-white">Document Preview</h2>
-              <button onClick={() => setShowPreviewModal(false)} className="text-slate-400 hover:text-white cursor-pointer"><X size={20} /></button>
+          <div className="bg-card border border-border rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h2 className="font-bold text-foreground">Document Preview</h2>
+              <button onClick={() => setShowPreviewModal(false)} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={20} /></button>
             </div>
             <div className="p-8 overflow-y-auto bg-slate-50 text-slate-900 font-serif">
               <div className="text-center mb-8 border-b-2 border-slate-300 pb-4">
                 <h1 className="text-xl font-bold mb-1">CENTRAL BANK OF SRI LANKA</h1>
-                <h2 className="text-md font-semibold text-slate-600">MONTHLY REPORTING FORM - MICROFINANCE INSTITUTIONS</h2>
-                <div className="mt-4 text-sm font-sans text-left text-slate-500">Institution: Apex Microfinance Ltd<br/>Period: November 2024</div>
+                <h2 className="text-md font-semibold text-muted-foreground">MONTHLY REPORTING FORM - MICROFINANCE INSTITUTIONS</h2>
+                <div className="mt-4 text-sm font-sans text-left text-muted-foreground">Institution: Apex Microfinance Ltd<br/>Period: November 2024</div>
               </div>
               <table className="w-full text-sm font-sans border-collapse border border-slate-300">
                 <tbody>
@@ -471,7 +471,7 @@ export default function TierApproval() {
                   ))}
                 </tbody>
               </table>
-              <div className="mt-12 pt-4 border-t border-slate-300 text-xs text-slate-500 font-sans flex justify-between">
+              <div className="mt-12 pt-4 border-t border-slate-300 text-xs text-muted-foreground font-sans flex justify-between">
                 <div>Generated by MicroFlow Automated Compliance System</div>
                 <div>Status: DRAFT - PENDING APPROVAL</div>
               </div>
@@ -483,15 +483,15 @@ export default function TierApproval() {
       {/* Approve Confirm Modal */}
       {showApproveConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[#111111] border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95">
             <div className="p-6">
               <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
                 <AlertTriangle size={24} className="text-green-500" />
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Confirm Approval</h2>
-              <p className="text-slate-400 text-sm mb-6">Are you sure you want to approve this action? This will execute immediately and cannot be undone.</p>
+              <h2 className="text-xl font-bold text-foreground mb-2">Confirm Approval</h2>
+              <p className="text-muted-foreground text-sm mb-6">Are you sure you want to approve this action? This will execute immediately and cannot be undone.</p>
               <div className="flex gap-3">
-                <button onClick={() => setShowApproveConfirm(false)} className="flex-1 py-2.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors font-medium">Cancel</button>
+                <button onClick={() => setShowApproveConfirm(false)} className="flex-1 py-2.5 rounded-lg border border-border text-foreground/80 hover:bg-muted transition-colors font-medium">Cancel</button>
                 <button onClick={handleApprove} className="flex-1 py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white transition-colors font-bold shadow-lg shadow-green-600/20">Confirm Approval</button>
               </div>
             </div>
@@ -502,18 +502,18 @@ export default function TierApproval() {
       {/* Reject Modal */}
       {showRejectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[#111111] border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-white mb-2">Reject Action</h2>
-              <p className="text-slate-400 text-sm mb-4">Please provide a reason for rejecting this action. This will be logged in the audit trail.</p>
+              <h2 className="text-xl font-bold text-foreground mb-2">Reject Action</h2>
+              <p className="text-muted-foreground text-sm mb-4">Please provide a reason for rejecting this action. This will be logged in the audit trail.</p>
               <textarea 
                 value={rejectReason}
                 onChange={e => setRejectReason(e.target.value)}
                 placeholder="Reason for rejection (required)..."
-                className="w-full bg-[#161616] border border-slate-700 rounded-lg p-3 text-white placeholder-slate-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all mb-6 min-h-[100px] text-sm"
+                className="w-full bg-muted border border-border rounded-lg p-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all mb-6 min-h-[100px] text-sm"
               ></textarea>
               <div className="flex gap-3">
-                <button onClick={() => setShowRejectModal(false)} className="flex-1 py-2.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors font-medium">Cancel</button>
+                <button onClick={() => setShowRejectModal(false)} className="flex-1 py-2.5 rounded-lg border border-border text-foreground/80 hover:bg-muted transition-colors font-medium">Cancel</button>
                 <button 
                   onClick={handleReject} 
                   disabled={!rejectReason.trim()}

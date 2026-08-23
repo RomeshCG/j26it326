@@ -2,18 +2,18 @@ import React from "react"
 
 export function Dashboard() {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center flex-col">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center flex-col">
       <h1 className="text-3xl font-bold mb-2">Executive Dashboard</h1>
-      <p className="text-slate-400">Placeholder for the main dashboard</p>
+      <p className="text-muted-foreground">Placeholder for the main dashboard</p>
     </div>
   )
 }
 
 export function Payroll() {
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center flex-col">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center flex-col">
       <h1 className="text-3xl font-bold mb-2">Payroll Screen</h1>
-      <p className="text-slate-400">Placeholder for the HR Payroll screen</p>
+      <p className="text-muted-foreground">Placeholder for the HR Payroll screen</p>
     </div>
   )
 }

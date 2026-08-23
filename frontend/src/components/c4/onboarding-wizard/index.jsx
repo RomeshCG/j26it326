@@ -523,7 +523,7 @@ export default function OnboardingWizard() {
   // Success screen after launch
   if (isLaunched) {
     return (
-      <div className="relative min-h-[80vh] flex items-center justify-center px-4 overflow-hidden py-12">
+      <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-4 py-12 text-foreground">
         {injectConfettiStyles()}
         
         {/* Floating Confetti Elements */}
@@ -620,12 +620,13 @@ export default function OnboardingWizard() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-svh bg-background text-foreground">
+    <div className="mx-auto w-full max-w-4xl px-4 py-8">
       {/* Reset button wrapper */}
-      <div className="flex justify-end mb-4">
+      <div className="mb-4 flex justify-end">
         <button 
           onClick={handleReset}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 cursor-pointer"
+          className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
         >
           Reset Wizard
         </button>
@@ -767,7 +768,7 @@ export default function OnboardingWizard() {
               type="button"
               size="lg"
               onClick={handleLaunch}
-              className="cursor-pointer bg-emerald-600 text-white hover:bg-emerald-500 hover:border-emerald-500 flex items-center"
+              className="flex cursor-pointer items-center bg-emerald-600 text-white hover:border-emerald-500 hover:bg-emerald-500"
             >
               Launch MicroFlow
               <Play className="ml-2 size-4 fill-white" />
@@ -785,6 +786,7 @@ export default function OnboardingWizard() {
           )}
         </CardFooter>
       </Card>
+    </div>
     </div>
   )
 }
