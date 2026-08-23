@@ -127,7 +127,7 @@ export default function Payroll() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-slate-200 p-6 lg:p-10 font-sans">
+    <div className="flex-1 overflow-y-auto bg-[#0A0A0A] text-slate-200 p-6 lg:p-10 font-sans custom-scrollbar">
       
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
