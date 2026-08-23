@@ -24,6 +24,9 @@ const PAGE_TITLES = {
   "/loan-officer": "Loan Officer Dashboard",
   "/loan-officer/application": "Loan Application",
   "/loan-officer/collection": "Collection",
+  "/loan-officer/risk-report": "Risk Report",
+  "/loan-officer/trust-profile": "My Trust Profile",
+  "/research/ab-experiment": "A/B Experiment",
 }
 
 function getPageTitle(pathname) {
