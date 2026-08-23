@@ -1,0 +1,202 @@
+export const OFFICER = {
+  name: "Nimali Jayasuriya",
+  branch: "Gampaha Central",
+  portfolioId: "PF-GAM-014",
+}
+
+export const PORTFOLIO_STATS = {
+  ewsAlertCount: 7,
+  overdueCount: 11,
+  par30: 6.4,
+  activeLoans: 48,
+  dueToday: 9,
+}
+
+export const ACTIVE_LOANS = [
+  {
+    id: "LN-88421",
+    borrower: "Kumari Fernando",
+    product: "Group Enterprise",
+    outstanding: 86500,
+    nextDue: "2026-08-21",
+    status: "ews",
+    daysLate: 12,
+    alertId: "EWS-1042",
+  },
+  {
+    id: "LN-88390",
+    borrower: "Ruwan Perera",
+    product: "Individual Working Capital",
+    outstanding: 124000,
+    nextDue: "2026-08-22",
+    status: "current",
+    daysLate: 0,
+    alertId: null,
+  },
+  {
+    id: "LN-88211",
+    borrower: "Sanduni Wickramasinghe",
+    product: "Agricultural Seasonal",
+    outstanding: 54000,
+    nextDue: "2026-08-21",
+    status: "overdue",
+    daysLate: 34,
+    alertId: "EWS-1038",
+  },
+  {
+    id: "LN-88104",
+    borrower: "Ajith Bandara",
+    product: "Group Enterprise",
+    outstanding: 31200,
+    nextDue: "2026-08-23",
+    status: "current",
+    daysLate: 0,
+    alertId: null,
+  },
+  {
+    id: "LN-88077",
+    borrower: "Fathima Nizar",
+    product: "Housing Repair",
+    outstanding: 198000,
+    nextDue: "2026-08-24",
+    status: "ews",
+    daysLate: 8,
+    alertId: "EWS-1045",
+  },
+]
+
+export const COLLECTION_ROUTE = [
+  {
+    id: "STOP-1",
+    loanId: "LN-88211",
+    borrower: "Sanduni Wickramasinghe",
+    village: "Yakkala",
+    amountDue: 4200,
+    priority: 1,
+    reason: "PAR30 — 34 days late",
+  },
+  {
+    id: "STOP-2",
+    loanId: "LN-88421",
+    borrower: "Kumari Fernando",
+    village: "Kirindivita",
+    amountDue: 3500,
+    priority: 2,
+    reason: "EWS compounding risk",
+  },
+  {
+    id: "STOP-3",
+    loanId: "LN-88077",
+    borrower: "Fathima Nizar",
+    village: "Ganemulla",
+    amountDue: 6800,
+    priority: 3,
+    reason: "EWS — social signal decay",
+  },
+  {
+    id: "STOP-4",
+    loanId: "LN-88390",
+    borrower: "Ruwan Perera",
+    village: "Miriswatta",
+    amountDue: 5100,
+    priority: 4,
+    reason: "Due today",
+  },
+]
+
+export const ALERTS = {
+  "EWS-1042": {
+    id: "EWS-1042",
+    loanId: "LN-88421",
+    borrower: "Kumari Fernando",
+    nic: "198765432V",
+    phone: "077 412 8891",
+    product: "Group Enterprise",
+    group: "Kirindivita Women's Group 12",
+    disbursed: "2025-11-04",
+    outstanding: 86500,
+    installment: 3500,
+    cycle: "Weekly",
+    officer: OFFICER.name,
+    distressProbability: 78,
+    threshold: 60,
+    paymentVelocity: {
+      unit: "days late",
+      slopeLabel: "Worsening at 2.4 days per installment",
+      series: [0, 1, 2, 4, 7, 9, 12],
+    },
+    socialDecay: {
+      unit: "group engagement score",
+      slopeLabel: "Decaying at −6.1 points per cycle",
+      series: [92, 88, 81, 74, 61, 52, 44],
+    },
+    correlation: {
+      aligned: true,
+      label: "Both signals declining simultaneously — Compounding Risk",
+    },
+  },
+  "EWS-1038": {
+    id: "EWS-1038",
+    loanId: "LN-88211",
+    borrower: "Sanduni Wickramasinghe",
+    nic: "199012345V",
+    phone: "071 556 2204",
+    product: "Agricultural Seasonal",
+    group: "Individual",
+    disbursed: "2026-02-18",
+    outstanding: 54000,
+    installment: 4200,
+    cycle: "Monthly",
+    officer: OFFICER.name,
+    distressProbability: 86,
+    threshold: 60,
+    paymentVelocity: {
+      unit: "days late",
+      slopeLabel: "Worsening at 4.1 days per installment",
+      series: [2, 5, 11, 18, 24, 30, 34],
+    },
+    socialDecay: {
+      unit: "group engagement score",
+      slopeLabel: "Decaying at −3.2 points per cycle",
+      series: [70, 66, 64, 58, 55, 51, 48],
+    },
+    correlation: {
+      aligned: true,
+      label: "Both signals declining simultaneously — Compounding Risk",
+    },
+  },
+  "EWS-1045": {
+    id: "EWS-1045",
+    loanId: "LN-88077",
+    borrower: "Fathima Nizar",
+    nic: "198854321V",
+    phone: "075 220 1188",
+    product: "Housing Repair",
+    group: "Ganemulla Cluster B",
+    disbursed: "2025-08-12",
+    outstanding: 198000,
+    installment: 6800,
+    cycle: "Bi-weekly",
+    officer: OFFICER.name,
+    distressProbability: 64,
+    threshold: 60,
+    paymentVelocity: {
+      unit: "days late",
+      slopeLabel: "Worsening at 1.3 days per installment",
+      series: [0, 0, 1, 2, 4, 6, 8],
+    },
+    socialDecay: {
+      unit: "group engagement score",
+      slopeLabel: "Decaying at −8.4 points per cycle",
+      series: [96, 90, 78, 65, 54, 41, 33],
+    },
+    correlation: {
+      aligned: true,
+      label: "Both signals declining simultaneously — Compounding Risk",
+    },
+  },
+}
+
+export function formatLkr(value) {
+  return `LKR ${Number(value).toLocaleString("en-LK")}`
+}
