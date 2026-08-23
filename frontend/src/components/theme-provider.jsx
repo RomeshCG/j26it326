@@ -1,43 +1,75 @@
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useMemo, useState } from "react"
+
+const STORAGE_KEY = "imfs-theme"
+const MEDIA_QUERY = "(prefers-color-scheme: dark)"
 
 const ThemeContext = createContext({
-  theme: "light",
+  theme: "system",
+  resolvedTheme: "light",
   setTheme: () => {},
   toggleTheme: () => {},
 })
 
-function getInitialTheme() {
+function getSystemTheme() {
   if (typeof window === "undefined") return "light"
-
-  const stored = localStorage.getItem("imfs-theme")
-  if (stored === "light" || stored === "dark") return stored
-
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light"
+  return window.matchMedia(MEDIA_QUERY).matches ? "dark" : "light"
 }
 
-function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(getInitialTheme)
+function getStoredTheme() {
+  if (typeof window === "undefined") return "system"
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored === "light" || stored === "dark" || stored === "system") {
+    return stored
+  }
+  return "system"
+}
+
+function applyThemeClass(resolved) {
+  const root = document.documentElement
+  root.classList.toggle("dark", resolved === "dark")
+  root.style.colorScheme = resolved
+}
+
+function ThemeProvider({ children, defaultTheme = "system" }) {
+  const [theme, setThemeState] = useState(() => getStoredTheme() || defaultTheme)
+  const [systemTheme, setSystemTheme] = useState(getSystemTheme)
+
+  const resolvedTheme = theme === "system" ? systemTheme : theme
 
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.toggle("dark", theme === "dark")
-    localStorage.setItem("imfs-theme", theme)
+    const media = window.matchMedia(MEDIA_QUERY)
+    const onChange = () => setSystemTheme(media.matches ? "dark" : "light")
+    onChange()
+    media.addEventListener("change", onChange)
+    return () => media.removeEventListener("change", onChange)
+  }, [])
+
+  useEffect(() => {
+    applyThemeClass(resolvedTheme)
+  }, [resolvedTheme])
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, theme)
   }, [theme])
 
-  function setTheme(next) {
-    setThemeState(next)
-  }
-
-  function toggleTheme() {
-    setThemeState((current) => (current === "dark" ? "light" : "dark"))
-  }
+  const value = useMemo(
+    () => ({
+      theme,
+      resolvedTheme,
+      setTheme: setThemeState,
+      toggleTheme: () => {
+        setThemeState((current) => {
+          if (current === "light") return "dark"
+          if (current === "dark") return "system"
+          return "light"
+        })
+      },
+    }),
+    [theme, resolvedTheme]
+  )
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
   )
 }
 

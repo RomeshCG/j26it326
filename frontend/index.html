@@ -9,13 +9,22 @@
       (function () {
         try {
           var stored = localStorage.getItem("imfs-theme");
-          var theme =
-            stored === "light" || stored === "dark"
+          var preference =
+            stored === "light" || stored === "dark" || stored === "system"
               ? stored
-              : window.matchMedia("(prefers-color-scheme: dark)").matches
+              : "system";
+          var resolved =
+            preference === "system"
+              ? window.matchMedia("(prefers-color-scheme: dark)").matches
                 ? "dark"
-                : "light";
-          if (theme === "dark") document.documentElement.classList.add("dark");
+                : "light"
+              : preference;
+          if (resolved === "dark") {
+            document.documentElement.classList.add("dark");
+          } else {
+            document.documentElement.classList.remove("dark");
+          }
+          document.documentElement.style.colorScheme = resolved;
         } catch (e) {}
       })();
     </script>

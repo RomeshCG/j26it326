@@ -1,0 +1,435 @@
+import React, { useState, useMemo } from "react"
+import { 
+  ChevronDown, 
+  Search, 
+  CheckCircle, 
+  AlertTriangle, 
+  Download, 
+  Info,
+  Loader2,
+  FileText
+} from "lucide-react"
+
+// Formatting helper
+const formatLKR = (amount) => {
+  return new Intl.NumberFormat('en-LK', {
+    style: 'currency',
+    currency: 'LKR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount)
+}
+
+// Dummy Data
+const DUMMY_STAFF = [
+  { id: 1, name: "Nimal Perera", role: "Branch Manager", branch: "Colombo HQ", basic: 95000, allowances: 15000 },
+  { id: 2, name: "Kasun Silva", role: "Loan Officer", branch: "Colombo HQ", basic: 55000, allowances: 8000 },
+  { id: 3, name: "Chamari Fernando", role: "Finance Officer", branch: "Colombo HQ", basic: 75000, allowances: 10000 },
+  { id: 4, name: "Saman Kumara", role: "Field Officer", branch: "Gampaha", basic: 45000, allowances: 12000 },
+  { id: 5, name: "Ruwanthi Rajapaksha", role: "Field Officer", branch: "Gampaha", basic: 45000, allowances: 12000 },
+  { id: 6, name: "Dinesh Jayasuriya", role: "Branch Manager", branch: "Kandy", basic: 90000, allowances: 12000 },
+  { id: 7, name: "Amila Bandara", role: "Loan Officer", branch: "Kandy", basic: 55000, allowances: 8000 },
+  { id: 8, name: "Malini Senanayake", role: "HR Officer", branch: "Colombo HQ", basic: 70000, allowances: 10000 },
+]
+
+export default function Payroll() {
+  const [payrollStatus, setPayrollStatus] = useState("Not Run") // Not Run, Processing, Completed
+  const [selectedBranch, setSelectedBranch] = useState("All Branches")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" })
+  
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showInfoPanel, setShowInfoPanel] = useState(false)
+  
+  // Data processing
+  const staffData = useMemo(() => {
+    return DUMMY_STAFF.map(staff => {
+      const gross = staff.basic + staff.allowances
+      const epfEmployee = gross * 0.08
+      const epfEmployer = gross * 0.12
+      const etfEmployer = gross * 0.03
+      const net = gross - epfEmployee
+      
+      let status = "Pending"
+      if (payrollStatus === "Completed") status = "Processed"
+      // Randomly set someone on leave if not run for realism? No, keep it simple or hardcode.
+      if (payrollStatus === "Not Run" && staff.id === 5) status = "On Leave"
+
+      return {
+        ...staff,
+        gross,
+        epfEmployee,
+        epfEmployer,
+        etfEmployer,
+        net,
+        status
+      }
+    })
+  }, [payrollStatus])
+
+  // Filtering & Sorting
+  const filteredData = useMemo(() => {
+    let data = staffData
+
+    if (selectedBranch !== "All Branches") {
+      data = data.filter(s => s.branch === selectedBranch)
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      data = data.filter(s => s.name.toLowerCase().includes(q))
+    }
+
+    data.sort((a, b) => {
+      if (a[sortConfig.key] < b[sortConfig.key]) {
+        return sortConfig.direction === "asc" ? -1 : 1
+      }
+      if (a[sortConfig.key] > b[sortConfig.key]) {
+        return sortConfig.direction === "asc" ? 1 : -1
+      }
+      return 0
+    })
+
+    return data
+  }, [staffData, selectedBranch, searchQuery, sortConfig])
+
+  // Aggregations
+  const totals = useMemo(() => {
+    return filteredData.reduce((acc, curr) => ({
+      gross: acc.gross + curr.gross,
+      epfEmployee: acc.epfEmployee + curr.epfEmployee,
+      epfEmployer: acc.epfEmployer + curr.epfEmployer,
+      etfEmployer: acc.etfEmployer + curr.etfEmployer,
+      net: acc.net + curr.net
+    }), { gross: 0, epfEmployee: 0, epfEmployer: 0, etfEmployer: 0, net: 0 })
+  }, [filteredData])
+
+  const branches = ["All Branches", ...new Set(DUMMY_STAFF.map(s => s.branch))]
+
+  const handleSort = (key) => {
+    let direction = "asc"
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc"
+    }
+    setSortConfig({ key, direction })
+  }
+
+  const runPayroll = () => {
+    setPayrollStatus("Processing")
+    setShowConfirmModal(false)
+    setTimeout(() => {
+      setPayrollStatus("Completed")
+    }, 2000)
+  }
+
+  const handleDownload = (format) => {
+    alert(`Downloading payroll report as ${format}...`)
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto bg-background text-foreground p-6 lg:p-10 font-sans custom-scrollbar">
+      
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Payroll Management</h1>
+          <span className="text-muted-foreground text-lg">December 2024</span>
+          
+          <div className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+            payrollStatus === "Completed" ? "bg-green-500/10 text-green-400 border-green-500/20" :
+            payrollStatus === "Processing" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
+            "bg-muted text-foreground/80 border-border"
+          }`}>
+            {payrollStatus}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <select
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="appearance-none bg-muted border border-border text-foreground text-sm rounded-lg pl-4 pr-10 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer"
+            >
+              {branches.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <ChevronDown className="absolute right-3 top-2.5 text-muted-foreground pointer-events-none" size={16} />
+          </div>
+
+          {payrollStatus === "Completed" && (
+            <div className="relative group">
+              <button className="flex items-center gap-2 bg-muted hover:bg-muted text-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-border cursor-pointer">
+                <Download size={16} />
+                Download Report
+              </button>
+              <div className="absolute right-0 top-full mt-2 w-48 bg-muted border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                <button onClick={() => handleDownload('PDF')} className="w-full text-left px-4 py-2.5 text-sm text-foreground/80 hover:bg-muted hover:text-foreground first:rounded-t-lg transition-colors cursor-pointer">
+                  Download as PDF
+                </button>
+                <button onClick={() => handleDownload('CSV')} className="w-full text-left px-4 py-2.5 text-sm text-foreground/80 hover:bg-muted hover:text-foreground last:rounded-b-lg transition-colors cursor-pointer">
+                  Download as CSV
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+          <div className="text-muted-foreground text-sm font-medium mb-1">Total Gross Salary</div>
+          <div className="text-2xl font-bold text-foreground mb-2">{formatLKR(totals.gross)}</div>
+          <div className="text-xs text-muted-foreground">Sum of all staff basic + allowances</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+          <div className="text-muted-foreground text-sm font-medium mb-1">Total EPF (Employee 8%)</div>
+          <div className="text-2xl font-bold text-foreground mb-2">{formatLKR(totals.epfEmployee)}</div>
+          <div className="text-xs text-muted-foreground">Deducted from employee salaries</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+          <div className="text-muted-foreground text-sm font-medium mb-1">Total ETF (Employer 3%)</div>
+          <div className="text-2xl font-bold text-foreground mb-2">{formatLKR(totals.etfEmployer)}</div>
+          <div className="text-xs text-muted-foreground">Paid by employer contribution</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm ring-1 ring-blue-500/20 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-bl-full pointer-events-none"></div>
+          <div className="text-blue-400 text-sm font-medium mb-1">Total Net Payable</div>
+          <div className="text-3xl font-bold text-blue-50 mb-2">{formatLKR(totals.net)}</div>
+          <div className="text-xs text-muted-foreground">Gross minus employee EPF deductions</div>
+        </div>
+      </div>
+
+      {/* Controls: Search & Info */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+          <input 
+            type="text" 
+            placeholder="Search by name..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-card border border-border rounded-lg pl-10 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring transition-colors"
+          />
+        </div>
+        <button 
+          onClick={() => setShowInfoPanel(!showInfoPanel)}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          <Info size={16} />
+          {showInfoPanel ? "Hide EPF/ETF Rates" : "View EPF/ETF Rates"}
+        </button>
+      </div>
+
+      {/* EPF/ETF Info Panel */}
+      {showInfoPanel && (
+        <div className="bg-card border border-border rounded-lg p-4 mb-6 text-sm animate-in slide-in-from-top-2">
+          <h4 className="font-semibold text-foreground mb-2">Statutory EPF/ETF Rates</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+            <div className="bg-muted p-3 rounded border border-border/50">
+              <div className="text-muted-foreground mb-1">EPF Employee Contribution</div>
+              <div className="text-lg font-medium text-foreground">8%</div>
+            </div>
+            <div className="bg-muted p-3 rounded border border-border/50">
+              <div className="text-muted-foreground mb-1">EPF Employer Contribution</div>
+              <div className="text-lg font-medium text-foreground">12%</div>
+            </div>
+            <div className="bg-muted p-3 rounded border border-border/50">
+              <div className="text-muted-foreground mb-1">ETF Employer Contribution</div>
+              <div className="text-lg font-medium text-foreground">3%</div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Rates set per the Employees Provident Fund Act and Employees Trust Fund Act of Sri Lanka. Pre-configured by MicroFlow.
+          </p>
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden mb-8 overflow-x-auto">
+        <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
+          <thead>
+            <tr className="bg-muted border-b border-border">
+              <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort("name")}>
+                Employee Name {sortConfig.key === "name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+              </th>
+              <th className="p-4 font-medium text-muted-foreground">Role</th>
+              <th className="p-4 font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort("branch")}>
+                Branch {sortConfig.key === "branch" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+              </th>
+              <th className="p-4 font-medium text-muted-foreground text-right">Basic (LKR)</th>
+              <th className="p-4 font-medium text-muted-foreground text-right">Allowances (LKR)</th>
+              <th className="p-4 font-medium text-muted-foreground text-right">Gross (LKR)</th>
+              <th className="p-4 font-medium text-muted-foreground text-right">EPF Emp 8%</th>
+              <th className="p-4 font-medium text-muted-foreground text-right">EPF Emplr 12%</th>
+              <th className="p-4 font-medium text-muted-foreground text-right">ETF Emplr 3%</th>
+              <th className="p-4 font-medium text-blue-400 text-right">Net Salary (LKR)</th>
+              <th className="p-4 font-medium text-muted-foreground text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/50">
+            {filteredData.map((staff, idx) => (
+              <tr key={staff.id} className={`${idx % 2 === 0 ? "bg-background" : "bg-muted/40"} hover:bg-muted/30 transition-colors`}>
+                <td className="p-4 font-medium text-foreground">{staff.name}</td>
+                <td className="p-4 text-foreground/80">{staff.role}</td>
+                <td className="p-4 text-foreground/80">{staff.branch}</td>
+                <td className="p-4 text-muted-foreground text-right">{staff.basic.toLocaleString('en-LK')}</td>
+                <td className="p-4 text-muted-foreground text-right">{staff.allowances.toLocaleString('en-LK')}</td>
+                <td className="p-4 font-medium text-foreground text-right">{staff.gross.toLocaleString('en-LK')}</td>
+                <td className="p-4 text-orange-400/80 text-right">-{staff.epfEmployee.toLocaleString('en-LK')}</td>
+                <td className="p-4 text-muted-foreground text-right">{staff.epfEmployer.toLocaleString('en-LK')}</td>
+                <td className="p-4 text-muted-foreground text-right">{staff.etfEmployer.toLocaleString('en-LK')}</td>
+                <td className="p-4 font-bold text-blue-100 text-right">{staff.net.toLocaleString('en-LK')}</td>
+                <td className="p-4 text-center">
+                  <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${
+                    staff.status === "Processed" ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                    staff.status === "On Leave" ? "bg-accent/50 text-muted-foreground border-border" :
+                    "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                  }`}>
+                    {staff.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {filteredData.length === 0 && (
+              <tr>
+                <td colSpan="11" className="p-8 text-center text-muted-foreground">No staff found matching your criteria.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Main Action Area */}
+      <div className="flex flex-col items-center justify-center py-8">
+        {payrollStatus === "Completed" ? (
+          <div className="flex items-center gap-3 text-green-400 bg-green-500/10 px-6 py-4 rounded-xl border border-green-500/20 animate-in zoom-in">
+            <CheckCircle size={24} />
+            <div>
+              <div className="font-semibold text-lg">Payroll Completed — December 2024</div>
+              <div className="text-sm text-green-500/80">Journal entries posted to Finance automatically. Finance Officer has been notified.</div>
+            </div>
+          </div>
+        ) : payrollStatus === "Processing" ? (
+          <div className="flex items-center gap-4 text-blue-400 px-6 py-4">
+            <Loader2 className="animate-spin" size={24} />
+            <span className="font-medium text-lg">Agent 2 processing payroll journal entries...</span>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowConfirmModal(true)}
+            className="w-full max-w-md bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] transition-all cursor-pointer transform hover:-translate-y-1"
+          >
+            Run Payroll for December 2024
+          </button>
+        )}
+      </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <AlertTriangle className="text-yellow-500" size={24} />
+                Confirm Payroll Run
+              </h2>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="flex justify-between items-center bg-muted p-4 rounded-lg border border-border">
+                <div>
+                  <div className="text-muted-foreground text-sm">Total Staff</div>
+                  <div className="text-foreground font-medium text-lg">{filteredData.length} Employees</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-muted-foreground text-sm">Total Net Payable</div>
+                  <div className="text-blue-400 font-bold text-xl">{formatLKR(totals.net)}</div>
+                </div>
+              </div>
+
+              {/* Agent 2 Notice */}
+              <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl overflow-hidden">
+                <div className="bg-blue-500/10 p-4 border-b border-blue-500/20 flex items-start gap-3">
+                  <div className="p-1.5 bg-blue-500/20 rounded-md text-blue-400 mt-0.5">
+                    <FileText size={16} />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-blue-300">Agent 2 — Workflow Orchestrator</div>
+                    <div className="text-sm text-blue-200/80 mt-1">
+                      Will automatically post the following journal entries to the Finance module upon confirmation:
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-muted-foreground border-b border-border/50">
+                      <tr>
+                        <th className="pb-2 font-medium">Account</th>
+                        <th className="pb-2 font-medium text-right">Debit (LKR)</th>
+                        <th className="pb-2 font-medium text-right">Credit (LKR)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-foreground/80 divide-y divide-slate-800/50">
+                      <tr>
+                        <td className="py-2">Salaries Expense</td>
+                        <td className="py-2 text-right">{totals.gross.toLocaleString('en-LK')}</td>
+                        <td className="py-2 text-right">-</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2">Employer EPF Expense (12%)</td>
+                        <td className="py-2 text-right">{totals.epfEmployer.toLocaleString('en-LK')}</td>
+                        <td className="py-2 text-right">-</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2">Employer ETF Expense (3%)</td>
+                        <td className="py-2 text-right">{totals.etfEmployer.toLocaleString('en-LK')}</td>
+                        <td className="py-2 text-right">-</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2">EPF Payable (8% + 12%)</td>
+                        <td className="py-2 text-right">-</td>
+                        <td className="py-2 text-right">{(totals.epfEmployee + totals.epfEmployer).toLocaleString('en-LK')}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2">ETF Payable (3%)</td>
+                        <td className="py-2 text-right">-</td>
+                        <td className="py-2 text-right">{totals.etfEmployer.toLocaleString('en-LK')}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 font-medium text-foreground">Salaries Payable</td>
+                        <td className="py-2 text-right">-</td>
+                        <td className="py-2 text-right font-medium text-foreground">{totals.net.toLocaleString('en-LK')}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="text-sm text-red-400/80 flex items-center justify-center gap-2">
+                <AlertTriangle size={14} />
+                This action cannot be undone for the current month.
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-border flex justify-end gap-3 bg-muted">
+              <button 
+                onClick={() => setShowConfirmModal(false)}
+                className="px-6 py-2.5 rounded-lg text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={runPayroll}
+                className="px-6 py-2.5 rounded-lg text-sm font-bold text-foreground bg-blue-600 hover:bg-blue-500 transition-colors cursor-pointer shadow-lg shadow-blue-500/20"
+              >
+                Confirm & Run Payroll
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}

@@ -1,0 +1,103 @@
+import * as React from "react"
+import { Link } from "react-router-dom"
+import {
+  ActivityIcon,
+  CheckCircleIcon,
+  LayoutDashboardIcon,
+  SettingsIcon,
+  WalletIcon,
+} from "lucide-react"
+
+import { NavMain } from "@/components/nav-main"
+import { NavUser } from "@/components/nav-user"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar"
+import { useStore } from "@/store"
+
+export function AppSidebar({ ...props }) {
+  const currentUser = useStore((state) => state.currentUser)
+  const institution = useStore((state) => state.institution)
+  const [tierCount, setTierCount] = React.useState(3)
+
+  React.useEffect(() => {
+    const checkCount = () => {
+      const count = localStorage.getItem("mf_tier3_count")
+      if (count !== null) setTierCount(parseInt(count, 10))
+    }
+    checkCount()
+    window.addEventListener("storage", checkCount)
+    return () => window.removeEventListener("storage", checkCount)
+  }, [])
+
+  const user = {
+    name: currentUser
+      ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim()
+      : "Jane Smith",
+    email: currentUser?.email || currentUser?.role || "Institution Admin",
+    avatar: currentUser?.avatar || "",
+  }
+
+  const navMain = [
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: <LayoutDashboardIcon />,
+    },
+    {
+      title: "Payroll",
+      url: "/payroll",
+      icon: <WalletIcon />,
+    },
+    {
+      title: "Agent Activity Log",
+      url: "/agent-log",
+      icon: <ActivityIcon />,
+    },
+    {
+      title: "Tier Approvals",
+      url: "/tier-approval",
+      icon: <CheckCircleIcon />,
+      badge: tierCount > 0 ? tierCount : undefined,
+    },
+    {
+      title: "Settings",
+      url: "/settings",
+      icon: <SettingsIcon />,
+    },
+  ]
+
+  return (
+    <Sidebar variant="inset" {...props}>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" render={<Link to="/dashboard" />}>
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <span className="text-sm font-semibold">M</span>
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">MicroFlow</span>
+                <span className="truncate text-xs">
+                  {institution?.name || "IMFS"}
+                </span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <NavMain items={navMain} label="Workspace" />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={user} />
+      </SidebarFooter>
+    </Sidebar>
+  )
+}

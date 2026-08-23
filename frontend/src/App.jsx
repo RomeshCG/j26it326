@@ -14,101 +14,24 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import C3App from "@/components/c3"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { ThemeProvider } from "@/components/theme-provider"
+import Login from "@/components/c4/auth/Login"
+import Signup from "@/components/c4/auth/Signup"
 import OnboardingWizard from "@/components/c4/onboarding-wizard"
+import Payroll from "@/components/c4/payroll"
+import ExecutiveDashboard from "@/components/c4/executive-dashboard"
+import DashboardLayout from "@/components/c4/DashboardLayout"
+import AgentLog from "@/components/c4/agent-log"
+import TierApproval from "@/components/c4/tier-approval"
+import Settings from "@/components/c4/settings"
 
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme()
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="icon"
-      onClick={toggleTheme}
-      aria-label="Toggle theme"
-    >
-      {theme === "dark" ? <Sun /> : <Moon />}
-    </Button>
-  )
-}
-
-function SmokeTestPage() {
-  const [name, setName] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState("")
-
-  function handleSubmit(event) {
-    event.preventDefault()
-    setLoading(true)
-    setMessage("")
-
-    window.setTimeout(() => {
-      setLoading(false)
-      setMessage(name.trim() ? `Hello, ${name.trim()}. IMFS UI is working.` : "Enter a name, then try again.")
-    }, 600)
+function ProtectedRoute({ children }) {
+  const token = localStorage.getItem("mf_auth_token")
+  if (!token) {
+    return <Navigate to="/login" replace />
   }
-
-  return (
-    <div className="flex min-h-svh items-center justify-center bg-background p-6">
-      <Card className="w-full max-w-md rounded-xl border bg-card">
-        <CardHeader className="gap-2">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                IMFS
-              </p>
-              <CardTitle className="text-2xl font-semibold tracking-tight">
-                UI smoke test
-              </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
-                Tailwind CSS v4, shadcn/ui (base-nova / neutral), and theme tokens.
-              </CardDescription>
-            </div>
-            <ThemeToggle />
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Researcher name"
-                autoComplete="off"
-              />
-            </div>
-
-            {message ? (
-              <p className="text-sm text-muted-foreground">{message}</p>
-            ) : null}
-
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" size="lg" disabled={loading}>
-                {loading ? <Loader2 className="animate-spin" /> : null}
-                Primary
-              </Button>
-              <Button type="button" variant="outline" size="lg">
-                Outline
-              </Button>
-              <Button type="button" variant="secondary" size="default">
-                Secondary
-              </Button>
-              <Button type="button" variant="ghost" size="default">
-                Ghost
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-
-        <CardFooter className="text-sm text-muted-foreground">
-          Theme key: <code className="ml-1">imfs-theme</code>
-        </CardFooter>
-      </Card>
-    </div>
-  )
+  return children
 }
 
 function App() {
@@ -178,6 +101,36 @@ function App() {
           )}
         </main>
       </div>
+  return (
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route 
+            path="/onboarding" 
+            element={
+              <ProtectedRoute>
+                <OnboardingWizard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<ExecutiveDashboard />} />
+            <Route path="/payroll" element={<Payroll />} />
+            <Route path="/agent-log" element={<AgentLog />} />
+            <Route path="/tier-approval" element={<TierApproval />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
     </ThemeProvider>
   )
 }
