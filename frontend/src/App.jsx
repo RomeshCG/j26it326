@@ -20,6 +20,7 @@ import Settings from "@/components/c4/settings"
 import RiskReportPage from "@/components/risk-report"
 import TrustProfilePage from "@/components/trust-profile"
 import AbExperimentPage from "@/components/ab-experiment"
+import AgentPanel from "@/components/c4/AgentPanel"
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("mf_auth_token")
@@ -85,6 +86,7 @@ function App() {
             />
           </Route>
         </Routes>
+        <AgentPanel />
       </BrowserRouter>
     </ThemeProvider>
   )

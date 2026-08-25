@@ -11,6 +11,7 @@ import {
   ShieldCheckIcon,
   WalletIcon,
   UsersIcon,
+  SparklesIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -163,6 +164,23 @@ export function AppSidebar({ ...props }) {
         />
       </SidebarContent>
       <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton 
+              size="lg" 
+              onClick={() => useStore.getState().toggleAgentPanel()}
+              className="bg-teal-500/10 text-teal-600 hover:bg-teal-500/20 hover:text-teal-700 dark:bg-teal-500/20 dark:text-teal-400 dark:hover:bg-teal-500/30 transition-all border border-teal-500/20 mb-2"
+            >
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-teal-500 text-white shadow-sm">
+                <SparklesIcon className="size-4" />
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">Ask Agent 4</span>
+                <span className="truncate text-[10px] opacity-80">Global NLQ Interface</span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
