@@ -1,6 +1,7 @@
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Eye, EyeOff } from "lucide-react"
+import { useStore } from "@/store"
 
 const DEMO_ACCOUNTS = [
   { role: "Admin", email: "admin@microflow.lk", password: "demo-password" },
@@ -11,6 +12,7 @@ const DEMO_ACCOUNTS = [
 
 export default function Login() {
   const navigate = useNavigate()
+  const loginStore = useStore((state) => state.login)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -33,6 +35,27 @@ export default function Login() {
     const role = detectedRole || "Institution Admin"
     localStorage.setItem("mf_auth_role", role)
     localStorage.setItem("mf_auth_token", "fake-jwt-token")
+    
+    // Set user in Zustand store
+    const nameMap = {
+      "Institution Admin": { first: "Jane", last: "Smith" },
+      "Finance Officer": { first: "Saman", last: "Kumara" },
+      "HR Officer": { first: "Ruwanthi", last: "de Silva" },
+      "Branch Manager": { first: "Nimal", last: "Silva" },
+      "Loan Officer": { first: "Nuwan", last: "Jayasuriya" },
+      "Field Officer": { first: "Dinesh", last: "Ranatunga" }
+    }
+    const names = nameMap[role] || { first: "Demo", last: "User" }
+    
+    loginStore({
+      firstName: names.first,
+      lastName: names.last,
+      email: email || "demo@microflow.lk",
+      phone: "+94 77 123 4567",
+      role: role,
+      memberSince: "Jan 2024",
+      language: "English"
+    })
     
     switch (role) {
       case "Institution Admin":
