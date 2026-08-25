@@ -97,38 +97,27 @@ export default function Signup() {
           </div>
 
           <div className="max-w-md">
-            <h1 className="text-4xl font-bold text-foreground mb-4">Intelligent ERP for Microfinance.</h1>
-            <p className="text-xl text-muted-foreground mb-12">Built for Sri Lankan MFIs. Powered by agentic AI.</p>
+            <h1 className="text-3xl font-extrabold text-foreground mb-4 tracking-tight leading-tight">
+              Enterprise Resource Planning for Microfinance Institutions
+            </h1>
+            <p className="text-sm text-muted-foreground mb-12 leading-relaxed">
+              A secure, cloud-based ERP platform designed for licensed microfinance institutions operating under the regulatory framework of the Central Bank of Sri Lanka.
+            </p>
 
-            <div className="space-y-6">
-              <div className="flex items-start gap-4">
-                <div className="mt-1 bg-muted/50 p-2 rounded-lg text-blue-400">
-                  <ShieldCheck size={20} />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground">AI agents that work while you sleep</h3>
-                  <p className="text-sm text-muted-foreground">Automate approvals, reconciliation, and compliance reporting.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="mt-1 bg-muted/50 p-2 rounded-lg text-blue-400">
-                  <Building2 size={20} />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground">Central Bank reporting — automated</h3>
-                  <p className="text-sm text-muted-foreground">Generate CBSL-compliant reports instantly without manual Excel work.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="mt-1 bg-muted/50 p-2 rounded-lg text-blue-400">
-                  <Clock size={20} />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground">60-minute setup. No IT team needed.</h3>
-                  <p className="text-sm text-muted-foreground">Self-serve onboarding wizard gets your institution running today.</p>
-                </div>
-              </div>
-            </div>
+            <ul className="space-y-6 text-sm text-muted-foreground leading-relaxed border-t border-border pt-8">
+              <li>
+                <strong className="text-foreground font-semibold">Regulatory Compliance</strong> - Pre-configured for EPF, ETF, and CBSL reporting requirements
+              </li>
+              <li>
+                <strong className="text-foreground font-semibold">Agentic Automation</strong> - Four embedded AI agents handle routine operational workflows autonomously
+              </li>
+              <li>
+                <strong className="text-foreground font-semibold">Institutional Data Security</strong> - Multi-tenant architecture with row-level data isolation per institution
+              </li>
+              <li>
+                <strong className="text-foreground font-semibold">Guided Onboarding</strong> - Operational in under 60 minutes without technical support
+              </li>
+            </ul>
           </div>
         </div>
 
