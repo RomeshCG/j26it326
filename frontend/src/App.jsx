@@ -11,6 +11,7 @@ import Login from "@/components/c4/auth/Login"
 import Signup from "@/components/c4/auth/Signup"
 import OnboardingWizard from "@/components/c4/onboarding-wizard"
 import Payroll from "@/components/c4/payroll"
+import HRManagement from "@/components/c4/hr-management"
 import ExecutiveDashboard from "@/components/c4/executive-dashboard"
 import DashboardLayout from "@/components/c4/DashboardLayout"
 import AgentLog from "@/components/c4/agent-log"
@@ -52,6 +53,7 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<ExecutiveDashboard />} />
+            <Route path="/hr" element={<HRManagement />} />
             <Route path="/payroll" element={<Payroll />} />
             <Route path="/agent-log" element={<AgentLog />} />
             <Route path="/tier-approval" element={<TierApproval />} />
