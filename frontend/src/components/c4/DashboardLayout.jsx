@@ -21,6 +21,7 @@ const PAGE_TITLES = {
   "/agent-log": "Agent Activity Log",
   "/tier-approval": "Tier Approvals",
   "/settings": "Settings",
+  "/finance-manager": "Finance Manager Dashboard",
   "/loan-officer": "Loan Officer Dashboard",
   "/loan-officer/application": "Loan Application",
   "/loan-officer/collection": "Collection",

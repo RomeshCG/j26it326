@@ -8,6 +8,7 @@ import {
   SettingsIcon,
   SmartphoneIcon,
   WalletIcon,
+  PieChartIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -33,6 +34,17 @@ const WORKSPACE_NAV = [
     title: "Payroll",
     url: "/payroll",
     icon: <WalletIcon />,
+  },
+  {
+    title: "Finance Manager",
+    url: "/finance-manager",
+    icon: <PieChartIcon />,
+    items: [
+      { title: "Finance Dashboard", url: "/finance-manager" },
+      { title: "Mission Drift Alerts", url: "/alerts" },
+      { title: "P&L Report", url: "/pl-report" },
+      { title: "Social Performance", url: "/social-performance" },
+    ],
   },
   {
     title: "Agent Activity Log",
@@ -100,10 +112,10 @@ export function AppSidebar({ ...props }) {
   const navMain = isLoanOfficerArea
     ? LOAN_OFFICER_NAV
     : WORKSPACE_NAV.map((item) =>
-        item.title === "Tier Approvals"
-          ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
-          : item
-      )
+      item.title === "Tier Approvals"
+        ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
+        : item
+    )
 
   const homePath = isLoanOfficerArea ? "/loan-officer" : "/dashboard"
 

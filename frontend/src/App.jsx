@@ -16,6 +16,10 @@ import DashboardLayout from "@/components/c4/DashboardLayout"
 import AgentLog from "@/components/c4/agent-log"
 import TierApproval from "@/components/c4/tier-approval"
 import Settings from "@/components/c4/settings"
+import FinanceManagerDashboard from "@/components/c2/FinanceManagerDashboard"
+import MissionDriftAlerts from "@/components/c2/MissionDriftAlerts"
+import PAndLReport from "@/components/c2/PAndLReport"
+import SocialPerformance from "@/components/c2/SocialPerformance"
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("mf_auth_token")
@@ -53,6 +57,10 @@ function App() {
             <Route path="/agent-log" element={<AgentLog />} />
             <Route path="/tier-approval" element={<TierApproval />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/finance-manager" element={<FinanceManagerDashboard />} />
+            <Route path="/alerts" element={<MissionDriftAlerts />} />
+            <Route path="/pl-report" element={<PAndLReport />} />
+            <Route path="/social-performance" element={<SocialPerformance />} />
             <Route path="/loan-officer" element={<LoanOfficerDashboardPage />} />
             <Route
               path="/loan-officer/application"
