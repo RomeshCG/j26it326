@@ -17,6 +17,7 @@ import {
 
 const PAGE_TITLES = {
   "/dashboard": "Dashboard",
+  "/hr": "Human Resources",
   "/payroll": "Payroll",
   "/agent-log": "Agent Activity Log",
   "/tier-approval": "Tier Approvals",

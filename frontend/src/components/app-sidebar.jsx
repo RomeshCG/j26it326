@@ -10,6 +10,7 @@ import {
   SmartphoneIcon,
   ShieldCheckIcon,
   WalletIcon,
+  UsersIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -30,31 +31,43 @@ const WORKSPACE_NAV = [
     title: "Dashboard",
     url: "/dashboard",
     icon: <LayoutDashboardIcon />,
+    roles: ["all"],
+  },
+  {
+    title: "HR Management",
+    url: "/hr",
+    icon: <UsersIcon />,
+    roles: ["Institution Admin", "HR Officer"],
   },
   {
     title: "Payroll",
     url: "/payroll",
     icon: <WalletIcon />,
+    roles: ["Institution Admin", "HR Officer"],
   },
   {
     title: "Agent Activity Log",
     url: "/agent-log",
     icon: <ActivityIcon />,
+    roles: ["Institution Admin"],
   },
   {
     title: "Tier Approvals",
     url: "/tier-approval",
     icon: <CheckCircleIcon />,
+    roles: ["Institution Admin", "Finance Officer"],
   },
   {
     title: "Settings",
     url: "/settings",
     icon: <SettingsIcon />,
+    roles: ["all"],
   },
   {
     title: "A/B Experiment",
     url: "/research/ab-experiment",
     icon: <FlaskConicalIcon />,
+    roles: ["all"],
   },
 ]
 
@@ -90,6 +103,7 @@ export function AppSidebar({ ...props }) {
   const [tierCount, setTierCount] = React.useState(3)
 
   const isLoanOfficerArea = location.pathname.startsWith("/loan-officer")
+  const role = currentUser?.role || "Institution Admin"
 
   React.useEffect(() => {
     const checkCount = () => {
@@ -111,11 +125,13 @@ export function AppSidebar({ ...props }) {
 
   const navMain = isLoanOfficerArea
     ? LOAN_OFFICER_NAV
-    : WORKSPACE_NAV.map((item) =>
-        item.title === "Tier Approvals"
-          ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
-          : item
-      )
+    : WORKSPACE_NAV
+        .filter((item) => item.roles.includes("all") || item.roles.includes(role))
+        .map((item) =>
+          item.title === "Tier Approvals"
+            ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
+            : item
+        )
 
   const homePath = isLoanOfficerArea ? "/loan-officer" : "/dashboard"
 
