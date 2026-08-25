@@ -95,6 +95,37 @@ export const useStore = create(
     (set) => ({
       ...DEFAULT_DEMO_DATA,
       
+      // Agent Panel NLQ
+      agentPanelOpen: false,
+      nlqChatHistory: [],
+      nlqChatArchive: [],
+      unreadAgentResponses: false,
+
+      toggleAgentPanel: () => set((state) => ({ 
+        agentPanelOpen: !state.agentPanelOpen,
+        unreadAgentResponses: state.agentPanelOpen ? state.unreadAgentResponses : false
+      })),
+      addNlqMessage: (message) => set((state) => {
+        const isAgent = message.type === "agent"
+        return {
+          nlqChatHistory: [...state.nlqChatHistory, message],
+          unreadAgentResponses: isAgent && !state.agentPanelOpen ? true : state.unreadAgentResponses
+        }
+      }),
+      archiveNlqChat: () => set((state) => {
+        if (state.nlqChatHistory.length === 0) return state;
+        const session = {
+          sessionId: Date.now(),
+          archivedAt: new Date().toISOString(),
+          messages: state.nlqChatHistory
+        }
+        return {
+          nlqChatArchive: [...state.nlqChatArchive, session],
+          nlqChatHistory: []
+        }
+      }),
+      markAgentResponsesRead: () => set({ unreadAgentResponses: false }),
+
       // Current User
       updateProfile: (profileUpdates) => set((state) => ({
         currentUser: { ...state.currentUser, ...profileUpdates }
