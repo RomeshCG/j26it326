@@ -21,6 +21,7 @@ export function LoanOfficerDashboardPage() {
       onOpenOverdue={() => navigate("/loan-officer/overdue")}
       onOpenEwsInbox={() => navigate("/loan-officer/alerts")}
       onOpenBranch={() => navigate("/loan-officer/branch")}
+      onOpenAlert={(id) => navigate(`/loan-officer/alerts/${id}`)}
       onOpenCollection={(stop) =>
         navigate("/loan-officer/collection", { state: { stop } })
       }
