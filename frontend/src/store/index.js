@@ -2,6 +2,9 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 const DEFAULT_DEMO_DATA = {
+  onboardingComplete: true,
+  currentWizardStep: 1,
+  onboardingStartTime: null,
   currentUser: {
     firstName: "Amal",
     lastName: "Perera",
@@ -132,6 +135,11 @@ export const useStore = create(
       })),
       logout: () => set({ currentUser: null }),
       login: (user) => set({ currentUser: user }),
+
+      // Onboarding
+      setOnboardingComplete: (status) => set({ onboardingComplete: status }),
+      setCurrentWizardStep: (step) => set({ currentWizardStep: step }),
+      setOnboardingStartTime: (time) => set({ onboardingStartTime: time }),
 
       // Institution Profile
       updateInstitution: (updates) => set((state) => ({
