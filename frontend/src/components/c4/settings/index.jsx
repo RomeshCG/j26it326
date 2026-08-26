@@ -235,6 +235,20 @@ export default function Settings() {
           <p className="text-muted-foreground text-sm">Manage your institution profile and configuration.</p>
         </div>
 
+        {/* Onboarding Configuration Re-run */}
+        <div className="bg-card border border-blue-500/20 rounded-xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-foreground mb-1">Review Onboarding Configuration</h3>
+            <p className="text-sm text-muted-foreground">Re-run the setup wizard to update your institution details, branches, loan products, or staff accounts.</p>
+          </div>
+          <button 
+            onClick={() => navigate("/onboarding")}
+            className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-6 py-2.5 rounded-lg transition-colors shadow-sm"
+          >
+            Review Configuration
+          </button>
+        </div>
+
         {/* Institution Profile */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-bold text-foreground mb-4">Institution Profile</h3>

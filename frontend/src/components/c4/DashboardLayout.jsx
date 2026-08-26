@@ -22,6 +22,7 @@ const PAGE_TITLES = {
   "/agent-log": "Agent Activity Log",
   "/tier-approval": "Tier Approvals",
   "/settings": "Settings",
+  "/onboarding": "Setup & Onboarding",
   "/loan-officer": "Loan Officer Dashboard",
   "/loan-officer/application": "Loan Application",
   "/loan-officer/disbursement": "Disbursement",
@@ -42,7 +43,7 @@ function getPageTitle(pathname) {
   return "MicroFlow"
 }
 
-export default function DashboardLayout() {
+export default function DashboardLayout({ children }) {
   const location = useLocation()
   const pageTitle = getPageTitle(location.pathname)
 
@@ -68,7 +69,7 @@ export default function DashboardLayout() {
           </div>
         </header>
         <div className="flex flex-1 flex-col overflow-auto bg-background text-foreground">
-          <Outlet />
+          {children || <Outlet />}
         </div>
       </SidebarInset>
     </SidebarProvider>

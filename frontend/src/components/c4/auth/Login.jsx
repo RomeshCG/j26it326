@@ -67,6 +67,12 @@ export default function Login() {
         navigate("/payroll")
         break
       case "Institution Admin":
+        if (!useStore.getState().onboardingComplete) {
+          navigate("/onboarding")
+        } else {
+          navigate("/dashboard")
+        }
+        break
       case "Finance Officer":
       case "Branch Manager":
       default:

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Building2, ShieldCheck, Clock, CheckCircle, ChevronDown, Eye, EyeOff } from "lucide-react"
+import { useStore } from "@/store"
 
 const DISTRICTS = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", 
@@ -75,6 +76,21 @@ export default function Signup() {
             // Mock login as admin after signup
             localStorage.setItem("mf_auth_role", "Institution Admin")
             localStorage.setItem("mf_auth_token", "fake-jwt-token")
+            
+            useStore.getState().setOnboardingComplete(false)
+            useStore.getState().setOnboardingStartTime(Date.now())
+            
+            const names = formData.adminName.split(' ')
+            useStore.getState().login({
+              firstName: names[0] || "Admin",
+              lastName: names.slice(1).join(' ') || "",
+              email: formData.adminEmail,
+              phone: "",
+              role: "Institution Admin",
+              memberSince: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+              language: "English"
+            })
+            
             navigate("/onboarding")
           }, 400)
         }

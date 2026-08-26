@@ -15,6 +15,7 @@ import {
   WalletIcon,
   UsersIcon,
   SparklesIcon,
+  WrenchIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -66,6 +67,12 @@ const WORKSPACE_NAV = [
     url: "/settings",
     icon: <SettingsIcon />,
     roles: ["all"],
+  },
+  {
+    title: "Setup & Onboarding",
+    url: "/onboarding",
+    icon: <WrenchIcon />,
+    roles: ["Institution Admin"],
   },
   {
     title: "A/B Experiment",
