@@ -2,8 +2,11 @@ import * as React from "react"
 import { Link, useLocation } from "react-router-dom"
 import {
   ActivityIcon,
+  AlertTriangleIcon,
+  Building2Icon,
   CheckCircleIcon,
   ClipboardListIcon,
+  ClockIcon,
   FlaskConicalIcon,
   LayoutDashboardIcon,
   SettingsIcon,
@@ -78,17 +81,38 @@ const LOAN_OFFICER_NAV = [
     url: "/loan-officer",
     icon: <LayoutDashboardIcon />,
     match: (pathname) =>
-      pathname === "/loan-officer" || pathname.startsWith("/loan-officer/alerts"),
+      pathname === "/loan-officer" ||
+      pathname.startsWith("/loan-officer/loans") ||
+      pathname.startsWith("/loan-officer/groups"),
   },
   {
     title: "Loan application",
     url: "/loan-officer/application",
     icon: <ClipboardListIcon />,
+    match: (pathname) =>
+      pathname.startsWith("/loan-officer/application") ||
+      pathname.startsWith("/loan-officer/disbursement"),
+  },
+  {
+    title: "EWS alerts",
+    url: "/loan-officer/alerts",
+    icon: <AlertTriangleIcon />,
+    match: (pathname) => pathname.startsWith("/loan-officer/alerts"),
+  },
+  {
+    title: "Overdue queue",
+    url: "/loan-officer/overdue",
+    icon: <ClockIcon />,
   },
   {
     title: "Collection",
     url: "/loan-officer/collection",
     icon: <SmartphoneIcon />,
+  },
+  {
+    title: "Branch portfolio",
+    url: "/loan-officer/branch",
+    icon: <Building2Icon />,
   },
   {
     title: "My trust profile",

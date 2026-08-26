@@ -42,7 +42,7 @@ function computeMockC1Score(form) {
   return Math.max(18, Math.min(96, score))
 }
 
-export default function LoanApplicationForm() {
+export default function LoanApplicationForm({ onProceedToDisbursement }) {
   const [form, setForm] = useState({
     fullName: "",
     nic: "",
@@ -326,17 +326,39 @@ export default function LoanApplicationForm() {
           ) : null}
         </CardContent>
 
-        <CardFooter className="justify-end">
-          <Button
-            type="button"
-            size="lg"
-            className="cursor-pointer"
-            disabled={loading}
-            onClick={runAssessment}
-          >
-            {loading ? <Loader2 className="animate-spin" /> : null}
-            {loading ? "Running risk assessment…" : "Run Risk Assessment"}
-          </Button>
+        <CardFooter className="justify-end gap-3">
+          {risk ? (
+            <Button
+              type="button"
+              size="lg"
+              className="cursor-pointer"
+              onClick={() =>
+                onProceedToDisbursement?.({
+                  fullName: form.fullName,
+                  nic: form.nic,
+                  product: form.product,
+                  amount: Number(form.amount),
+                  tenure: form.tenure,
+                  district: form.district,
+                  riskScore: risk.score,
+                  riskLabel: risk.label,
+                })
+              }
+            >
+              Proceed to disbursement
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="lg"
+              className="cursor-pointer"
+              disabled={loading}
+              onClick={runAssessment}
+            >
+              {loading ? <Loader2 className="animate-spin" /> : null}
+              {loading ? "Running risk assessment…" : "Run Risk Assessment"}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>

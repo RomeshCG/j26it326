@@ -3,9 +3,15 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { ThemeProvider } from "@/components/theme-provider"
 import {
   CollectionPage,
+  DisbursementPage,
+  EwsAlertInboxPage,
   EwsAlertPage,
+  GroupLendingPage,
   LoanApplicationPage,
+  LoanDetailPage,
   LoanOfficerDashboardPage,
+  OverdueQueuePage,
+  BranchPortfolioPage,
 } from "@/components/c3"
 import Login from "@/components/c4/auth/Login"
 import Signup from "@/components/c4/auth/Signup"
@@ -65,8 +71,32 @@ function App() {
               element={<LoanApplicationPage />}
             />
             <Route
+              path="/loan-officer/disbursement"
+              element={<DisbursementPage />}
+            />
+            <Route
               path="/loan-officer/collection"
               element={<CollectionPage />}
+            />
+            <Route
+              path="/loan-officer/overdue"
+              element={<OverdueQueuePage />}
+            />
+            <Route
+              path="/loan-officer/branch"
+              element={<BranchPortfolioPage />}
+            />
+            <Route
+              path="/loan-officer/loans/:loanId"
+              element={<LoanDetailPage />}
+            />
+            <Route
+              path="/loan-officer/groups/:groupId"
+              element={<GroupLendingPage />}
+            />
+            <Route
+              path="/loan-officer/alerts"
+              element={<EwsAlertInboxPage />}
             />
             <Route
               path="/loan-officer/alerts/:alertId"

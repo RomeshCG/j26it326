@@ -8,6 +8,7 @@ const DEMO_ACCOUNTS = [
   { role: "Finance", email: "finance@microflow.lk", password: "demo-password" },
   { role: "HR", email: "hr@microflow.lk", password: "demo-password" },
   { role: "Manager", email: "manager@microflow.lk", password: "demo-password" },
+  { role: "Loan Officer", email: "loan@microflow.lk", password: "demo-password" },
 ]
 
 export default function Login() {
@@ -58,16 +59,16 @@ export default function Login() {
     })
     
     switch (role) {
-      case "Institution Admin":
-      case "Finance Officer":
-      case "Branch Manager":
       case "Loan Officer":
       case "Field Officer":
-        navigate("/dashboard")
+        navigate("/loan-officer")
         break
       case "HR Officer":
         navigate("/payroll")
         break
+      case "Institution Admin":
+      case "Finance Officer":
+      case "Branch Manager":
       default:
         navigate("/dashboard")
     }
