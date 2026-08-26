@@ -1,13 +1,10 @@
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import {
   AlertTriangle,
   ArrowLeft,
   Check,
   Home,
   Loader2,
-  MapPin,
-  Navigation,
-  Phone,
   Receipt,
   Wallet,
 } from "lucide-react"
@@ -16,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { COLLECTION_ROUTE, formatLkr } from "./mock-data"
+import { formatLkr } from "./mock-data"
 
 const OUTCOMES = [
   { id: "received", label: "Payment Received", icon: Check },
@@ -31,28 +28,12 @@ export default function CollectionRecording({ stop, onBack, onComplete }) {
   const [notes, setNotes] = useState("")
   const [receipt, setReceipt] = useState(null)
   const [generating, setGenerating] = useState(false)
-  const [checkedIn] = useState(() => ({
-    time: new Date().toLocaleTimeString("en-LK", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    coords: "7.0899° N, 80.0144° E",
-  }))
 
   const borrower = stop?.borrower ?? "Kumari Fernando"
   const due = stop?.amountDue ?? 3500
   const village = stop?.village ?? "Kirindivita"
   const loanId = stop?.loanId ?? "LN-88421"
-  const phone = stop?.phone ?? "071 556 2204"
   const reason = stop?.reason ?? "Due today"
-
-  const nextStop = useMemo(() => {
-    const index = COLLECTION_ROUTE.findIndex(
-      (item) => item.loanId === loanId || item.id === stop?.id
-    )
-    if (index < 0) return COLLECTION_ROUTE[1] ?? null
-    return COLLECTION_ROUTE[index + 1] ?? null
-  }, [loanId, stop?.id])
 
   const needsNotes = outcome === "not-home" || outcome === "conflict"
   const canGenerate =
@@ -112,35 +93,6 @@ export default function CollectionRecording({ stop, onBack, onComplete }) {
             </p>
             <p className="text-sm text-muted-foreground">{reason}</p>
           </div>
-
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-border bg-muted/40 p-2.5 text-sm">
-            <div className="flex items-start gap-1.5">
-              <Navigation className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Check-in
-                </p>
-                <p className="font-medium tabular-nums">{checkedIn.time}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-1.5">
-              <MapPin className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  GPS
-                </p>
-                <p className="truncate font-medium">{checkedIn.coords}</p>
-              </div>
-            </div>
-          </div>
-
-          <a
-            href={`tel:${phone.replace(/\s/g, "")}`}
-            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background text-sm font-medium transition-colors hover:bg-muted"
-          >
-            <Phone className="size-4" />
-            Call {phone}
-          </a>
 
           <div className="grid grid-cols-2 gap-2.5">
             {OUTCOMES.map((item) => {
@@ -239,12 +191,6 @@ export default function CollectionRecording({ stop, onBack, onComplete }) {
                 <p className="mt-2 text-sm text-muted-foreground">{receipt.notes}</p>
               ) : null}
             </div>
-          ) : null}
-
-          {nextStop ? (
-            <p className="text-sm text-muted-foreground">
-              Next stop: {nextStop.borrower} · {nextStop.village}
-            </p>
           ) : null}
         </div>
 
