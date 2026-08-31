@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react"
 import { Check, ArrowRight, ArrowLeft, Building2, Landmark, Coins, Users, Play, CheckCircle2, ShieldCheck, FileSpreadsheet, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
+import { useStore } from "@/store"
+import { useNavigate } from "react-router-dom"
 
 import Step1Institution from "./Step1Institution"
 import Step2Branches from "./Step2Branches"
@@ -18,6 +20,13 @@ const STEPS = [
 ]
 
 export default function OnboardingWizard() {
+  const isReRun = useStore((state) => state.onboardingComplete)
+  const currentWizardStep = useStore((state) => state.currentWizardStep)
+  const setOnboardingComplete = useStore((state) => state.setOnboardingComplete)
+  const setCurrentWizardStep = useStore((state) => state.setCurrentWizardStep)
+  const navigate = useNavigate()
+  const store = useStore()
+
   // Wizard state loaded from localStorage if exists
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState({
@@ -48,50 +57,59 @@ export default function OnboardingWizard() {
 
   // Load state on mount
   useEffect(() => {
-    const savedData = localStorage.getItem("microflow-onboarding-data")
-    const savedStep = localStorage.getItem("microflow-onboarding-step")
-    const savedTime = localStorage.getItem("microflow-onboarding-start-time")
-
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData)
-        if (!parsed.branches || !Array.isArray(parsed.branches)) {
-          parsed.branches = [{ name: "", location: "", manager: "" }]
-        }
-        if (!parsed.selectedProducts || !Array.isArray(parsed.selectedProducts)) {
-          parsed.selectedProducts = []
-        }
-        if (parsed.hasCustomProduct === undefined) {
-          parsed.hasCustomProduct = false
-        }
-        if (!parsed.customProduct) {
-          parsed.customProduct = { name: "", sizeRange: "", repaymentCycle: "" }
-        }
-        if (!parsed.users || !Array.isArray(parsed.users)) {
-          parsed.users = []
-        }
-        setFormData(parsed)
-      } catch (e) {
-        console.error("Failed to parse onboarding data from localStorage")
-      }
-    }
-    if (savedStep) {
-      const stepNum = Number(savedStep)
-      // Check if they previously launched to restore success view
-      if (stepNum > STEPS.length) {
-        setIsLaunched(true)
-      } else {
-        setCurrentStep(stepNum)
-      }
-    }
-    if (savedTime) {
-      setStartTime(Number(savedTime))
+    if (isReRun) {
+      setFormData({
+        institutionName: store.institution?.name || "",
+        registrationNumber: store.institution?.registrationNumber || "",
+        district: store.institution?.district || "",
+        institutionType: store.institution?.type || "",
+        numBranches: store.branches?.length?.toString() || "1",
+        contactName: store.currentUser?.firstName + " " + store.currentUser?.lastName || "",
+        contactEmail: store.currentUser?.email || "",
+        contactPhone: store.currentUser?.phone || "",
+        branches: store.branches?.length > 0 ? store.branches.map(b => ({name: b.name, location: b.location, manager: b.manager})) : [{ name: "", location: "", manager: "" }],
+        selectedProducts: store.loanProducts?.filter(p => p.active).map(p => p.id) || [],
+        hasCustomProduct: false,
+        customProduct: { name: "", sizeRange: "", repaymentCycle: "" },
+        users: store.staff?.map(s => ({name: s.name, email: s.email, role: s.role, branch: s.branch})) || []
+      })
+      setCurrentStep(1)
     } else {
-      const now = Date.now()
-      setStartTime(now)
-      localStorage.setItem("microflow-onboarding-start-time", now.toString())
+      const savedData = localStorage.getItem("microflow-onboarding-data")
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData)
+          if (!parsed.branches || !Array.isArray(parsed.branches)) parsed.branches = [{ name: "", location: "", manager: "" }]
+          if (!parsed.selectedProducts || !Array.isArray(parsed.selectedProducts)) parsed.selectedProducts = []
+          if (parsed.hasCustomProduct === undefined) parsed.hasCustomProduct = false
+          if (!parsed.customProduct) parsed.customProduct = { name: "", sizeRange: "", repaymentCycle: "" }
+          if (!parsed.users || !Array.isArray(parsed.users)) parsed.users = []
+          setFormData(parsed)
+        } catch (e) {
+          console.error("Failed to parse onboarding data from localStorage")
+        }
+      }
+      
+      if (currentWizardStep > 1) {
+        setCurrentStep(currentWizardStep)
+      } else {
+        const savedStep = localStorage.getItem("microflow-onboarding-step")
+        if (savedStep) {
+          const stepNum = Number(savedStep)
+          if (stepNum > STEPS.length) setIsLaunched(true)
+          else setCurrentStep(stepNum)
+        }
+      }
+      
+      const savedTime = localStorage.getItem("microflow-onboarding-start-time")
+      if (savedTime) setStartTime(Number(savedTime))
+      else {
+        const now = Date.now()
+        setStartTime(now)
+        localStorage.setItem("microflow-onboarding-start-time", now.toString())
+      }
     }
-  }, [])
+  }, [isReRun])
 
   // Dynamic syncing of primary admin from Step 1 into users[0]
   useEffect(() => {
@@ -141,6 +159,9 @@ export default function OnboardingWizard() {
   const saveState = (updatedData, updatedStep) => {
     localStorage.setItem("microflow-onboarding-data", JSON.stringify(updatedData))
     localStorage.setItem("microflow-onboarding-step", updatedStep.toString())
+    if (!isReRun) {
+      setCurrentWizardStep(updatedStep)
+    }
   }
 
   const handleInputChange = (field, value) => {
@@ -416,6 +437,26 @@ export default function OnboardingWizard() {
   }
 
   const handleLaunch = () => {
+    if (isReRun) {
+      store.updateInstitution({
+        name: formData.institutionName,
+        registrationNumber: formData.registrationNumber,
+        district: formData.district,
+        type: formData.institutionType
+      })
+      
+      const toast = document.createElement("div")
+      toast.className = "fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-in fade-in"
+      toast.innerText = "Configuration updated successfully"
+      document.body.appendChild(toast)
+      setTimeout(() => {
+        if (document.body.contains(toast)) document.body.removeChild(toast)
+      }, 3000)
+      
+      navigate("/settings")
+      return
+    }
+
     // Generate floating confetti coordinates
     const particles = Array.from({ length: 120 }).map((_, i) => ({
       id: i,
@@ -425,8 +466,16 @@ export default function OnboardingWizard() {
       delay: Math.random() * 3,
       duration: Math.random() * 2 + 2.5
     }))
+    store.updateInstitution({
+      name: formData.institutionName || store.institution?.name,
+      registrationNumber: formData.registrationNumber || store.institution?.registrationNumber,
+      district: formData.district || store.institution?.district,
+      type: formData.institutionType || store.institution?.type
+    })
     setConfetti(particles)
     setIsLaunched(true)
+    setOnboardingComplete(true)
+    setCurrentWizardStep(1)
     // Save to step = 6 (completed/launched)
     saveState(formData, STEPS.length + 1)
   }
@@ -523,7 +572,7 @@ export default function OnboardingWizard() {
   // Success screen after launch
   if (isLaunched) {
     return (
-      <div className="relative min-h-[80vh] flex items-center justify-center px-4 overflow-hidden py-12">
+      <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-4 py-12 text-foreground">
         {injectConfettiStyles()}
         
         {/* Floating Confetti Elements */}
@@ -582,32 +631,12 @@ export default function OnboardingWizard() {
           <div className="space-y-4 pt-2">
             <Button
               onClick={() => {
-                // Clear state & restart
-                localStorage.removeItem("microflow-onboarding-data")
-                localStorage.removeItem("microflow-onboarding-step")
-                localStorage.removeItem("microflow-onboarding-start-time")
-                setIsLaunched(false)
-                setCurrentStep(1)
-                setFormData({
-                  institutionName: "",
-                  registrationNumber: "",
-                  district: "",
-                  institutionType: "",
-                  numBranches: "1",
-                  contactName: "",
-                  contactEmail: "",
-                  contactPhone: "",
-                  branches: [{ name: "", location: "", manager: "" }],
-                  selectedProducts: [],
-                  hasCustomProduct: false,
-                  customProduct: { name: "", sizeRange: "", repaymentCycle: "" },
-                  users: []
-                })
+                navigate("/dashboard")
               }}
               size="lg"
               className="w-full cursor-pointer bg-primary text-primary-foreground font-semibold hover:bg-primary/90"
             >
-              Configure Another MFI
+              Continue to Dashboard
             </Button>
             
             <p className="text-[10px] text-muted-foreground">
@@ -620,12 +649,18 @@ export default function OnboardingWizard() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-8">
+    <div className={`w-full bg-background text-foreground ${isReRun ? "py-2" : "min-h-svh"}`}>
+      <div className="mx-auto w-full max-w-4xl px-4 py-6">
+      {isReRun && (
+        <div className="mb-6 border-l-4 border-l-amber-500 bg-amber-500/10 text-amber-600 p-4 rounded-r-lg">
+          <p className="font-medium text-sm">Reviewing existing configuration — Changes saved here will update your live institution settings.</p>
+        </div>
+      )}
       {/* Reset button wrapper */}
-      <div className="flex justify-end mb-4">
+      <div className="mb-4 flex justify-end">
         <button 
           onClick={handleReset}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 cursor-pointer"
+          className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
         >
           Reset Wizard
         </button>
@@ -744,7 +779,7 @@ export default function OnboardingWizard() {
           {currentStep === 5 && (
             <Step5Review 
               formData={formData} 
-              setupDurationText={setupDurationText}
+              setupDurationText={isReRun ? null : setupDurationText}
             />
           )}
         </CardContent>
@@ -767,10 +802,10 @@ export default function OnboardingWizard() {
               type="button"
               size="lg"
               onClick={handleLaunch}
-              className="cursor-pointer bg-emerald-600 text-white hover:bg-emerald-500 hover:border-emerald-500 flex items-center"
+              className="flex cursor-pointer items-center bg-emerald-600 text-white hover:border-emerald-500 hover:bg-emerald-500"
             >
-              Launch MicroFlow
-              <Play className="ml-2 size-4 fill-white" />
+              {isReRun ? "Save Changes" : "Launch MicroFlow"}
+              {!isReRun && <Play className="ml-2 size-4 fill-white" />}
             </Button>
           ) : (
             <Button
@@ -785,6 +820,7 @@ export default function OnboardingWizard() {
           )}
         </CardFooter>
       </Card>
+    </div>
     </div>
   )
 }

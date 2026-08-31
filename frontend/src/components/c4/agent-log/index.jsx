@@ -492,7 +492,7 @@ const getAgentColor = (agent) => {
     case "A2": return "bg-blue-500"
     case "A3": return "bg-red-500"
     case "A4": return "bg-teal-500"
-    default: return "bg-slate-500"
+    default: return "bg-muted-foreground"
   }
 }
 
@@ -502,7 +502,7 @@ const getTierStyle = (tier) => {
     case "Tier 2": return "bg-green-600 text-white border-green-500"
     case "Tier 3": return "bg-amber-400 text-slate-900 border-amber-500"
     case "Tier 4": return "bg-red-600 text-white border-red-500"
-    default: return "bg-slate-600 text-white border-slate-500"
+    default: return "bg-muted-foreground text-foreground border-border"
   }
 }
 
@@ -596,11 +596,11 @@ export default function AgentLog() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#0A0A0A] text-slate-200 p-6 lg:p-8 font-sans custom-scrollbar">
+    <div className="flex-1 overflow-y-auto bg-background text-foreground p-6 lg:p-8 font-sans custom-scrollbar">
       
       {/* Toast Notification */}
       {showToast && (
-        <div className="fixed top-6 right-6 bg-[#161616] border border-blue-500/30 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 z-50 animate-in slide-in-from-top-5">
+        <div className="fixed top-6 right-6 bg-muted border border-blue-500/30 text-foreground px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 z-50 animate-in slide-in-from-top-5">
           <Download className="text-blue-400 animate-bounce" size={20} />
           <div className="text-sm font-medium">Exporting Agent Log...</div>
         </div>
@@ -609,23 +609,23 @@ export default function AgentLog() {
       {/* Header Area */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight mb-2">Agent Activity Log</h1>
-          <p className="text-slate-400 text-sm">Complete audit trail of all autonomous agent actions and decisions.</p>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">Agent Activity Log</h1>
+          <p className="text-muted-foreground text-sm">Complete audit trail of all autonomous agent actions and decisions.</p>
         </div>
         
         <div className="relative group">
           <button 
             disabled={isExporting}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-slate-700 cursor-pointer"
+            className="flex items-center gap-2 bg-muted hover:bg-muted disabled:opacity-50 text-foreground text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-border cursor-pointer"
           >
             {isExporting ? <Activity className="animate-pulse" size={16} /> : <Download size={16} />}
             {isExporting ? "Exporting..." : "Export"}
-            <ChevronDown size={14} className="ml-1 text-slate-400" />
+            <ChevronDown size={14} className="ml-1 text-muted-foreground" />
           </button>
           {!isExporting && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-[#161616] border border-slate-800 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
-              <button onClick={handleExport} className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white first:rounded-t-lg transition-colors cursor-pointer">Export as CSV</button>
-              <button onClick={handleExport} className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 hover:text-white last:rounded-b-lg transition-colors cursor-pointer">Export as PDF</button>
+            <div className="absolute right-0 top-full mt-2 w-48 bg-muted border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
+              <button onClick={handleExport} className="w-full text-left px-4 py-2.5 text-sm text-foreground/80 hover:bg-muted hover:text-foreground first:rounded-t-lg transition-colors cursor-pointer">Export as CSV</button>
+              <button onClick={handleExport} className="w-full text-left px-4 py-2.5 text-sm text-foreground/80 hover:bg-muted hover:text-foreground last:rounded-b-lg transition-colors cursor-pointer">Export as PDF</button>
             </div>
           )}
         </div>
@@ -633,52 +633,52 @@ export default function AgentLog() {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-[#111111] border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col">
-          <div className="text-slate-400 text-xs font-medium mb-1">Total Actions Today</div>
-          <div className="text-2xl font-bold text-white">{stats.totalToday}</div>
+        <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
+          <div className="text-muted-foreground text-xs font-medium mb-1">Total Actions Today</div>
+          <div className="text-2xl font-bold text-foreground">{stats.totalToday}</div>
         </div>
-        <div className={`bg-[#111111] border ${stats.awaiting > 0 ? 'border-amber-500/30 ring-1 ring-amber-500/20' : 'border-slate-800'} rounded-xl p-4 shadow-sm flex flex-col transition-all`}>
-          <div className="text-slate-400 text-xs font-medium mb-1 flex items-center justify-between">
+        <div className={`bg-card border ${stats.awaiting > 0 ? 'border-amber-500/30 ring-1 ring-amber-500/20' : 'border-border'} rounded-xl p-4 shadow-sm flex flex-col transition-all`}>
+          <div className="text-muted-foreground text-xs font-medium mb-1 flex items-center justify-between">
             Awaiting Approval
             {stats.awaiting > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>}
           </div>
-          <div className={`text-2xl font-bold ${stats.awaiting > 0 ? 'text-amber-400' : 'text-white'}`}>{stats.awaiting}</div>
+          <div className={`text-2xl font-bold ${stats.awaiting > 0 ? 'text-amber-400' : 'text-foreground'}`}>{stats.awaiting}</div>
         </div>
-        <div className="bg-[#111111] border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col">
-          <div className="text-slate-400 text-xs font-medium mb-1">Auto-Completed</div>
+        <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
+          <div className="text-muted-foreground text-xs font-medium mb-1">Auto-Completed</div>
           <div className="text-2xl font-bold text-green-400">{stats.autoCompleted}</div>
         </div>
-        <div className="bg-[#111111] border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col">
-          <div className="text-slate-400 text-xs font-medium mb-1">Human Overrides</div>
-          <div className="text-2xl font-bold text-white">{stats.overrides}</div>
+        <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
+          <div className="text-muted-foreground text-xs font-medium mb-1">Human Overrides</div>
+          <div className="text-2xl font-bold text-foreground">{stats.overrides}</div>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-[#111111] border border-slate-800 rounded-xl p-4 mb-6 shadow-sm flex flex-col gap-4">
+      <div className="bg-card border border-border rounded-xl p-4 mb-6 shadow-sm flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-4">
           
           <div className="flex-1 min-w-[200px] relative">
-            <Search className="absolute left-3 top-2.5 text-slate-500" size={16} />
+            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
             <input 
               type="text" 
               placeholder="Search actions or agents..." 
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-              className="w-full bg-[#161616] border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-muted border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
           
           <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
-            <div className="text-xs text-slate-500 uppercase font-bold mr-1 shrink-0">Agent</div>
+            <div className="text-xs text-muted-foreground uppercase font-bold mr-1 shrink-0">Agent</div>
             {["All", "A1", "A2", "A3", "A4"].map(agent => (
               <button 
                 key={agent}
                 onClick={() => { setAgentFilter(agent); setCurrentPage(1); }}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   agentFilter === agent 
-                    ? "bg-slate-700 text-white" 
-                    : "bg-[#161616] text-slate-400 hover:bg-slate-800 border border-slate-800"
+                    ? "bg-accent text-foreground" 
+                    : "bg-muted text-muted-foreground hover:bg-muted border border-border"
                 }`}
               >
                 {agent === "All" ? "All Agents" : agent === "A1" ? "A1 (Compliance)" : agent === "A2" ? "A2 (Workflow)" : agent === "A3" ? "A3 (Anomaly)" : "A4 (NLQ)"}
@@ -688,12 +688,12 @@ export default function AgentLog() {
 
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-800/50 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border/50 pt-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
-            <div className="text-xs text-slate-500 uppercase font-bold mr-1 shrink-0">Tier</div>
+            <div className="text-xs text-muted-foreground uppercase font-bold mr-1 shrink-0">Tier</div>
             {["All", "Tier 1", "Tier 2", "Tier 3", "Tier 4"].map(tier => {
               const isActive = tierFilter === tier
-              let activeClass = "bg-slate-700 text-white"
+              let activeClass = "bg-accent text-foreground"
               if (isActive && tier !== "All") {
                 if (tier === "Tier 1") activeClass = "bg-blue-600 border-blue-500 text-white"
                 if (tier === "Tier 2") activeClass = "bg-green-600 border-green-500 text-white"
@@ -707,7 +707,7 @@ export default function AgentLog() {
                   className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors cursor-pointer ${
                     isActive 
                       ? activeClass 
-                      : "bg-[#161616] text-slate-400 border-slate-800 hover:bg-slate-800"
+                      : "bg-muted text-muted-foreground border-border hover:bg-muted"
                   }`}
                 >
                   {tier}
@@ -720,7 +720,7 @@ export default function AgentLog() {
             <select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className="appearance-none bg-[#161616] border border-slate-700 text-slate-200 text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+              className="appearance-none bg-muted border border-border text-foreground text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
             >
               <option value="All">All Statuses</option>
               <option value="Completed">Completed</option>
@@ -732,7 +732,7 @@ export default function AgentLog() {
 
             <button 
               onClick={resetFilters}
-              className="text-slate-400 hover:text-white text-sm font-medium flex items-center gap-1 transition-colors cursor-pointer px-2"
+              className="text-muted-foreground hover:text-foreground text-sm font-medium flex items-center gap-1 transition-colors cursor-pointer px-2"
             >
               <X size={16} /> Reset
             </button>
@@ -741,11 +741,11 @@ export default function AgentLog() {
       </div>
 
       {/* Main Table */}
-      <div className="bg-[#111111] border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead>
-              <tr className="bg-[#161616] border-b border-slate-800 text-slate-400 font-medium">
+              <tr className="bg-muted border-b border-border text-muted-foreground font-medium">
                 <th className="p-4 pl-6">Timestamp</th>
                 <th className="p-4">Agent</th>
                 <th className="p-4 min-w-[300px] max-w-[500px]">Action Taken</th>
@@ -765,24 +765,24 @@ export default function AgentLog() {
                     <React.Fragment key={log.id}>
                       <tr className={`
                         transition-colors group
-                        ${isAwaiting ? "bg-amber-500/5" : "bg-[#0A0A0A] hover:bg-[#0F0F0F]"}
+                        ${isAwaiting ? "bg-amber-500/5" : "bg-background hover:bg-muted/40"}
                         border-l-4 ${getAgentBorder(log.agent)}
                       `}>
                         <td className="p-4 pl-5">
-                          <div className="text-white font-medium" title={new Date(log.timestamp).toLocaleString()}>
+                          <div className="text-foreground font-medium" title={new Date(log.timestamp).toLocaleString()}>
                             {getRelativeTime(log.timestamp)}
                           </div>
-                          <div className="text-xs text-slate-500 mt-0.5">{log.id}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{log.id}</div>
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-full ${getAgentColor(log.agent)} flex items-center justify-center text-[10px] font-bold text-white shadow-sm ring-2 ring-[#111111]`}>
+                            <span className={`w-6 h-6 rounded-full ${getAgentColor(log.agent)} flex items-center justify-center text-[10px] font-bold text-foreground shadow-sm ring-2 ring-card`}>
                               {log.agent}
                             </span>
-                            <span className="text-slate-300 font-medium">{log.agentName}</span>
+                            <span className="text-foreground/80 font-medium">{log.agentName}</span>
                           </div>
                         </td>
-                        <td className="p-4 text-slate-300 whitespace-normal min-w-[300px] max-w-[500px] leading-snug">
+                        <td className="p-4 text-foreground/80 whitespace-normal min-w-[300px] max-w-[500px] leading-snug">
                           {log.action}
                         </td>
                         <td className="p-4">
@@ -791,7 +791,7 @@ export default function AgentLog() {
                           </span>
                         </td>
                         <td className="p-4">
-                          <div className="flex items-center gap-1.5 text-slate-300">
+                          <div className="flex items-center gap-1.5 text-foreground/80">
                             {log.status === "Completed" && <CheckCircle size={14} className="text-green-400" />}
                             {log.status === "Awaiting Approval" && <Clock size={14} className="text-amber-400" />}
                             {(log.status === "Escalated" || log.status === "Failed") && <AlertTriangle size={14} className="text-red-400" />}
@@ -804,12 +804,12 @@ export default function AgentLog() {
                             <div className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-xs font-semibold group/tooltip relative cursor-help">
                               Yes
                               <Info size={12} />
-                              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-[#161616] border border-slate-700 rounded shadow-xl text-xs text-left text-white opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-20 whitespace-normal">
+                              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-muted border border-border rounded shadow-xl text-xs text-left text-foreground opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-20 whitespace-normal">
                                 {log.details.overrideReason}
                               </div>
                             </div>
                           ) : (
-                            <span className="text-slate-500 text-xs font-medium">No</span>
+                            <span className="text-muted-foreground text-xs font-medium">No</span>
                           )}
                         </td>
                         <td className="p-4 text-right pr-6">
@@ -830,34 +830,34 @@ export default function AgentLog() {
                       
                       {/* Expanded Row Detail */}
                       {isExpanded && (
-                        <tr className="bg-[#161616] border-l-4 border-l-slate-800">
+                        <tr className="bg-muted border-l-4 border-l-slate-800">
                           <td colSpan="7" className="p-0">
                             <div className="p-6 text-sm animate-in slide-in-from-top-2">
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <div className="space-y-4">
                                   <div>
-                                    <div className="text-slate-500 font-medium mb-1 text-xs uppercase tracking-wider">Full Action Detail</div>
-                                    <div className="text-white bg-[#0A0A0A] p-3 rounded-lg border border-slate-800 leading-relaxed">{log.action}</div>
+                                    <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Full Action Detail</div>
+                                    <div className="text-foreground bg-background p-3 rounded-lg border border-border leading-relaxed">{log.action}</div>
                                   </div>
                                   <div>
-                                    <div className="text-slate-500 font-medium mb-1 text-xs uppercase tracking-wider">Input Data Evaluated</div>
-                                    <div className="text-slate-300 font-mono text-xs bg-[#0A0A0A] p-3 rounded-lg border border-slate-800">{log.details.inputData}</div>
+                                    <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Input Data Evaluated</div>
+                                    <div className="text-foreground/80 font-mono text-xs bg-background p-3 rounded-lg border border-border">{log.details.inputData}</div>
                                   </div>
                                 </div>
                                 <div className="space-y-4">
                                   <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-[#0A0A0A] p-3 rounded-lg border border-slate-800">
-                                      <div className="text-slate-500 font-medium mb-1 text-xs uppercase tracking-wider">Confidence Score</div>
-                                      <div className="text-white font-bold">{log.details.confidence}</div>
+                                    <div className="bg-background p-3 rounded-lg border border-border">
+                                      <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Confidence Score</div>
+                                      <div className="text-foreground font-bold">{log.details.confidence}</div>
                                     </div>
-                                    <div className="bg-[#0A0A0A] p-3 rounded-lg border border-slate-800">
-                                      <div className="text-slate-500 font-medium mb-1 text-xs uppercase tracking-wider">Processing Time</div>
-                                      <div className="text-white font-mono">{log.details.processingTime}</div>
+                                    <div className="bg-background p-3 rounded-lg border border-border">
+                                      <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Processing Time</div>
+                                      <div className="text-foreground font-mono">{log.details.processingTime}</div>
                                     </div>
                                   </div>
                                   <div>
-                                    <div className="text-slate-500 font-medium mb-1 text-xs uppercase tracking-wider">Database Tables Affected</div>
-                                    <div className="text-slate-300 bg-[#0A0A0A] p-3 rounded-lg border border-slate-800 font-mono text-xs">
+                                    <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Database Tables Affected</div>
+                                    <div className="text-foreground/80 bg-background p-3 rounded-lg border border-border font-mono text-xs">
                                       {log.details.tablesAffected}
                                     </div>
                                   </div>
@@ -881,13 +881,13 @@ export default function AgentLog() {
               ) : (
                 <tr>
                   <td colSpan="7" className="p-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <Filter size={32} className="mb-3 opacity-50" />
-                      <div className="text-base font-medium text-slate-400 mb-1">No agent actions match your filters</div>
+                      <div className="text-base font-medium text-muted-foreground mb-1">No agent actions match your filters</div>
                       <div className="text-sm mb-4">Try adjusting your search or removing some filters.</div>
                       <button 
                         onClick={resetFilters}
-                        className="bg-[#161616] hover:bg-slate-800 text-white border border-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+                        className="bg-muted hover:bg-muted text-foreground border border-border px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
                       >
                         Reset All Filters
                       </button>
@@ -901,15 +901,15 @@ export default function AgentLog() {
         
         {/* Pagination Controls */}
         {filteredLogs.length > 0 && (
-          <div className="bg-[#161616] p-4 border-t border-slate-800 flex items-center justify-between text-sm">
-            <div className="text-slate-400">
-              Showing <span className="text-white font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-white font-medium">{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</span> of <span className="text-white font-medium">{filteredLogs.length}</span> results
+          <div className="bg-muted p-4 border-t border-border flex items-center justify-between text-sm">
+            <div className="text-muted-foreground">
+              Showing <span className="text-foreground font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-foreground font-medium">{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</span> of <span className="text-foreground font-medium">{filteredLogs.length}</span> results
             </div>
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="p-2 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+                className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -921,7 +921,7 @@ export default function AgentLog() {
                     className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors cursor-pointer ${
                       currentPage === i + 1 
                         ? "bg-blue-600 text-white border-blue-500 border" 
-                        : "bg-[#111111] border border-slate-700 text-slate-400 hover:bg-slate-800"
+                        : "bg-card border border-border text-muted-foreground hover:bg-muted"
                     }`}
                   >
                     {i + 1}
@@ -931,7 +931,7 @@ export default function AgentLog() {
               <button 
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+                className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
               >
                 <ChevronRight size={16} />
               </button>
