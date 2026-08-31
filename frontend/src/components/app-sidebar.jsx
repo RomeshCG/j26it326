@@ -13,6 +13,7 @@ import {
   SmartphoneIcon,
   ShieldCheckIcon,
   WalletIcon,
+  PieChartIcon,
   UsersIcon,
   SparklesIcon,
   WrenchIcon,
@@ -49,6 +50,17 @@ const WORKSPACE_NAV = [
     url: "/payroll",
     icon: <WalletIcon />,
     roles: ["Institution Admin", "HR Officer"],
+  },
+  {
+    title: "Finance Manager",
+    url: "/finance-manager",
+    icon: <PieChartIcon />,
+    items: [
+      { title: "Finance Dashboard", url: "/finance-manager" },
+      { title: "Mission Drift Alerts", url: "/alerts" },
+      { title: "P&L Report", url: "/pl-report" },
+      { title: "Social Performance", url: "/social-performance" },
+    ],
   },
   {
     title: "Agent Activity Log",
@@ -157,6 +169,11 @@ export function AppSidebar({ ...props }) {
 
   const navMain = isLoanOfficerArea
     ? LOAN_OFFICER_NAV
+    : WORKSPACE_NAV.map((item) =>
+      item.title === "Tier Approvals"
+        ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
+        : item
+    )
     : WORKSPACE_NAV
         .filter((item) => item.roles.includes("all") || item.roles.includes(role))
         .map((item) =>
