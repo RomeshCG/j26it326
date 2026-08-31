@@ -19,39 +19,59 @@ export const INTERACTION_DETAILS = {
   "0-3": {
     label: "COMPOUNDING",
     tone: "negative",
+    breakdown: { factorA: 8, factorB: 7, combined: 21 },
     explanation:
-      "When income volatility and existing debt are both high, their combined contribution to predicted risk is greater than their individual effects.",
+      "The applicant's irregular household income increases repayment uncertainty. Combined with existing debt obligations, the available repayment buffer becomes significantly smaller.",
   },
   "0-1": {
     label: "COMPOUNDING",
     tone: "negative",
+    breakdown: { factorA: 4, factorB: 3, combined: 8 },
     explanation:
-      "Low savings combined with unstable income amplifies repayment uncertainty beyond what either factor suggests alone.",
+      "Unstable income alongside limited savings leaves little room to absorb missed payments. Together they create more repayment pressure than either factor alone.",
   },
   "0-2": {
     label: "COMPENSATORY",
     tone: "positive",
+    breakdown: { factorA: 5, factorB: -4, combined: -3 },
     explanation:
-      "Strong group behaviour partially buffers the risk introduced by income volatility.",
+      "Strong group behaviour partially offsets the uncertainty introduced by irregular income, keeping overall risk contained.",
   },
   "1-2": {
     label: "COMPENSATORY",
     tone: "positive",
+    breakdown: { factorA: -6, factorB: -5, combined: -14 },
     explanation:
-      "Consistent savings and strong group guarantees reinforce each other, reducing overall default likelihood.",
+      "Consistent savings and strong group guarantees reinforce each other, reducing the likelihood of missed repayments.",
   },
   "1-3": {
     label: "COMPENSATORY",
     tone: "positive",
+    breakdown: { factorA: -4, factorB: 6, combined: -5 },
     explanation:
-      "Healthy savings offset existing debt obligations, lowering the combined stress on cash flow.",
+      "Healthy savings help absorb existing debt obligations, leaving a more manageable monthly repayment buffer.",
   },
   "2-3": {
     label: "COMPENSATORY",
     tone: "positive",
+    breakdown: { factorA: -5, factorB: 5, combined: -9 },
     explanation:
       "Group strength mitigates the risk associated with existing debt through social collateral and peer monitoring.",
   },
+}
+
+export function getInteractionDetail(key) {
+  const [row, col] = key.split("-").map(Number)
+  const detail = INTERACTION_DETAILS[key] ?? INTERACTION_DETAILS[DEFAULT_SELECTED_INTERACTION]
+  return {
+    key,
+    row,
+    col,
+    factorA: MATRIX_FEATURES[row],
+    factorB: MATRIX_FEATURES[col],
+    strength: getMatrixValue(row, col),
+    ...detail,
+  }
 }
 
 export const DEFAULT_SELECTED_INTERACTION = "0-3"
@@ -67,6 +87,13 @@ export const RISK_REPORT = {
   riskScore: 69,
   defaultProbability: 31,
   classification: "MEDIUM",
+  confidence: 78,
+  keyFactors: [
+    { label: "Strong repayment history", tone: "positive" },
+    { label: "Strong group performance", tone: "positive" },
+    { label: "Income volatility", tone: "caution" },
+    { label: "Existing debt", tone: "caution" },
+  ],
   narrativeStyle: "uncertainty",
   narrative:
     "This application sits in a moderate-risk band. The model is moderately confident, but several signals pull in opposite directions. Group guarantee strength and a stable repayment history reduce concern, while income volatility and existing debt compound each other. Treat the MEDIUM classification as a prompt for closer review rather than a clear approve-or-reject signal.",
@@ -181,6 +208,43 @@ export function buildRiskReport(state = {}) {
     defaultProbability: scoreToDefaultProbability(riskScore),
     classification,
     applicationId: state.applicationId ?? null,
+  }
+}
+
+export function buildRiskReportFromApplication(application, options = {}) {
+  const form = application?.form ?? {}
+
+  return buildRiskReport({
+    applicationId: application?.id ?? null,
+    riskScore: application?.riskScore,
+    applicant: {
+      name: form.fullName || "Unnamed applicant",
+      nic: form.nic || form.businessRegNo || "—",
+      date: form.applicationDate || new Date().toISOString().slice(0, 10),
+    },
+    loanAmount: form.loanAmount || form.financeAmount,
+    product: options.product ?? null,
+  })
+}
+
+export function getAiRecommendation(report, trustStatus = "OVER-RELIANT") {
+  const classMeta = classificationMeta(report.classification)
+  let recommendation = "REVIEW"
+
+  if (report.classification === "LOW") {
+    recommendation = "APPROVE"
+  } else if (report.classification === "HIGH") {
+    recommendation = "REJECT"
+  } else if (trustStatus === "OVER-RELIANT") {
+    recommendation = "REVIEW REQUIRED"
+  }
+
+  return {
+    risk: report.defaultProbability,
+    riskLevel: classMeta.shortLabel,
+    recommendation,
+    confidence: report.confidence ?? 78,
+    keyFactors: report.keyFactors ?? RISK_REPORT.keyFactors,
   }
 }
 

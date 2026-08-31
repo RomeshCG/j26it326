@@ -6,10 +6,10 @@ export function buildDemoApplications() {
     {
       id: "APP-DEMO-006",
       loanType: "consumer",
-      status: "draft",
-      currentStep: 3,
+      status: "assessed",
+      currentStep: 5,
       borrowerId: "BR-006",
-      riskScore: 34,
+      riskScore: 69,
       createdAt: "2026-08-28T09:00:00.000Z",
       updatedAt: "2026-08-29T11:30:00.000Z",
       form: {

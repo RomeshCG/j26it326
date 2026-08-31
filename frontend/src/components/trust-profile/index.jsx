@@ -7,8 +7,12 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
+import ExplanationStyleSelector from "@/components/risk-report/ExplanationStyleSelector"
+import { listDecisionLogs } from "@/components/risk-report/decision-log"
+import { useOfficerExplanationStyle } from "@/components/risk-report/useOfficerExplanationStyle"
+
 import CalibrationLineChart from "./CalibrationLineChart"
-import { STATUS_META, TRUST_PROFILE } from "./mock-data"
+import { TRUST_PROFILE } from "./mock-data"
 
 function formatDate(isoDate) {
   return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-LK", {
@@ -20,7 +24,8 @@ function formatDate(isoDate) {
 
 export default function TrustProfilePage() {
   const profile = TRUST_PROFILE
-  const status = STATUS_META[profile.status]
+  const { styleId, setStyleId, trust } = useOfficerExplanationStyle()
+  const decisionLogs = listDecisionLogs().slice(0, 5)
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
@@ -36,10 +41,12 @@ export default function TrustProfilePage() {
             Based on your last {profile.totalDecisions} risk-report decisions
           </p>
         </div>
-        <Badge className={`px-3 py-1.5 text-sm font-semibold ${status.className}`}>
-          {status.label}
+        <Badge className={`px-3 py-1.5 text-sm font-semibold ${trust.statusClassName}`}>
+          {trust.statusLabel}
         </Badge>
       </div>
+
+      <ExplanationStyleSelector styleId={styleId} onStyleChange={setStyleId} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="rounded-xl border bg-card p-5">
@@ -172,6 +179,41 @@ export default function TrustProfilePage() {
           </table>
         </CardContent>
       </Card>
+
+      {decisionLogs.length > 0 ? (
+        <Card className="rounded-xl border bg-card">
+          <CardHeader className="border-b border-border/50 pb-4">
+            <CardTitle className="text-base font-semibold">Recorded decisions</CardTitle>
+            <CardDescription>
+              AI-assisted decisions saved for the research experiment
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="overflow-x-auto p-0">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Applicant</th>
+                  <th className="px-4 py-3 font-medium">AI recommendation</th>
+                  <th className="px-4 py-3 font-medium">Officer decision</th>
+                  <th className="px-4 py-3 font-medium">Reasoning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {decisionLogs.map((row) => (
+                  <tr key={row.id} className="border-b last:border-b-0">
+                    <td className="px-4 py-3 font-medium">{row.applicantName}</td>
+                    <td className="px-4 py-3">{row.aiRecommendation}</td>
+                    <td className="px-4 py-3">{row.officerDecision}</td>
+                    <td className="max-w-xs truncate px-4 py-3 text-muted-foreground">
+                      {row.officerReasoning}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   )
 }

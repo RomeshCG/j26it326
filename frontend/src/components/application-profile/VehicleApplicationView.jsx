@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
+import ApplicationRiskSection from "./ApplicationRiskSection"
 import { getEffectiveBranch } from "./branch-context"
 import { formatLkr, formatNumber } from "./FormFields"
 import { getApplication } from "./storage"
@@ -153,6 +154,8 @@ export default function VehicleApplicationView() {
           value={summary.dscr == null ? "N/A" : formatNumber(summary.dscr)}
         />
       </ViewSection>
+
+      <ApplicationRiskSection application={application} />
     </div>
   )
 }

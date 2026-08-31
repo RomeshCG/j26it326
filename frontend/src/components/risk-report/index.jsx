@@ -1,27 +1,18 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { ArrowLeft, Check, FileText, Loader2, X } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 
 import { getApplication } from "@/components/application-profile/storage"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 
+import AdaptiveExplanation from "./AdaptiveExplanation"
+import AiRecommendationCard from "./AiRecommendationCard"
+import OfficerDecisionPanel from "./OfficerDecisionPanel"
 import RiskAssessmentHero from "./RiskAssessmentHero"
 import ShapContributors from "./ShapContributors"
 import ShapInteractionMatrix from "./ShapInteractionMatrix"
-import {
-  buildRiskReport,
-  classificationMeta,
-} from "./mock-data"
+import { useOfficerExplanationStyle } from "./useOfficerExplanationStyle"
+import { buildRiskReport } from "./mock-data"
 
 function formatReportDate(isoDate) {
   return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-LK", {
@@ -52,33 +43,32 @@ export default function RiskReportPage() {
     product: applicationState?.product ?? null,
   })
 
-  const classMeta = classificationMeta(report.classification)
+  const { styleId, setStyleId, trust } = useOfficerExplanationStyle()
 
-  const [decision, setDecision] = useState(null)
-  const [overrideReason, setOverrideReason] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
+  const [decision, setDecision] = useState(
+    () => applicationState?.preselectDecision ?? null
+  )
+  const [reasoning, setReasoning] = useState("")
+  const [adaptiveAction, setAdaptiveAction] = useState(null)
+  const evidenceRef = useRef(null)
+  const decisionRef = useRef(null)
 
-  function handleDecision(next) {
-    setDecision(next)
-    setSubmitted(false)
-    if (next === "approve") setOverrideReason("")
+  function scrollToEvidence() {
+    setAdaptiveAction("evidence")
+    evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
-  function handleSubmit() {
-    if (!decision) return
-    if (decision === "reject" && !overrideReason.trim()) return
-
-    setSubmitting(true)
-    window.setTimeout(() => {
-      setSubmitting(false)
-      setSubmitted(true)
-    }, 700)
+  function handleAcceptRecommendation() {
+    setAdaptiveAction("accept")
+    setDecision("approve")
+    decisionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
-  const canSubmit =
-    decision === "approve" ||
-    (decision === "reject" && overrideReason.trim().length > 0)
+  function handleOverrideFromExplanation() {
+    setAdaptiveAction("override")
+    setDecision("reject")
+    decisionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
@@ -113,112 +103,35 @@ export default function RiskReportPage() {
 
       <RiskAssessmentHero report={report} />
 
-      <ShapContributors contributors={report.shapContributors} />
+      <div ref={evidenceRef}>
+        <ShapContributors contributors={report.shapContributors} />
+      </div>
 
       <ShapInteractionMatrix />
 
-      <Card className="rounded-xl border bg-card shadow-sm">
-        <CardHeader className="border-b border-border/50 pb-4">
-          <div className="flex items-start gap-3">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <FileText className="size-4" />
-            </div>
-            <div>
-              <CardTitle className="text-base font-semibold">Assessment summary</CardTitle>
-              <CardDescription className="mt-0.5">
-                Notes prepared for {report.officerName}
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-5">
-          <p className="text-sm leading-relaxed text-foreground/90">{report.narrative}</p>
-        </CardContent>
-      </Card>
+      <AdaptiveExplanation
+        report={report}
+        styleId={styleId}
+        onStyleChange={setStyleId}
+        activeAction={adaptiveAction}
+        onViewEvidence={scrollToEvidence}
+        onAcceptRecommendation={handleAcceptRecommendation}
+        onOverride={handleOverrideFromExplanation}
+      />
 
-      <Card className="rounded-xl border bg-card shadow-sm">
-        <CardHeader className="border-b border-border/50 pb-4">
-          <CardTitle className="text-base font-semibold">Officer decision</CardTitle>
-          <CardDescription>
-            Review the assessment, then approve or reject this application
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-5">
-          <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
-            <span className={`size-2 rounded-full ${classMeta.dotClass}`} />
-            <span className="text-muted-foreground">Recommendation:</span>
-            <span className="font-medium">{classMeta.label}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="tabular-nums">{report.defaultProbability}% default risk</span>
-          </div>
+      <AiRecommendationCard report={report} trustStatus={trust.status} />
 
-          <div className="flex flex-wrap gap-3">
-            <Button
-              type="button"
-              size="lg"
-              onClick={() => handleDecision("approve")}
-              className={`cursor-pointer border-transparent ${
-                decision === "approve"
-                  ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
-                  : "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 dark:text-emerald-300"
-              }`}
-            >
-              <Check />
-              Approve
-            </Button>
-            <Button
-              type="button"
-              size="lg"
-              variant="destructive"
-              onClick={() => handleDecision("reject")}
-              className={`cursor-pointer ${
-                decision === "reject" ? "ring-2 ring-destructive/40" : ""
-              }`}
-            >
-              <X />
-              Reject
-            </Button>
-          </div>
-
-          {decision === "reject" ? (
-            <div className="space-y-2">
-              <Label htmlFor="override-reason">Override reason</Label>
-              <Textarea
-                id="override-reason"
-                value={overrideReason}
-                onChange={(event) => {
-                  setOverrideReason(event.target.value)
-                  setSubmitted(false)
-                }}
-                placeholder="Explain why you are rejecting this application…"
-                rows={4}
-              />
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              size="lg"
-              disabled={!canSubmit || submitting || submitted}
-              onClick={handleSubmit}
-              className="cursor-pointer"
-            >
-              {submitting ? <Loader2 className="animate-spin" /> : null}
-              {submitted ? "Decision submitted" : "Submit decision"}
-            </Button>
-            {submitted ? (
-              <p className="text-sm text-muted-foreground">
-                Recorded as{" "}
-                <span className="font-medium text-foreground">
-                  {decision === "approve" ? "Approved" : "Rejected"}
-                </span>
-                .
-              </p>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
+      <div ref={decisionRef}>
+        <OfficerDecisionPanel
+          report={report}
+          trustStatus={trust.status}
+          decision={decision}
+          onDecisionChange={setDecision}
+          reasoning={reasoning}
+          onReasoningChange={setReasoning}
+          preselectDecision={applicationState?.preselectDecision}
+        />
+      </div>
     </div>
   )
 }

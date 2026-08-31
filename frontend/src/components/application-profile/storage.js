@@ -17,14 +17,32 @@ function writeAll(applications) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(applications))
 }
 
+const DEMO_SYNC_FIELDS = ["status", "riskScore", "currentStep", "borrowerId", "loanType"]
+
 function seedDemoApplications(existing) {
   const demos = buildDemoApplications()
   const byId = new Map(existing.map((app) => [app.id, app]))
   let changed = existing.length === 0
 
   for (const demo of demos) {
-    if (!byId.has(demo.id)) {
+    const current = byId.get(demo.id)
+    if (!current) {
       byId.set(demo.id, demo)
+      changed = true
+      continue
+    }
+
+    const synced = { ...current }
+    let demoChanged = false
+    for (const field of DEMO_SYNC_FIELDS) {
+      if (current[field] !== demo[field]) {
+        synced[field] = demo[field]
+        demoChanged = true
+      }
+    }
+
+    if (demoChanged) {
+      byId.set(demo.id, synced)
       changed = true
     }
   }

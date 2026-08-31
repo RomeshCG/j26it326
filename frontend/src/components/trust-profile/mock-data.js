@@ -1,6 +1,8 @@
 export const TRUST_PROFILE = {
   status: "OVER-RELIANT",
   totalDecisions: 20,
+  historicalDecisions: 142,
+  aiFollowRate: 91,
   overRelianceRate: 35,
   underRelianceRate: 10,
   threshold: 20,

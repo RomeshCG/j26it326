@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
+import ApplicationRiskSection from "./ApplicationRiskSection"
 import { computeFinancialSummary } from "./calculations"
 import { getEffectiveBranch } from "./branch-context"
 import { getApplication } from "./storage"
@@ -139,6 +140,8 @@ export default function ConsumerApplicationView() {
         <ViewField label="Loan expense total" value={formatLkr(summary.loanExpenseTotal)} />
         <ViewField label="DSCR" value={summary.dscr == null ? "N/A" : formatNumber(summary.dscr)} />
       </ViewSection>
+
+      <ApplicationRiskSection application={application} />
     </div>
   )
 }
