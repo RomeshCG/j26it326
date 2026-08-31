@@ -27,6 +27,11 @@ import FinanceManagerDashboard from "@/components/c2/FinanceManagerDashboard"
 import MissionDriftAlerts from "@/components/c2/MissionDriftAlerts"
 import PAndLReport from "@/components/c2/PAndLReport"
 import SocialPerformance from "@/components/c2/SocialPerformance"
+import RiskReportPage from "@/components/risk-report"
+import TrustProfilePage from "@/components/trust-profile"
+import AbExperimentPage from "@/components/ab-experiment"
+import AgentPanel from "@/components/c4/AgentPanel"
+import { useStore } from "@/store"
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("mf_auth_token")

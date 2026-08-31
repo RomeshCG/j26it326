@@ -23,6 +23,10 @@ function isItemActive(item, pathname) {
     return item.match(pathname)
   }
 
+  if (item.items?.length) {
+    return item.items.some((subItem) => isItemActive(subItem, pathname))
+  }
+
   return (
     pathname === item.url ||
     (item.url !== "/" && pathname.startsWith(`${item.url}/`))

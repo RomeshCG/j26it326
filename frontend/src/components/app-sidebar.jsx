@@ -55,6 +55,7 @@ const WORKSPACE_NAV = [
     title: "Finance Manager",
     url: "/finance-manager",
     icon: <PieChartIcon />,
+    roles: ["Institution Admin", "Finance Officer"],
     items: [
       { title: "Finance Dashboard", url: "/finance-manager" },
       { title: "Mission Drift Alerts", url: "/alerts" },
@@ -169,18 +170,16 @@ export function AppSidebar({ ...props }) {
 
   const navMain = isLoanOfficerArea
     ? LOAN_OFFICER_NAV
-    : WORKSPACE_NAV.map((item) =>
-      item.title === "Tier Approvals"
-        ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
-        : item
-    )
-    : WORKSPACE_NAV
-        .filter((item) => item.roles.includes("all") || item.roles.includes(role))
-        .map((item) =>
-          item.title === "Tier Approvals"
-            ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
-            : item
-        )
+    : WORKSPACE_NAV.filter(
+        (item) =>
+          !item.roles ||
+          item.roles.includes("all") ||
+          item.roles.includes(role)
+      ).map((item) =>
+        item.title === "Tier Approvals"
+          ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
+          : item
+      )
 
   const homePath = isLoanOfficerArea ? "/loan-officer" : "/dashboard"
 
