@@ -11,6 +11,7 @@ const DEFAULT_DEMO_DATA = {
     email: "amal.perera@apexmicrofinance.lk",
     phone: "+94 77 123 4567",
     role: "Institution Admin",
+    branch: "Colombo Head Office",
     memberSince: "Jan 2024",
     language: "English"
   },

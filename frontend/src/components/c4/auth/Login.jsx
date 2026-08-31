@@ -48,12 +48,25 @@ export default function Login() {
     }
     const names = nameMap[role] || { first: "Demo", last: "User" }
     
+    const branchMap = {
+      "Institution Admin": "Colombo Head Office",
+      "Finance Officer": "Colombo Head Office",
+      "Branch Manager": "Colombo Head Office",
+      "Loan Officer": "Kandy Branch",
+      "Field Officer": "Galle Branch",
+      "HR Officer": "Colombo Head Office",
+    }
+    const assignedBranch = branchMap[role] || "Colombo Head Office"
+
+    localStorage.setItem("mf_auth_branch", assignedBranch)
+    
     loginStore({
       firstName: names.first,
       lastName: names.last,
       email: email || "demo@microflow.lk",
       phone: "+94 77 123 4567",
       role: role,
+      branch: assignedBranch,
       memberSince: "Jan 2024",
       language: "English"
     })

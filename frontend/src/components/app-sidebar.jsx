@@ -5,7 +5,6 @@ import {
   AlertTriangleIcon,
   Building2Icon,
   CheckCircleIcon,
-  ClipboardListIcon,
   ClockIcon,
   FlaskConicalIcon,
   LayoutDashboardIcon,
@@ -15,6 +14,7 @@ import {
   WalletIcon,
   PieChartIcon,
   UsersIcon,
+  UsersRoundIcon,
   SparklesIcon,
   WrenchIcon,
 } from "lucide-react"
@@ -31,6 +31,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { useStore } from "@/store"
+import { BORROWER_ACCESS_ROLES } from "@/components/borrower-management/mock-data"
 
 const WORKSPACE_NAV = [
   {
@@ -38,6 +39,12 @@ const WORKSPACE_NAV = [
     url: "/dashboard",
     icon: <LayoutDashboardIcon />,
     roles: ["all"],
+  },
+  {
+    title: "Borrower Management",
+    url: "/borrowers",
+    icon: <UsersRoundIcon />,
+    roles: BORROWER_ACCESS_ROLES.filter((role) => role !== "Loan Officer"),
   },
   {
     title: "HR Management",
@@ -106,12 +113,12 @@ const LOAN_OFFICER_NAV = [
       pathname.startsWith("/loan-officer/groups"),
   },
   {
-    title: "Loan application",
-    url: "/loan-officer/application",
-    icon: <ClipboardListIcon />,
+    title: "Borrower management",
+    url: "/loan-officer/borrowers",
+    icon: <UsersRoundIcon />,
     match: (pathname) =>
-      pathname.startsWith("/loan-officer/application") ||
-      pathname.startsWith("/loan-officer/disbursement"),
+      pathname.startsWith("/loan-officer/borrowers") ||
+      pathname.startsWith("/loan-officer/applications"),
   },
   {
     title: "EWS alerts",

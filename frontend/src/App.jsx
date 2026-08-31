@@ -7,12 +7,14 @@ import {
   EwsAlertInboxPage,
   EwsAlertPage,
   GroupLendingPage,
-  LoanApplicationPage,
   LoanDetailPage,
   LoanOfficerDashboardPage,
   OverdueQueuePage,
   BranchPortfolioPage,
 } from "@/components/c3"
+import LoanTypeSelection from "@/components/application-profile/LoanTypeSelection"
+import ApplicationWizard from "@/components/application-profile/ApplicationWizard"
+import ApplicationView from "@/components/application-profile/ApplicationView"
 import Login from "@/components/c4/auth/Login"
 import Signup from "@/components/c4/auth/Signup"
 import OnboardingWizard from "@/components/c4/onboarding-wizard"
@@ -31,6 +33,7 @@ import RiskReportPage from "@/components/risk-report"
 import TrustProfilePage from "@/components/trust-profile"
 import AbExperimentPage from "@/components/ab-experiment"
 import AgentPanel from "@/components/c4/AgentPanel"
+import BorrowerManagementPage from "@/components/borrower-management/page"
 import { useStore } from "@/store"
 
 function ProtectedRoute({ children }) {
@@ -100,6 +103,7 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<ExecutiveDashboard />} />
+            <Route path="/borrowers" element={<BorrowerManagementPage />} />
             <Route path="/hr" element={<HRManagement />} />
             <Route path="/payroll" element={<Payroll />} />
             <Route path="/agent-log" element={<AgentLog />} />
@@ -111,8 +115,24 @@ function App() {
             <Route path="/social-performance" element={<SocialPerformance />} />
             <Route path="/loan-officer" element={<LoanOfficerDashboardPage />} />
             <Route
-              path="/loan-officer/application"
-              element={<LoanApplicationPage />}
+              path="/loan-officer/borrowers"
+              element={<BorrowerManagementPage />}
+            />
+            <Route
+              path="/loan-officer/applications/new"
+              element={<LoanTypeSelection />}
+            />
+            <Route
+              path="/loan-officer/applications/new/:loanType"
+              element={<ApplicationWizard />}
+            />
+            <Route
+              path="/loan-officer/applications/:applicationId/edit"
+              element={<ApplicationWizard />}
+            />
+            <Route
+              path="/loan-officer/applications/:applicationId"
+              element={<ApplicationView />}
             />
             <Route
               path="/loan-officer/disbursement"

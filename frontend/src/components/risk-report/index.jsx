@@ -1,7 +1,8 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { ArrowLeft, Check, Loader2, X } from "lucide-react"
+import { useLocation, useNavigate } from "react-router-dom"
+import { ArrowLeft, Check, FileText, Loader2, X } from "lucide-react"
 
+import { getApplication } from "@/components/application-profile/storage"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,28 +15,13 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-import RiskScoreGauge from "./RiskScoreGauge"
-import ShapFactorChart from "./ShapFactorChart"
+import RiskAssessmentHero from "./RiskAssessmentHero"
+import ShapContributors from "./ShapContributors"
+import ShapInteractionMatrix from "./ShapInteractionMatrix"
 import {
-  RISK_REPORT,
-  NARRATIVE_STYLES,
+  buildRiskReport,
   classificationMeta,
 } from "./mock-data"
-
-const INTERACTION_STYLES = {
-  COMPENSATORY: {
-    className:
-      "border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  },
-  COMPOUNDING: {
-    className:
-      "border-transparent bg-destructive/15 text-destructive",
-  },
-  INDEPENDENT: {
-    className:
-      "border-transparent bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  },
-}
 
 function formatReportDate(isoDate) {
   return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-LK", {
@@ -47,9 +33,26 @@ function formatReportDate(isoDate) {
 
 export default function RiskReportPage() {
   const navigate = useNavigate()
-  const report = RISK_REPORT
+  const location = useLocation()
+  const applicationState = location.state
+
+  const linkedApplication = applicationState?.applicationId
+    ? getApplication(applicationState.applicationId)
+    : null
+
+  const loanAmount =
+    applicationState?.loanAmount ??
+    linkedApplication?.form?.financeAmount ??
+    linkedApplication?.form?.loanAmount ??
+    undefined
+
+  const report = buildRiskReport({
+    ...applicationState,
+    loanAmount,
+    product: applicationState?.product ?? null,
+  })
+
   const classMeta = classificationMeta(report.classification)
-  const narrativeStyle = NARRATIVE_STYLES[report.narrativeStyle]
 
   const [decision, setDecision] = useState(null)
   const [overrideReason, setOverrideReason] = useState("")
@@ -82,7 +85,7 @@ export default function RiskReportPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Risk assessment · Report
+            Risk report
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">
             {report.applicant.name}
@@ -93,8 +96,14 @@ export default function RiskReportPage() {
         </div>
         <Button
           type="button"
-          variant="ghost"
-          onClick={() => navigate("/loan-officer")}
+          variant="outline"
+          onClick={() =>
+            navigate(
+              report.applicationId
+                ? `/loan-officer/applications/${report.applicationId}`
+                : "/loan-officer/borrowers"
+            )
+          }
           className="cursor-pointer"
         >
           <ArrowLeft />
@@ -102,132 +111,47 @@ export default function RiskReportPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="rounded-xl border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Risk score</CardTitle>
-            <CardDescription>Model score on a 0–100 scale</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RiskScoreGauge score={report.riskScore} color={classMeta.gaugeColor} />
-          </CardContent>
-        </Card>
+      <RiskAssessmentHero report={report} />
 
-        <Card className="rounded-xl border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">
-              Default probability
-            </CardTitle>
-            <CardDescription>Estimated likelihood of default</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col items-center justify-center py-6">
-            <p className="text-5xl font-semibold tracking-tight tabular-nums">
-              {report.defaultProbability.toFixed(1)}
-              <span className="text-2xl text-muted-foreground">%</span>
-            </p>
-          </CardContent>
-        </Card>
+      <ShapContributors contributors={report.shapContributors} />
 
-        <Card className="rounded-xl border bg-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">
-              Risk classification
-            </CardTitle>
-            <CardDescription>Band assigned from the risk score</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 py-6">
-            <Badge className={`px-4 py-1.5 text-sm font-semibold ${classMeta.className}`}>
-              {classMeta.label}
-            </Badge>
-            <p className="text-center text-sm text-muted-foreground">
-              {classMeta.label === "LOW" && "Low expected credit risk"}
-              {classMeta.label === "MEDIUM" && "Requires officer judgment"}
-              {classMeta.label === "HIGH" && "Elevated expected credit risk"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <ShapInteractionMatrix />
 
-      <Card className="rounded-xl border bg-card">
+      <Card className="rounded-xl border bg-card shadow-sm">
         <CardHeader className="border-b border-border/50 pb-4">
-          <CardTitle className="text-base font-semibold">
-            SHAP individual factors
-          </CardTitle>
-          <CardDescription>
-            Top 5 features driving this applicant&apos;s risk score
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-5">
-          <ShapFactorChart factors={report.shapFactors} />
-        </CardContent>
-      </Card>
-
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-base font-semibold tracking-tight">
-            SHAP interaction panel
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Top feature-pair effects for this decision
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {report.interactions.map((item) => (
-            <Card key={item.id} className="rounded-xl border bg-card">
-              <CardHeader className="space-y-3">
-                <Badge
-                  className={
-                    INTERACTION_STYLES[item.label]?.className ??
-                    "border-transparent bg-muted text-muted-foreground"
-                  }
-                >
-                  {item.label}
-                </Badge>
-                <CardTitle className="text-base font-semibold leading-snug">
-                  {item.pair}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {item.text}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      <Card className="rounded-xl border bg-card">
-        <CardHeader className="border-b border-border/50 pb-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                GenAI narrative
-              </p>
-              <CardTitle className="text-base font-semibold">
-                Explanation for: {report.officerName}
-              </CardTitle>
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileText className="size-4" />
             </div>
-            <Badge className={narrativeStyle.className}>
-              Style: {narrativeStyle.label}
-            </Badge>
+            <div>
+              <CardTitle className="text-base font-semibold">Assessment summary</CardTitle>
+              <CardDescription className="mt-0.5">
+                Notes prepared for {report.officerName}
+              </CardDescription>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-5">
-          <p className="text-sm leading-relaxed text-foreground/90">
-            {report.narrative}
-          </p>
+          <p className="text-sm leading-relaxed text-foreground/90">{report.narrative}</p>
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl border bg-card">
+      <Card className="rounded-xl border bg-card shadow-sm">
         <CardHeader className="border-b border-border/50 pb-4">
-          <CardTitle className="text-base font-semibold">Decision</CardTitle>
+          <CardTitle className="text-base font-semibold">Officer decision</CardTitle>
           <CardDescription>
-            Approve or reject this application, then submit your decision
+            Review the assessment, then approve or reject this application
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 pt-5">
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
+            <span className={`size-2 rounded-full ${classMeta.dotClass}`} />
+            <span className="text-muted-foreground">Recommendation:</span>
+            <span className="font-medium">{classMeta.label}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="tabular-nums">{report.defaultProbability}% default risk</span>
+          </div>
+
           <div className="flex flex-wrap gap-3">
             <Button
               type="button"

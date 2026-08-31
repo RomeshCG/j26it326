@@ -6,7 +6,6 @@ import DisbursementConfirm from "./DisbursementConfirm"
 import EwsAlertDetail from "./EwsAlertDetail"
 import EwsAlertInbox from "./EwsAlertInbox"
 import GroupLending from "./GroupLending"
-import LoanApplicationForm from "./LoanApplicationForm"
 import LoanDetail from "./LoanDetail"
 import LoanOfficerDashboard from "./LoanOfficerDashboard"
 import OverdueQueue from "./OverdueQueue"
@@ -29,18 +28,6 @@ export function LoanOfficerDashboardPage() {
   )
 }
 
-export function LoanApplicationPage() {
-  const navigate = useNavigate()
-
-  return (
-    <LoanApplicationForm
-      onProceedToDisbursement={(application) =>
-        navigate("/loan-officer/disbursement", { state: { application } })
-      }
-    />
-  )
-}
-
 export function DisbursementPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -49,7 +36,7 @@ export function DisbursementPage() {
   return (
     <DisbursementConfirm
       application={application}
-      onBack={() => navigate("/loan-officer/application")}
+      onBack={() => navigate("/loan-officer/borrowers")}
       onComplete={() => navigate("/loan-officer")}
     />
   )

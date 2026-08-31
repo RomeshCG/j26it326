@@ -17,6 +17,7 @@ import {
 
 const PAGE_TITLES = {
   "/dashboard": "Dashboard",
+  "/borrowers": "Borrower Management",
   "/hr": "Human Resources",
   "/payroll": "Payroll",
   "/agent-log": "Agent Activity Log",
@@ -28,7 +29,8 @@ const PAGE_TITLES = {
   "/social-performance": "Social Performance",
   "/onboarding": "Setup & Onboarding",
   "/loan-officer": "Loan Officer Dashboard",
-  "/loan-officer/application": "Loan Application",
+  "/loan-officer/borrowers": "Borrower Management",
+  "/loan-officer/applications/new": "New Application",
   "/loan-officer/disbursement": "Disbursement",
   "/loan-officer/collection": "Collection",
   "/loan-officer/overdue": "Overdue Queue",
@@ -41,6 +43,11 @@ const PAGE_TITLES = {
 
 function getPageTitle(pathname) {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname]
+  if (pathname.startsWith("/loan-officer/applications/new/")) return "Application Profile"
+  if (pathname.startsWith("/loan-officer/applications/") && pathname.endsWith("/edit")) {
+    return "Application Profile"
+  }
+  if (pathname.startsWith("/loan-officer/applications/")) return "Application Profile"
   if (pathname.startsWith("/loan-officer/alerts/")) return "EWS Alert"
   if (pathname.startsWith("/loan-officer/loans/")) return "Loan Detail"
   if (pathname.startsWith("/loan-officer/groups/")) return "Group Lending"
