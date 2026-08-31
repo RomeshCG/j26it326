@@ -799,11 +799,11 @@ export default function PAndLReport() {
                 </div>
 
                 {/* ── RECENT FINANCIAL TRANSACTIONS ── */}
-                <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                <div id="ledger" className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden scroll-mt-20">
                     <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                         <div>
                             <h2 className="text-base font-semibold text-foreground">
-                                Recent Financial Transactions
+                                Transaction ledger
                             </h2>
                             <p className="text-xs text-muted-foreground mt-0.5">
                                 {pnl.transactionCount} transactions for {period}

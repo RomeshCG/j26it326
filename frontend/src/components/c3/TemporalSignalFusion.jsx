@@ -112,13 +112,19 @@ export function TemporalSignalFusionSummary({ fusion }) {
           "flex items-center justify-center gap-2 rounded-lg border px-4 py-3",
           fusion.status === "EARLY WARNING"
             ? "border-destructive/30 bg-destructive/10"
-            : "border-amber-500/30 bg-amber-500/10"
+            : fusion.status === "WATCH"
+              ? "border-amber-500/30 bg-amber-500/10"
+              : "border-emerald-500/30 bg-emerald-500/10"
         )}
       >
         <span
           className={cn(
             "size-2.5 rounded-full",
-            fusion.status === "EARLY WARNING" ? "bg-destructive" : "bg-amber-500"
+            fusion.status === "EARLY WARNING"
+              ? "bg-destructive"
+              : fusion.status === "WATCH"
+                ? "bg-amber-500"
+                : "bg-emerald-500"
           )}
         />
         <span className="text-sm font-semibold tracking-wide">{fusion.status}</span>

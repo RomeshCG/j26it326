@@ -22,14 +22,15 @@ export default function DisbursementConfirm({ application, onBack, onComplete })
   const [done, setDone] = useState(false)
 
   const app = application ?? {
-    fullName: "Malini Silva",
-    nic: "199012345V",
-    product: "Group Enterprise",
-    amount: 85000,
-    tenure: "12",
-    district: "Gampaha",
-    riskScore: 72,
-    riskLabel: "Moderate risk",
+    fullName: "Malini Rathnayake",
+    nic: "912345678V",
+    product: "Individual Working Capital",
+    amount: 75000,
+    tenure: "10",
+    district: "Colombo Head Office",
+    riskScore: 88,
+    riskLabel: "Low risk",
+    applicationId: "APP-DEMO-010",
   }
 
   const loanId = `LN-${Date.now().toString().slice(-5)}`
@@ -44,53 +45,59 @@ export default function DisbursementConfirm({ application, onBack, onComplete })
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-8">
-      <Button type="button" variant="ghost" size="default" onClick={onBack} className="cursor-pointer">
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+      <Button type="button" variant="ghost" onClick={onBack} className="cursor-pointer">
         <ArrowLeft />
-        Back to application
+        Back
       </Button>
 
-      <Card className="rounded-xl border bg-card">
+      <div className="space-y-1">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Component 3 · Loan activation
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Confirm disbursement</h1>
+        <p className="text-sm text-muted-foreground">
+          Close an approved application into an active loan after risk review
+        </p>
+      </div>
+
+      <Card className="rounded-xl border bg-card shadow-sm">
         <CardHeader className="border-b border-border/50 pb-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Origination · disbursement
-          </p>
-          <CardTitle className="text-2xl font-semibold tracking-tight">
-            Confirm disbursement
-          </CardTitle>
-          <CardDescription>
-            Close the application into an active loan after risk review.
+          <CardDescription className="text-xs uppercase tracking-wide">
+            Origination
           </CardDescription>
+          <CardTitle className="text-base font-semibold">Disbursement summary</CardTitle>
+          {app.applicationId ? (
+            <CardDescription>{app.applicationId}</CardDescription>
+          ) : null}
         </CardHeader>
 
-        <CardContent className="space-y-5 pt-6">
+        <CardContent className="space-y-5 pt-5">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
+            <div className="rounded-lg border bg-muted/30 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Borrower
               </p>
               <p className="mt-1 text-sm font-medium">{app.fullName}</p>
               <p className="text-sm text-muted-foreground">{app.nic}</p>
             </div>
-            <div>
+            <div className="rounded-lg border bg-muted/30 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Product
+                Product & branch
               </p>
               <p className="mt-1 text-sm font-medium">{app.product}</p>
               <p className="text-sm text-muted-foreground">{app.district}</p>
             </div>
-            <div>
+            <div className="rounded-lg border bg-muted/30 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Amount
+                Facility
               </p>
-              <p className="mt-1 text-sm font-medium tabular-nums">
-                {formatLkr(app.amount)}
-              </p>
+              <p className="mt-1 text-sm font-medium tabular-nums">{formatLkr(app.amount)}</p>
               <p className="text-sm text-muted-foreground">{app.tenure} months</p>
             </div>
-            <div>
+            <div className="rounded-lg border bg-muted/30 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                C1 risk score
+                Risk assessment
               </p>
               <div className="mt-1 flex items-center gap-2">
                 <p className="text-sm font-medium tabular-nums">{app.riskScore}</p>
@@ -118,13 +125,13 @@ export default function DisbursementConfirm({ application, onBack, onComplete })
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-border bg-muted/50 p-4">
-              <div className="flex items-center gap-2">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
                   <Check className="size-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Loan activated</p>
+                  <p className="text-sm font-semibold">Loan activated</p>
                   <p className="text-sm text-muted-foreground">
                     {loanId} · Disbursed {disbursedOn} via {method}
                   </p>
@@ -134,14 +141,9 @@ export default function DisbursementConfirm({ application, onBack, onComplete })
           )}
         </CardContent>
 
-        <CardFooter className="justify-end gap-3">
+        <CardFooter className="justify-end gap-3 border-t border-border/50">
           {done ? (
-            <Button
-              type="button"
-              size="lg"
-              className="cursor-pointer"
-              onClick={() => onComplete?.(loanId)}
-            >
+            <Button type="button" size="lg" className="cursor-pointer" onClick={() => onComplete?.(loanId)}>
               Go to dashboard
             </Button>
           ) : (

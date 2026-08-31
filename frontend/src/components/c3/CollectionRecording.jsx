@@ -3,12 +3,16 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Home,
   Loader2,
+  MapPin,
   Receipt,
   Wallet,
 } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,7 +26,15 @@ const OUTCOMES = [
   { id: "conflict", label: "Conflict Reported", icon: AlertTriangle },
 ]
 
-export default function CollectionRecording({ stop, onBack, onComplete }) {
+export default function CollectionRecording({
+  stop,
+  stopIndex = 0,
+  routeTotal = 1,
+  routeStops = [],
+  onBack,
+  onComplete,
+  onSelectStop,
+}) {
   const [outcome, setOutcome] = useState(null)
   const [amount, setAmount] = useState(stop?.amountDue ? String(stop.amountDue) : "")
   const [notes, setNotes] = useState("")
@@ -34,12 +46,15 @@ export default function CollectionRecording({ stop, onBack, onComplete }) {
   const village = stop?.village ?? "Kirindivita"
   const loanId = stop?.loanId ?? "LN-88421"
   const reason = stop?.reason ?? "Due today"
+  const priority = stop?.priority ?? stopIndex + 1
 
   const needsNotes = outcome === "not-home" || outcome === "conflict"
   const canGenerate =
     Boolean(outcome) &&
     !(outcome === "partial" && !amount) &&
     !(needsNotes && !notes.trim())
+
+  const hasRouteNav = routeStops.length > 1 && onSelectStop
 
   function handleGenerate() {
     if (!canGenerate) return
@@ -60,9 +75,46 @@ export default function CollectionRecording({ stop, onBack, onComplete }) {
     }, 650)
   }
 
+  function goToStop(offset) {
+    const next = routeStops[stopIndex + offset]
+    if (next) onSelectStop?.(next)
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col px-3 py-4 sm:px-4 sm:py-6">
-      <div className="flex min-h-[min(100dvh-5rem,720px)] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="mb-4 space-y-1 px-1">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Component 3 · Field collection
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-lg font-semibold tracking-tight">Today&apos;s collection route</h1>
+          <Badge variant="secondary">
+            Stop {priority} of {routeTotal}
+          </Badge>
+        </div>
+      </div>
+
+      {hasRouteNav ? (
+        <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+          {routeStops.map((routeStop, index) => (
+            <button
+              key={routeStop.id}
+              type="button"
+              onClick={() => onSelectStop(routeStop)}
+              className={`shrink-0 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
+                index === stopIndex
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted/50"
+              }`}
+            >
+              <p className="font-medium">{routeStop.priority}. {routeStop.borrower}</p>
+              <p className="text-muted-foreground">{formatLkr(routeStop.amountDue)}</p>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex min-h-[min(100dvh-8rem,720px)] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center border-b border-border px-3 py-2.5">
           <Button
             type="button"
@@ -70,27 +122,24 @@ export default function CollectionRecording({ stop, onBack, onComplete }) {
             size="icon"
             onClick={onBack}
             aria-label="Back"
-            className="justify-self-start"
+            className="cursor-pointer justify-self-start"
           >
             <ArrowLeft />
           </Button>
           <p className="text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Field collection
+            Record visit
           </p>
           <span aria-hidden="true" />
         </div>
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              {borrower}
-            </h1>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">{borrower}</h2>
+            <p className="flex items-center gap-1 text-sm text-muted-foreground">
+              <MapPin className="size-3.5" />
               {loanId} · {village}
             </p>
-            <p className="text-sm font-medium tabular-nums">
-              Due today {formatLkr(due)}
-            </p>
+            <p className="text-sm font-medium tabular-nums">Due today {formatLkr(due)}</p>
             <p className="text-sm text-muted-foreground">{reason}</p>
           </div>
 
@@ -162,7 +211,7 @@ export default function CollectionRecording({ stop, onBack, onComplete }) {
             </div>
           ) : null}
 
-          {outcome === "received" || outcome === "partial" ? (
+          {(outcome === "received" || outcome === "partial") && !needsNotes ? (
             <div className="space-y-2">
               <Label htmlFor="optional-notes">Notes (optional)</Label>
               <Textarea
@@ -194,7 +243,32 @@ export default function CollectionRecording({ stop, onBack, onComplete }) {
           ) : null}
         </div>
 
-        <div className="border-t border-border p-4">
+        <div className="space-y-2 border-t border-border p-4">
+          {hasRouteNav && !receipt ? (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 cursor-pointer"
+                disabled={stopIndex <= 0}
+                onClick={() => goToStop(-1)}
+              >
+                <ChevronLeft />
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 cursor-pointer"
+                disabled={stopIndex >= routeStops.length - 1}
+                onClick={() => goToStop(1)}
+              >
+                Next
+                <ChevronRight />
+              </Button>
+            </div>
+          ) : null}
+
           {receipt ? (
             <Button
               type="button"
@@ -214,7 +288,7 @@ export default function CollectionRecording({ stop, onBack, onComplete }) {
               onClick={handleGenerate}
             >
               {generating ? <Loader2 className="animate-spin" /> : <Receipt />}
-              Generate Receipt
+              Generate receipt
             </Button>
           )}
         </div>

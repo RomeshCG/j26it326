@@ -64,10 +64,12 @@ const WORKSPACE_NAV = [
     icon: <PieChartIcon />,
     roles: ["Institution Admin", "Finance Officer"],
     items: [
-      { title: "Finance Dashboard", url: "/finance-manager" },
-      { title: "Mission Drift Alerts", url: "/alerts" },
-      { title: "P&L Report", url: "/pl-report" },
-      { title: "Social Performance", url: "/social-performance" },
+      { title: "Finance dashboard", url: "/finance-manager" },
+      { title: "Mission drift dashboard", url: "/alerts" },
+      { title: "P&L report", url: "/pl-report" },
+      { title: "Balance sheet", url: "/balance-sheet" },
+      { title: "Cash flow", url: "/cash-flow" },
+      { title: "Social performance", url: "/social-performance" },
     ],
   },
   {

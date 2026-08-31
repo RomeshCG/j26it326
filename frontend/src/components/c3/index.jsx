@@ -36,7 +36,11 @@ export function DisbursementPage() {
   return (
     <DisbursementConfirm
       application={application}
-      onBack={() => navigate("/loan-officer/borrowers")}
+      onBack={() =>
+        application?.applicationId
+          ? navigate(`/loan-officer/applications/${application.applicationId}`)
+          : navigate("/loan-officer/borrowers")
+      }
       onComplete={() => navigate("/loan-officer")}
     />
   )
@@ -45,11 +49,19 @@ export function DisbursementPage() {
 export function CollectionPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const stop = location.state?.stop ?? COLLECTION_ROUTE[0]
+  const stopId = location.state?.stop?.id
+  const stopIndex = COLLECTION_ROUTE.findIndex((item) => item.id === stopId)
+  const stop = stopIndex >= 0 ? COLLECTION_ROUTE[stopIndex] : COLLECTION_ROUTE[0]
 
   return (
     <CollectionRecording
       stop={stop}
+      stopIndex={stopIndex >= 0 ? stopIndex : 0}
+      routeTotal={COLLECTION_ROUTE.length}
+      routeStops={COLLECTION_ROUTE}
+      onSelectStop={(nextStop) =>
+        navigate("/loan-officer/collection", { state: { stop: nextStop }, replace: true })
+      }
       onBack={() => navigate("/loan-officer")}
       onComplete={() => navigate("/loan-officer")}
     />
@@ -131,6 +143,7 @@ export function BranchPortfolioPage() {
     <BranchPortfolio
       onBack={() => navigate("/loan-officer")}
       onOpenAlert={(id) => navigate(`/loan-officer/alerts/${id}`)}
+      onOpenEarlyWarning={() => navigate("/loan-officer/alerts")}
     />
   )
 }

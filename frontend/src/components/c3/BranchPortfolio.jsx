@@ -34,7 +34,7 @@ function StatCard({ label, value, hint, emphasize }) {
   )
 }
 
-export default function BranchPortfolio({ onBack, onOpenAlert, initialBranchId }) {
+export default function BranchPortfolio({ onBack, onOpenAlert, onOpenEarlyWarning, initialBranchId }) {
   const [branchId, setBranchId] = useState(initialBranchId || BRANCH_LIST[0].id)
   const portfolio = useMemo(
     () => BRANCHES[branchId] ?? BRANCH_LIST[0],
@@ -52,7 +52,7 @@ export default function BranchPortfolio({ onBack, onOpenAlert, initialBranchId }
       <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Branch manager · portfolio
+            Component 3 · Branch risk monitoring
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">{branch}</h1>
           <p className="text-sm text-muted-foreground">
@@ -76,21 +76,33 @@ export default function BranchPortfolio({ onBack, onOpenAlert, initialBranchId }
               ))}
             </select>
           </div>
-          <Badge variant="destructive" className="h-9 shrink-0 px-3 text-sm">
+          <Button
+            type="button"
+            variant="destructive"
+            className="h-9 shrink-0 cursor-pointer px-3 text-sm"
+            onClick={() => onOpenEarlyWarning?.()}
+          >
             <ShieldAlert className="size-3.5" />
-            EWS alerts {stats.ewsAlertCount}
-          </Badge>
+            Early warning · {stats.ewsAlertCount}
+          </Button>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Active loans" value={stats.activeLoans} hint="Branch portfolio" />
-        <StatCard
-          label="EWS alerts"
-          value={stats.ewsAlertCount}
-          hint="Open cases"
-          emphasize
-        />
+        <button
+          type="button"
+          onClick={() => onOpenEarlyWarning?.()}
+          className="rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-muted/50"
+        >
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            EWS alerts
+          </p>
+          <p className="mt-2 text-3xl font-semibold tabular-nums text-destructive">
+            {stats.ewsAlertCount}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Open early warning dashboard</p>
+        </button>
         <StatCard label="Overdue" value={stats.overdueCount} hint="Past due" />
         <StatCard label="PAR30" value={`${stats.par30}%`} hint="At risk > 30d" />
         <StatCard

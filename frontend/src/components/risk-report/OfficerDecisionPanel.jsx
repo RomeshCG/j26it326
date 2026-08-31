@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, ClipboardCheck, Loader2, X } from "lucide-react"
+import { Banknote, Check, ClipboardCheck, Loader2, X } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,7 @@ export default function OfficerDecisionPanel({
   reasoning,
   onReasoningChange,
   preselectDecision,
+  onProceedToDisbursement,
 }) {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -158,18 +159,31 @@ export default function OfficerDecisionPanel({
             {submitted ? "Decision submitted" : "Submit decision"}
           </Button>
           {submitted ? (
-            <div className="space-y-1 text-sm text-muted-foreground">
-              <p>
-                Recorded as{" "}
-                <span className="font-medium text-foreground">
-                  {DECISION_LABELS[effectiveDecision]}
-                </span>{" "}
-                · AI-assisted mode
-              </p>
-              {recordId ? (
+            <div className="flex w-full flex-wrap items-center gap-3">
+              <div className="space-y-1 text-sm text-muted-foreground">
                 <p>
-                  Log ID: <Badge variant="secondary">{recordId}</Badge>
+                  Recorded as{" "}
+                  <span className="font-medium text-foreground">
+                    {DECISION_LABELS[effectiveDecision]}
+                  </span>{" "}
+                  · AI-assisted mode
                 </p>
+                {recordId ? (
+                  <p>
+                    Log ID: <Badge variant="secondary">{recordId}</Badge>
+                  </p>
+                ) : null}
+              </div>
+              {effectiveDecision === "approve" && onProceedToDisbursement ? (
+                <Button
+                  type="button"
+                  size="lg"
+                  className="ml-auto cursor-pointer"
+                  onClick={onProceedToDisbursement}
+                >
+                  <Banknote />
+                  Proceed to disbursement
+                </Button>
               ) : null}
             </div>
           ) : null}

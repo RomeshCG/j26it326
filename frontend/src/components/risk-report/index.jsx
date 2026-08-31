@@ -13,6 +13,7 @@ import ShapContributors from "./ShapContributors"
 import ShapInteractionMatrix from "./ShapInteractionMatrix"
 import { useOfficerExplanationStyle } from "./useOfficerExplanationStyle"
 import { buildRiskReport } from "./mock-data"
+import { buildDisbursementApplication } from "@/components/c3/build-disbursement-application"
 
 function formatReportDate(isoDate) {
   return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-LK", {
@@ -68,6 +69,14 @@ export default function RiskReportPage() {
     setAdaptiveAction("override")
     setDecision("reject")
     decisionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  function handleProceedToDisbursement() {
+    navigate("/loan-officer/disbursement", {
+      state: {
+        application: buildDisbursementApplication(report, linkedApplication),
+      },
+    })
   }
 
   return (
@@ -130,6 +139,9 @@ export default function RiskReportPage() {
           reasoning={reasoning}
           onReasoningChange={setReasoning}
           preselectDecision={applicationState?.preselectDecision}
+          onProceedToDisbursement={
+            report.applicationId ? handleProceedToDisbursement : undefined
+          }
         />
       </div>
     </div>
