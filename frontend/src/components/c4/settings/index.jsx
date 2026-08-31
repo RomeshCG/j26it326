@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { 
   User, Building2, Bell, Cpu, Shield, 
   Lock, CheckCircle, Save, LogOut, X, Edit, Trash2, Plus, AlertTriangle, Info
@@ -534,8 +534,13 @@ export default function Settings() {
         {/* Tier Table */}
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           <div className="p-6 border-b border-border">
-            <h3 className="text-lg font-bold text-foreground mb-1">Graduated Trust Architecture — Current Configuration</h3>
-            <p className="text-sm text-muted-foreground">These tier assignments define how much autonomy each agent has. Contact MicroFlow support to modify tier assignments.</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-foreground mb-1">Graduated Trust Architecture — Current Configuration</h3>
+                <p className="text-sm text-muted-foreground">These tier assignments define how much autonomy each agent has. Contact MicroFlow support to modify tier assignments.</p>
+              </div>
+              <Link to="/graduated-trust" className="text-sm font-medium text-primary hover:underline">View overview</Link>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left text-foreground/80">

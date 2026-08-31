@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react"
+import { Link } from "react-router-dom"
 import {
     TrendingUp,
     TrendingDown,
@@ -8,231 +9,29 @@ import {
     Activity,
     BarChart2,
     BookOpen,
-    FlaskConical,
+    ArrowDownRight,
     ArrowRight,
     ChevronDown,
     Minus,
 } from "lucide-react"
 
-// ─────────────────────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────────────────────
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card"
 
-const MONTHS_12 = ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"]
-
-// ─────────────────────────────────────────────────────────────
-// SOCIAL INDICATOR DATA STRUCTURE
-// All frontend demo data — replace with backend/API values later.
-// improvDir: "up" = higher is better, "down" = lower is better
-// ─────────────────────────────────────────────────────────────
-
-const SOCIAL_INDICATORS = [
-    {
-        id: "female_borrower_ratio",
-        name: "Female Borrower Ratio",
-        icon: "♀",
-        unit: "%",
-        currentValue: 62.4,
-        changePct: 4.2,
-        improvDir: "up",
-        status: "improving",
-        mdiContribution: 12.4,
-        mdiWeight: 0.22,
-        mdiTrend: 0.564,
-        color: "#10b981",
-        monthlyData: [57.8, 58.4, 58.9, 59.3, 59.8, 60.1, 60.5, 61.0, 61.4, 61.8, 62.0, 62.4],
-        branchData: [
-            { name: "Colombo", value: 64.2 },
-            { name: "Galle", value: 62.7 },
-            { name: "Jaffna", value: 61.5 },
-            { name: "Kandy", value: 59.8 },
-            { name: "Kurunegala", value: 57.9 },
-        ],
-        whyItMatters:
-            "Measures the proportion of active female borrowers in the loan portfolio. Higher ratios indicate stronger gender-inclusive lending practices and alignment with financial inclusion objectives. A sustained increase suggests the institution is successfully reaching underserved female client segments.",
-        interpretation:
-            "The Female Borrower Ratio has increased consistently from 57.8 to 62.4 over the monitored period, representing a 4.2% improvement. This is the strongest positive contributor to the current Mission Drift Index.",
-        currentObservation: "Improving",
-        monitoringFocus: "Maintain branch-level female outreach momentum and monitor for regional gaps.",
-        trendSummary: "The Female Borrower Ratio increased from 57.8% to 62.4% during the last 12 months.",
-        overallChange: "+4.2%",
-        trend: "Increasing",
-    },
-    {
-        id: "new_to_banking_ratio",
-        name: "New-to-Banking Ratio",
-        icon: "◈",
-        unit: "%",
-        currentValue: 38.2,
-        changePct: 5.6,
-        improvDir: "up",
-        status: "improving",
-        mdiContribution: 8.7,
-        mdiWeight: 0.18,
-        mdiTrend: 0.483,
-        color: "#10b981",
-        monthlyData: [32.6, 33.1, 33.8, 34.2, 34.9, 35.5, 36.0, 36.5, 37.0, 37.4, 37.9, 38.2],
-        branchData: [
-            { name: "Colombo", value: 42.1 },
-            { name: "Galle", value: 39.8 },
-            { name: "Jaffna", value: 37.9 },
-            { name: "Kandy", value: 35.4 },
-            { name: "Kurunegala", value: 33.6 },
-        ],
-        whyItMatters:
-            "Percentage of borrowers who had no prior formal banking relationship before joining the portfolio. Higher values indicate stronger financial inclusion impact and alignment with the institution's mission to serve the unbanked population.",
-        interpretation:
-            "The New-to-Banking Ratio has grown steadily from 32.6% to 38.2% across the monitored period, indicating effective outreach to unbanked client segments. This reflects one of the stronger positive contributions to the current MDI.",
-        currentObservation: "Improving",
-        monitoringFocus: "Expand first-time banking client acquisition programs, particularly in rural branches.",
-        trendSummary: "The New-to-Banking Ratio increased from 32.6% to 38.2% during the last 12 months.",
-        overallChange: "+5.6%",
-        trend: "Increasing",
-    },
-    {
-        id: "poverty_proxy_score",
-        name: "Poverty Proxy Score",
-        icon: "◉",
-        unit: "",
-        currentValue: 71.5,
-        changePct: -2.8,
-        improvDir: "up",
-        status: "attention",
-        mdiContribution: -9.3,
-        mdiWeight: 0.25,
-        mdiTrend: -0.372,
-        color: "#f59e0b",
-        monthlyData: [73.6, 73.8, 73.2, 72.9, 73.1, 72.7, 72.4, 72.0, 71.8, 71.9, 71.7, 71.5],
-        branchData: [
-            { name: "Colombo", value: 74.2 },
-            { name: "Jaffna", value: 72.4 },
-            { name: "Galle", value: 71.6 },
-            { name: "Kandy", value: 68.1 },
-            { name: "Kurunegala", value: 66.8 },
-        ],
-        whyItMatters:
-            "A composite score measuring outreach depth to financially vulnerable clients. A sustained decline may indicate reduced engagement with higher-vulnerability borrower segments, which directly conflicts with the institution's social mission mandate.",
-        interpretation:
-            "The Poverty Proxy Score has declined consistently over the last 12 months and currently represents the strongest negative contribution among the monitored social indicators. The decline from 73.6 to 71.5 warrants immediate branch-level review.",
-        currentObservation: "Emerging Risk",
-        monitoringFocus: "Review branch-level outreach to financially vulnerable borrowers.",
-        trendSummary: "The Poverty Proxy Score declined from 73.6 to 71.5 during the last 12 months.",
-        overallChange: "-2.8%",
-        trend: "Declining",
-    },
-    {
-        id: "client_dropout_rate",
-        name: "Client Dropout Rate",
-        icon: "⊗",
-        unit: "%",
-        currentValue: 4.8,
-        changePct: -1.2,
-        improvDir: "down",
-        status: "improving",
-        mdiContribution: 6.2,
-        mdiWeight: 0.15,
-        mdiTrend: 0.413,
-        color: "#10b981",
-        monthlyData: [6.0, 5.8, 5.7, 5.6, 5.4, 5.3, 5.2, 5.1, 5.0, 4.9, 4.8, 4.8],
-        branchData: [
-            { name: "Colombo", value: 3.8 },
-            { name: "Jaffna", value: 4.2 },
-            { name: "Galle", value: 4.4 },
-            { name: "Kandy", value: 5.2 },
-            { name: "Kurunegala", value: 6.0 },
-        ],
-        whyItMatters:
-            "Percentage of clients who exited the portfolio without completing their loan cycle. A declining rate indicates stronger client retention and relationship quality. Lower dropout rates are beneficial and reflect improved social performance and mission alignment.",
-        interpretation:
-            "The Client Dropout Rate has steadily declined from 6.0% to 4.8% over the last 12 months. Since a lower dropout rate indicates stronger retention, this represents a positive contribution to the MDI. Kurunegala branch requires specific attention.",
-        currentObservation: "Improving",
-        monitoringFocus: "Sustain retention programs and investigate dropout drivers in high-rate branches.",
-        trendSummary: "The Client Dropout Rate declined from 6.0% to 4.8% during the last 12 months (lower is better).",
-        overallChange: "-1.2%",
-        trend: "Declining (Positive)",
-    },
-    {
-        id: "social_outreach_coverage",
-        name: "Social Outreach Coverage",
-        icon: "◎",
-        unit: "%",
-        currentValue: 68.7,
-        changePct: 6.4,
-        improvDir: "up",
-        status: "improving",
-        mdiContribution: 7.1,
-        mdiWeight: 0.12,
-        mdiTrend: 0.592,
-        color: "#10b981",
-        monthlyData: [62.3, 63.0, 63.8, 64.4, 65.0, 65.8, 66.1, 66.7, 67.2, 67.8, 68.2, 68.7],
-        branchData: [
-            { name: "Colombo", value: 78.6 },
-            { name: "Galle", value: 74.1 },
-            { name: "Jaffna", value: 73.8 },
-            { name: "Kandy", value: 69.4 },
-            { name: "Kurunegala", value: 67.2 },
-        ],
-        whyItMatters:
-            "Percentage of target underserved communities actively reached by branch services. A rising coverage rate reflects broadening social outreach programs and indicates the institution is expanding its impact beyond existing client segments.",
-        interpretation:
-            "Social Outreach Coverage has expanded significantly from 62.3% to 68.7% — a 6.4% increase over the monitored period. Colombo leads outreach coverage while Kurunegala represents the lowest-coverage branch requiring targeted outreach investment.",
-        currentObservation: "Improving",
-        monitoringFocus: "Prioritise outreach investments in lower-coverage branches to reduce geographic disparity.",
-        trendSummary: "Social Outreach Coverage increased from 62.3% to 68.7% during the last 12 months.",
-        overallChange: "+6.4%",
-        trend: "Increasing",
-    },
-    {
-        id: "loan_impact_index",
-        name: "Loan Impact Index",
-        icon: "◆",
-        unit: "",
-        currentValue: 66.3,
-        changePct: 3.1,
-        improvDir: "up",
-        status: "stable",
-        mdiContribution: 3.4,
-        mdiWeight: 0.08,
-        mdiTrend: 0.425,
-        color: "#6366f1",
-        monthlyData: [64.3, 64.5, 64.8, 65.0, 65.1, 65.4, 65.6, 65.9, 66.0, 66.1, 66.2, 66.3],
-        branchData: [
-            { name: "Colombo", value: 70.2 },
-            { name: "Galle", value: 68.4 },
-            { name: "Jaffna", value: 67.1 },
-            { name: "Kandy", value: 65.0 },
-            { name: "Kurunegala", value: 62.8 },
-        ],
-        whyItMatters:
-            "Composite index measuring the tangible socioeconomic impact of issued loans, including income improvement, asset creation, and employment generation. Note: Replace with the approved research indicator specification when the final research methodology is confirmed.",
-        interpretation:
-            "The Loan Impact Index has improved gradually from 64.3 to 66.3 over the last 12 months, representing a modest but stable positive contribution to the MDI. The index reflects consistent, if incremental, improvement in loan social impact.",
-        currentObservation: "Stable",
-        monitoringFocus: "Monitor loan utilisation patterns and assess income improvement metrics at borrower level.",
-        trendSummary: "The Loan Impact Index increased from 64.3 to 66.3 during the last 12 months.",
-        overallChange: "+3.1%",
-        trend: "Increasing",
-    },
-]
-
-// ─── MDI Formula Breakdown weights ───
-const MDI_FORMULA_BREAKDOWN = SOCIAL_INDICATORS.map((ind) => ({
-    id: ind.id,
-    name: ind.name,
-    weight: ind.mdiWeight,
-    trend: ind.mdiTrend,
-    contribution: ind.mdiContribution,
-    isPositive: ind.mdiContribution >= 0,
-}))
-
-const SUMMARY = {
-    mdi: 72.4,
-    status: "Stable → Emerging Risk",
-    assessment: "Stable with emerging social-risk signals.",
-    improving: 4,
-    total: 6,
-    attention: 2,
-}
+import {
+    MDI_FORMULA_BREAKDOWN,
+    MONTHS_12,
+    SOCIAL_DASHBOARD_METRICS,
+    SOCIAL_INDICATORS,
+    SOCIAL_SUMMARY,
+} from "./social-performance-data"
 
 // ─────────────────────────────────────────────────────────────
 // HELPERS
@@ -711,16 +510,16 @@ function MdiFormulaBreakdown({ selectedId }) {
                             <td colSpan={3} className="px-4 py-3 text-sm font-semibold text-foreground">
                                 Current MDI Score
                             </td>
-                            <td className="px-4 py-3 text-right font-bold text-xl text-emerald-600 dark:text-emerald-400 tabular-nums">
-                                {SUMMARY.mdi}
+                            <td className="px-4 py-3 text-right font-bold text-xl text-foreground tabular-nums">
+                                {SOCIAL_SUMMARY.mdi}
                             </td>
                             <td className="px-4 py-3" />
                         </tr>
                     </tfoot>
                 </table>
             </div>
-            <p className="text-[10px] text-muted-foreground italic">
-                Weights, trends and contributions are frontend demo data only. Replace with actual MDI algorithm output from backend/API.
+            <p className="text-[10px] text-muted-foreground">
+                Weights and contributions reflect the current mission drift model for this reporting period.
             </p>
         </div>
     )
@@ -731,8 +530,7 @@ function MdiFormulaBreakdown({ selectedId }) {
 // ─────────────────────────────────────────────────────────────
 
 export default function SocialPerformance() {
-    // Default selection: Poverty Proxy Score (strongest negative contributor)
-    const [selectedId, setSelectedId] = useState("poverty_proxy_score")
+    const [selectedId, setSelectedId] = useState("low_income_clients")
     const [period, setPeriod] = useState("Last 12 Months")
 
     const selected = SOCIAL_INDICATORS.find((ind) => ind.id === selectedId)
@@ -745,24 +543,23 @@ export default function SocialPerformance() {
     }, [])
 
     return (
-        <div className="flex flex-1 flex-col overflow-hidden bg-background text-foreground">
-
-            {/* ── 1. PAGE HEADER (existing style preserved) ── */}
-            <header className="z-10 flex shrink-0 flex-col items-start justify-between gap-4 border-b border-border bg-background/80 px-8 py-6 backdrop-blur-md sm:flex-row sm:items-center">
-                <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
-                        Social Performance
-                    </h1>
-                    <div className="mt-1 text-sm text-muted-foreground">
-                        Deep-dive analysis of social indicators influencing mission health.
-                    </div>
+        <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Component 2 · Social performance
+                    </p>
+                    <h1 className="text-2xl font-semibold tracking-tight">Social performance</h1>
+                    <p className="text-sm text-muted-foreground">
+                        Deep-dive into social indicators that drive the mission drift index
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 rounded-full border border-border bg-muted/50 px-4 py-2 text-sm font-medium text-foreground">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
                         <ChevronDown size={14} className="text-muted-foreground" />
                         <select
                             id="sp-period-selector"
-                            className="bg-transparent border-none outline-none text-sm font-medium text-foreground cursor-pointer"
+                            className="cursor-pointer bg-transparent text-sm font-medium outline-none"
                             value={period}
                             onChange={(e) => setPeriod(e.target.value)}
                             aria-label="period-selector"
@@ -772,93 +569,94 @@ export default function SocialPerformance() {
                             <option>Last 24 Months</option>
                         </select>
                     </div>
+                    <Button asChild variant="outline" size="sm" className="cursor-pointer">
+                        <Link to="/alerts">Mission drift dashboard</Link>
+                    </Button>
                 </div>
-            </header>
+            </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8">
+            <Card className="rounded-xl border bg-card shadow-sm">
+                <CardHeader className="border-b border-border/50 pb-4">
+                    <CardDescription className="text-xs uppercase tracking-wide">
+                        Aligned with mission drift dashboard
+                    </CardDescription>
+                    <CardTitle className="text-base font-semibold">Social performance overview</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-3 pt-5 sm:grid-cols-2 lg:grid-cols-4">
+                    {SOCIAL_DASHBOARD_METRICS.map((metric) => (
+                        <div key={metric.label} className="rounded-lg border bg-muted/30 p-4">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                {metric.label}
+                            </p>
+                            <p className="mt-2 inline-flex items-center gap-1 text-lg font-semibold tabular-nums text-destructive">
+                                <ArrowDownRight className="size-4" />
+                                {metric.change}%
+                            </p>
+                        </div>
+                    ))}
+                </CardContent>
+            </Card>
 
-                {/* ── 2. CURRENT MDI SUMMARY (existing style preserved) ── */}
-                <section className="flex flex-col rounded-2xl border border-border bg-card p-6 shadow-sm overflow-hidden relative">
-                    <div className="pointer-events-none absolute top-0 right-0 h-56 w-56 translate-x-1/3 -translate-y-1/3 rounded-full bg-emerald-500/8 blur-3xl" />
-
-                    <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-6">
-                        {/* MDI */}
+            <Card className="rounded-xl border bg-card shadow-sm">
+                <CardHeader className="border-b border-border/50 pb-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                                Current MDI
-                            </div>
-                            <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">
-                                {SUMMARY.mdi}
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                                Status: <span className="text-amber-500 font-medium">{SUMMARY.status}</span>
-                            </div>
+                            <CardTitle className="text-base font-semibold">Mission drift summary</CardTitle>
+                            <CardDescription>{SOCIAL_SUMMARY.assessment}</CardDescription>
                         </div>
-                        {/* Improving */}
-                        <div>
-                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                                Indicators Improving
-                            </div>
-                            <div className="text-4xl font-bold text-foreground">
-                                {SUMMARY.improving}
-                                <span className="text-xl text-muted-foreground font-normal"> / {SUMMARY.total}</span>
-                            </div>
-                        </div>
-                        {/* Attention */}
-                        <div>
-                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                                Requiring Attention
-                            </div>
-                            <div className="text-4xl font-bold text-amber-500">
-                                {SUMMARY.attention}
-                                <span className="text-xl text-muted-foreground font-normal"> / {SUMMARY.total}</span>
-                            </div>
-                        </div>
-                        {/* Assessment */}
-                        <div className="flex flex-col justify-center">
-                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                                Assessment
-                            </div>
-                            <div className="text-sm text-foreground font-medium leading-snug">
-                                {SUMMARY.assessment}
-                            </div>
-                        </div>
+                        <Button asChild variant="link" className="cursor-pointer px-0">
+                            <Link to="/mission-drift/detail">View MDI detail</Link>
+                        </Button>
                     </div>
-
-                    <div className="relative z-10 mt-5 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-4 py-2 w-fit">
-                        <AlertTriangle size={14} className="text-amber-500 shrink-0" />
-                        <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">
-                            Current assessment: {SUMMARY.assessment}
-                        </span>
-                    </div>
-                </section>
-
-                {/* ── 3. SOCIAL INDICATOR EXPLORER ── */}
-                <section className="space-y-4">
+                </CardHeader>
+                <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
-                        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                            <Activity className="text-emerald-600 dark:text-emerald-400" size={20} />
-                            Social Indicator Explorer
-                        </h2>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                            Select an indicator to investigate its trend, branch impact, and contribution to the Mission Drift Index.
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Current MDI</p>
+                        <p className="mt-1 text-3xl font-semibold tabular-nums">{SOCIAL_SUMMARY.mdi}</p>
+                        <Badge variant="secondary" className="mt-2">{SOCIAL_SUMMARY.status}</Badge>
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Improving</p>
+                        <p className="mt-1 text-3xl font-semibold tabular-nums">
+                            {SOCIAL_SUMMARY.improving}
+                            <span className="text-lg text-muted-foreground"> / {SOCIAL_SUMMARY.total}</span>
                         </p>
                     </div>
-
-                    {/* ── 6 Selection Cards (2×3 grid) ── */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                        {SOCIAL_INDICATORS.map((ind) => (
-                            <IndicatorCard
-                                key={ind.id}
-                                indicator={ind}
-                                isSelected={ind.id === selectedId}
-                                onClick={() => handleSelect(ind.id)}
-                            />
-                        ))}
+                    <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Needs attention</p>
+                        <p className="mt-1 text-3xl font-semibold tabular-nums text-amber-600 dark:text-amber-400">
+                            {SOCIAL_SUMMARY.attention}
+                            <span className="text-lg text-muted-foreground"> / {SOCIAL_SUMMARY.total}</span>
+                        </p>
                     </div>
-                </section>
+                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed">
+                        {SOCIAL_SUMMARY.insight}
+                    </div>
+                </CardContent>
+            </Card>
 
-                {/* ── 4. DYNAMIC INDICATOR ANALYSIS ── */}
+            <div>
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Activity className="text-primary" size={20} />
+                    Social indicator explorer
+                </h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                    Select an indicator to review trend, branch performance, and MDI contribution.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {SOCIAL_INDICATORS.map((ind) => (
+                    <IndicatorCard
+                        key={ind.id}
+                        indicator={ind}
+                        isSelected={ind.id === selectedId}
+                        onClick={() => handleSelect(ind.id)}
+                    />
+                ))}
+            </div>
+
+            {/* ── 4. DYNAMIC INDICATOR ANALYSIS ── */}
                 {selected && (
                     <section className="space-y-6" id="indicator-analysis-section">
 
@@ -1009,11 +807,11 @@ export default function SocialPerformance() {
                                 </p>
                             </div>
 
-                            {/* Research Interpretation */}
+                            {/* Assessment notes */}
                             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4">
                                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                    <FlaskConical size={15} className="text-indigo-500" />
-                                    Research Interpretation
+                                    <BookOpen size={15} className="text-blue-500" />
+                                    Assessment notes
                                 </h3>
                                 <p className="text-sm text-foreground/80 leading-relaxed">
                                     {selected.interpretation}
@@ -1043,22 +841,19 @@ export default function SocialPerformance() {
                     </section>
                 )}
 
-                {/* ── 9. MDI FORMULA BREAKDOWN ── */}
-                <section className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
-                    <div>
-                        <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-                            <Minus size={16} className="text-muted-foreground" />
-                            MDI Formula Breakdown
-                        </h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            Contribution of each monitored social indicator to the current Mission Drift Index.
-                            The selected indicator is highlighted.
-                        </p>
-                    </div>
-                    <MdiFormulaBreakdown selectedId={selectedId} />
-                </section>
-
-            </div>
+            <section className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+                <div>
+                    <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                        <Minus size={16} className="text-muted-foreground" />
+                        MDI Formula Breakdown
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                        Contribution of each monitored social indicator to the current Mission Drift Index.
+                        The selected indicator is highlighted.
+                    </p>
+                </div>
+                <MdiFormulaBreakdown selectedId={selectedId} />
+            </section>
         </div>
     )
 }

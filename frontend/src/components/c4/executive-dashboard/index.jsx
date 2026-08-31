@@ -54,12 +54,13 @@ const AGENT_ACTIONS = [
     color: "bg-amber-500",
     tierColor:
       "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
+    approvalLink: "/tier-approval?action=anomaly-ampara",
   },
   {
     id: 3,
     agent: "A1",
-    name: "Agent 1",
-    action: "Central Bank monthly report compiled",
+    name: "Compliance Agent",
+    action: "CBSL monthly report compiled — missing data in 2 branches",
     tier: "Tier 3",
     tierBadge: "Awaiting Approval",
     status: "Pending Approval",
@@ -67,6 +68,7 @@ const AGENT_ACTIONS = [
     color: "bg-purple-500",
     tierColor:
       "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
+    approvalLink: "/tier-approval?action=cbsl-report",
   },
   {
     id: 4,
@@ -450,13 +452,8 @@ export default function ExecutiveDashboard() {
             <div className="relative -mr-2 max-h-[300px] flex-1 space-y-4 overflow-y-auto pr-2">
               <div className="absolute top-4 bottom-4 left-[15px] z-0 w-px bg-border" />
 
-              {AGENT_ACTIONS.map((action) => (
-                <div key={action.id} className="relative z-10 flex gap-4">
-                  <div
-                    className={`flex size-8 shrink-0 items-center justify-center rounded-full ${action.color} text-xs font-bold text-foreground shadow-lg ring-4 ring-card`}
-                  >
-                    {action.agent}
-                  </div>
+              {AGENT_ACTIONS.map((action) => {
+                const card = (
                   <div className="flex-1 rounded-xl border border-border/60 bg-muted/50 p-3">
                     <div className="mb-1 flex items-start justify-between gap-2">
                       <div className="text-sm font-medium text-foreground">
@@ -497,12 +494,43 @@ export default function ExecutiveDashboard() {
                         {action.status}
                       </div>
                     </div>
+                    {action.approvalLink && (
+                      <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        Click to review and approve →
+                      </p>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+
+                return (
+                  <div key={action.id} className="relative z-10 flex gap-4">
+                    <div
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-full ${action.color} text-xs font-bold text-foreground shadow-lg ring-4 ring-card`}
+                    >
+                      {action.agent}
+                    </div>
+                    {action.approvalLink ? (
+                      <Link
+                        to={action.approvalLink}
+                        className="flex-1 cursor-pointer transition-opacity hover:opacity-90"
+                      >
+                        {card}
+                      </Link>
+                    ) : (
+                      <div className="flex-1">{card}</div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
-            <div className="mt-4 flex justify-end border-t border-border/60 pt-4">
+            <div className="mt-4 flex justify-between gap-3 border-t border-border/60 pt-4">
+              <Link
+                to="/graduated-trust"
+                className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Graduated Trust <ChevronRight size={16} />
+              </Link>
               <Link
                 to="/agent-log"
                 className="flex items-center gap-1 text-sm font-medium text-blue-600 transition-colors hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"

@@ -6,13 +6,15 @@ import {
   ShieldAlert, Activity, FileText, MessageSquare
 } from "lucide-react"
 
+import { APPROVAL_LINKS } from "@/components/c4/graduated-trust/mock-data"
+
 // --- DUMMY DATA ---
 const INITIAL_LOGS = [
   {
     id: "LOG-025",
     agent: "A1",
     agentName: "Compliance",
-    action: "Central Bank monthly report for November 2024 compiled and formatted to CBSL template",
+    action: "CBSL monthly report compiled — missing branch data detected in Kandy and Kurunegala (91% completeness)",
     tier: "Tier 3",
     tierBadge: "Pending Approval",
     status: "Awaiting Approval",
@@ -21,7 +23,7 @@ const INITIAL_LOGS = [
     timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     details: {
       inputData: "Core banking GL balances, Loan Portfolio snapshot as of Nov 30",
-      confidence: "99.8%",
+      confidence: "91%",
       processingTime: "450ms",
       tablesAffected: "None (Read-only)",
       overrideReason: null
@@ -53,7 +55,7 @@ const INITIAL_LOGS = [
     action: "Unusual disbursement detected: LKR 485,000 to borrower ID #4471, Ampara branch, 11:47 PM — flagged as outside normal operating hours",
     tier: "Tier 3",
     tierBadge: "Pending Approval",
-    status: "Escalated",
+    status: "Awaiting Approval",
     outcome: "Escalated to Finance Officer",
     override: "No",
     timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
@@ -814,7 +816,10 @@ export default function AgentLog() {
                         </td>
                         <td className="p-4 text-right pr-6">
                           {isAwaiting ? (
-                            <Link to="/tier-approval" className="inline-flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-amber-950 text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer shadow-sm">
+                            <Link
+                              to={`/tier-approval?action=${APPROVAL_LINKS[log.id] || "cbsl-report"}`}
+                              className="inline-flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-amber-950 text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer shadow-sm"
+                            >
                               Review & Approve
                             </Link>
                           ) : (

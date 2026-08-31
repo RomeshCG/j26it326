@@ -21,6 +21,7 @@ const PAGE_TITLES = {
   "/hr": "Human Resources",
   "/payroll": "Payroll",
   "/agent-log": "Agent Activity Log",
+  "/graduated-trust": "Graduated Trust",
   "/tier-approval": "Tier Approvals",
   "/settings": "Settings",
   "/finance-manager": "Finance Dashboard",

@@ -23,6 +23,7 @@ import HRManagement from "@/components/c4/hr-management"
 import ExecutiveDashboard from "@/components/c4/executive-dashboard"
 import DashboardLayout from "@/components/c4/DashboardLayout"
 import AgentLog from "@/components/c4/agent-log"
+import GraduatedTrust from "@/components/c4/graduated-trust"
 import TierApproval from "@/components/c4/tier-approval"
 import Settings from "@/components/c4/settings"
 import FinanceManagerDashboard from "@/components/c2/FinanceManagerDashboard"
@@ -110,6 +111,7 @@ function App() {
             <Route path="/hr" element={<HRManagement />} />
             <Route path="/payroll" element={<Payroll />} />
             <Route path="/agent-log" element={<AgentLog />} />
+            <Route path="/graduated-trust" element={<GraduatedTrust />} />
             <Route path="/tier-approval" element={<TierApproval />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/finance-manager" element={<FinanceManagerDashboard />} />

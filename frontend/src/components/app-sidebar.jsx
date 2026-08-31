@@ -79,6 +79,12 @@ const WORKSPACE_NAV = [
     roles: ["Institution Admin"],
   },
   {
+    title: "Graduated Trust",
+    url: "/graduated-trust",
+    icon: <ShieldCheckIcon />,
+    roles: ["Institution Admin", "Finance Officer"],
+  },
+  {
     title: "Tier Approvals",
     url: "/tier-approval",
     icon: <CheckCircleIcon />,
@@ -154,7 +160,7 @@ export function AppSidebar({ ...props }) {
   const location = useLocation()
   const currentUser = useStore((state) => state.currentUser)
   const institution = useStore((state) => state.institution)
-  const [tierCount, setTierCount] = React.useState(3)
+  const [tierCount, setTierCount] = React.useState(2)
 
   const isLoanOfficerArea = location.pathname.startsWith("/loan-officer")
   const role = currentUser?.role || "Institution Admin"

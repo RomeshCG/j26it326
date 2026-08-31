@@ -138,7 +138,7 @@ export default function AgentPanel() {
       } else if (q.includes("leave")) {
         responseText = "Currently 1 staff member is on leave. There are 2 pending leave requests awaiting HR approval. Annual leave utilisation this month is 12% across all staff."
       } else if (q.includes("agent") || q.includes("tier")) {
-        responseText = "There are currently 3 Tier 3 actions awaiting approval. Agent 3 has been the most active today with 4 anomaly detections. No human overrides have occurred in the past 7 days."
+        responseText = "There are currently 2 Tier 3 actions awaiting approval. Agent 3 has been the most active today with 4 anomaly detections. No human overrides have occurred in the past 7 days."
       } else if (q.includes("staff") || q.includes("headcount")) {
         responseText = "Total active staff: 10 across 3 branches. Colombo branch has the most staff with 4 members. There are 2 vacant positions currently open."
       } else if (q.includes("branch")) {

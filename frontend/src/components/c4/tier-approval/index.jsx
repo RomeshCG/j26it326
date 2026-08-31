@@ -1,122 +1,107 @@
 import React, { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { 
-  CheckCircle, AlertTriangle, X, ShieldAlert, ChevronRight,
-  FileText, Clock, AlertCircle, Info, Database,
-  CheckSquare, Square, Activity
+  CheckCircle, AlertTriangle, X, ChevronRight,
+  Clock, Info,
+  CheckSquare, Square, Activity, Shield
 } from "lucide-react"
 
-// --- DUMMY DATA ---
-const INITIAL_PENDING = [
-  {
-    id: 1,
-    agent: "A1",
-    agentName: "Agent 1 — Compliance",
-    agentColor: "bg-purple-500",
-    title: "Central Bank Monthly Report — November 2024",
-    timeWaiting: "waiting 2 hours",
-    preparedTime: "09:14 AM",
-    approveConsequence: "Approving this will submit the November 2024 regulatory report to the Central Bank of Sri Lanka reporting portal and mark it as filed in MicroFlow.",
-    rejectConsequence: "Rejecting this will discard the prepared report. Agent 1 will not recompile until next month end.",
-    type: "report",
-    data: [
-      { field: "Reporting Period", value: "November 2024" },
-      { field: "Total Loan Portfolio", value: "LKR 48,340,000" },
-      { field: "Number of Active Borrowers", value: "1,247" },
-      { field: "PAR30", value: "4.2%" },
-      { field: "PAR90", value: "1.8%" },
-      { field: "New Loans Disbursed", value: "87" },
-      { field: "Total Disbursements", value: "LKR 6,750,000" },
-      { field: "Write-offs", value: "LKR 0" },
-      { field: "Operational Self-Sufficiency", value: "112.4%" }
-    ],
-    timeline: [
-      { step: "Month-end trigger detected", time: "December 1, 2024 at 00:01 AM" },
-      { step: "Transaction data pulled from Finance module — 2,847 records processed", time: "00:02 AM" },
-      { step: "Loan portfolio data pulled from C3 — 1,247 active loans", time: "00:03 AM" },
-      { step: "CBSL report template loaded — Version 4.2 (current)", time: "00:03 AM" },
-      { step: "Data mapped to template fields — 23 fields populated automatically", time: "00:05 AM" },
-      { step: "Validation checks passed — 0 errors, 0 warnings", time: "00:06 AM" },
-      { step: "Report compiled and queued for human approval — awaiting review", time: "00:06 AM" }
-    ],
-    risk: {
-      accuracy: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "All figures cross-validated against source transactions" },
-      compliance: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "Report format matches current CBSL template v4.2" },
-      timing: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "Report is within the 5-day submission window" },
-      override: { level: "None", color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border", desc: "This action type has never been overridden previously" },
-      overall: { level: "Low Risk — safe to approve", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" }
-    }
-  },
-  {
-    id: 2,
-    agent: "A3",
-    agentName: "Agent 3 — Anomaly",
-    agentColor: "bg-red-500",
-    title: "Unusual Transaction Escalation — Ampara Branch",
-    timeWaiting: "waiting 5 hours",
-    preparedTime: "06:22 AM",
-    approveConsequence: "Approving this will freeze the associated borrower account and notify the Branch Manager for manual investigation.",
-    rejectConsequence: "Rejecting this will clear the anomaly alert and allow the transaction to proceed normally.",
-    type: "escalation",
-    data: [
-      { field: "Transaction ID", value: "TXN-99824" },
-      { field: "Branch", value: "Ampara" },
-      { field: "Amount", value: "LKR 485,000" },
-      { field: "Time", value: "11:47 PM" },
-      { field: "Flag Reason", value: "Outside normal operating hours & 300% above average" }
-    ],
-    timeline: [
-      { step: "Transaction received in stream", time: "11:47 PM" },
-      { step: "Baseline deviation detected (>300%)", time: "11:47 PM" },
-      { step: "Time-of-day rule triggered (Outside 06:00-20:00)", time: "11:47 PM" },
-      { step: "Risk score calculated (92/100)", time: "11:48 PM" },
-      { step: "Escalated to Tier 3 human review due to high risk", time: "11:48 PM" }
-    ],
-    risk: {
-      accuracy: { level: "High", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20", desc: "Transaction pattern severely deviates from historical baseline" },
-      compliance: { level: "Medium", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", desc: "Potential AML flag requires manual KYC review" },
-      timing: { level: "High", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20", desc: "Immediate action recommended to prevent fund extraction" },
-      override: { level: "Rare", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", desc: "Similar alerts have been overridden 5% of the time" },
-      overall: { level: "High Risk — requires manual investigation", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" }
-    }
-  },
-  {
-    id: 3,
-    agent: "A1",
-    agentName: "Agent 1 — Compliance",
-    agentColor: "bg-purple-500",
-    title: "EPF/ETF Compliance Report",
-    timeWaiting: "waiting 1 day",
-    preparedTime: "Yesterday 08:30 AM",
-    approveConsequence: "Approving this will dispatch the EPF/ETF returns to the Department of Labour.",
-    rejectConsequence: "Rejecting this will discard the report and notify HR.",
-    type: "report",
-    data: [
-      { field: "Reporting Month", value: "November 2024" },
-      { field: "Total EPF (Employee)", value: "LKR 185,000" },
-      { field: "Total EPF (Employer)", value: "LKR 277,500" },
-      { field: "Total ETF", value: "LKR 69,375" },
-      { field: "Total Remittance", value: "LKR 531,875" }
-    ],
-    timeline: [
-      { step: "Payroll finalisation event detected", time: "Yesterday 08:25 AM" },
-      { step: "EPF/ETF totals aggregated from HR module", time: "Yesterday 08:27 AM" },
-      { step: "Dept of Labour Form C template populated", time: "Yesterday 08:29 AM" },
-      { step: "Queued for human approval", time: "Yesterday 08:30 AM" }
-    ],
-    risk: {
-      accuracy: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "Figures match finalized payroll run" },
-      compliance: { level: "Low", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20", desc: "Standard statutory formatting applied" },
-      timing: { level: "Medium", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", desc: "Due in 3 days. Action needed soon." },
-      override: { level: "None", color: "text-muted-foreground", bg: "bg-muted/50", border: "border-border", desc: "Never overridden" },
-      overall: { level: "Low Risk — safe to approve", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" }
-    }
-  }
-]
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+
+import { INITIAL_PENDING_APPROVALS } from "@/components/c4/graduated-trust/mock-data"
+
+function ApprovalSummaryCard({ item, onApprove, onReject, hasReviewed, onToggleReviewed }) {
+  return (
+    <Card className="rounded-xl border border-amber-500/30 bg-card shadow-sm">
+      <CardHeader className="border-b border-border/50 pb-4">
+        <CardDescription className="text-xs uppercase tracking-wide">
+          Agent wants to {item.summaryAction.toLowerCase()}
+        </CardDescription>
+        <CardTitle className="text-lg font-semibold">{item.title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-5">
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Action</dt>
+            <dd className="mt-1 font-medium">{item.summaryAction}</dd>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tier</dt>
+            <dd className="mt-1">
+              <Badge className="bg-amber-500 text-amber-950">Tier {item.tier}</Badge>
+            </dd>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3 sm:col-span-2">
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Reason</dt>
+            <dd className="mt-1 leading-relaxed">{item.reason}</dd>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Confidence</dt>
+            <dd className="mt-1 text-lg font-semibold tabular-nums">{item.confidence}%</dd>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Prepared by</dt>
+            <dd className="mt-1 font-medium">{item.preparedBy}</dd>
+          </div>
+        </dl>
+
+        <div className="flex items-start gap-3 rounded-lg border bg-muted/20 p-3">
+          <button
+            type="button"
+            className="mt-0.5 cursor-pointer text-foreground"
+            onClick={onToggleReviewed}
+          >
+            {hasReviewed ? (
+              <CheckSquare size={20} className="text-primary" />
+            ) : (
+              <Square size={20} className="text-muted-foreground" />
+            )}
+          </button>
+          <button
+            type="button"
+            className="cursor-pointer text-left text-sm"
+            onClick={onToggleReviewed}
+          >
+            <span className="font-medium">I have reviewed this agent action.</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Required before approval can be granted.
+            </span>
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <Button
+            className="cursor-pointer"
+            disabled={!hasReviewed}
+            onClick={onApprove}
+          >
+            Approve
+          </Button>
+          <Button variant="outline" className="cursor-pointer" onClick={onReject}>
+            Reject
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function TierApproval() {
-  const [queue, setQueue] = useState(INITIAL_PENDING)
-  const [selectedId, setSelectedId] = useState(INITIAL_PENDING[0]?.id || null)
+  const [searchParams] = useSearchParams()
+  const actionParam = searchParams.get("action")
+
+  const [queue, setQueue] = useState(INITIAL_PENDING_APPROVALS)
+  const [selectedId, setSelectedId] = useState(
+    INITIAL_PENDING_APPROVALS[0]?.id || null
+  )
   
   const [hasReviewed, setHasReviewed] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
@@ -127,7 +112,13 @@ export default function TierApproval() {
   
   const [actionState, setActionState] = useState({ type: null, message: null }) // 'success' | 'rejected'
 
-  const selectedItem = queue.find(item => item.id === selectedId)
+  const selectedItem = queue.find((item) => item.id === selectedId)
+
+  useEffect(() => {
+    if (actionParam && queue.some((item) => item.id === actionParam)) {
+      setSelectedId(actionParam)
+    }
+  }, [actionParam, queue])
 
   // Sync count to localstorage for prototype dashboard badge
   useEffect(() => {
@@ -206,25 +197,32 @@ export default function TierApproval() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background text-foreground font-sans">
-      
-      {/* Header */}
-      <header className="px-8 py-6 bg-background shrink-0 border-b border-border">
-        <div className="flex items-center text-xs text-muted-foreground mb-3">
-          <Link to="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
-          <ChevronRight size={12} className="mx-2" />
-          <Link to="/agent-log" className="hover:text-foreground transition-colors">Agent Activity Log</Link>
-          <ChevronRight size={12} className="mx-2" />
-          <span className="text-amber-400">Tier Approval</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">Tier 3 Action — Awaiting Your Approval</h1>
-          <div className="border border-amber-500 text-amber-500 px-3 py-1 text-xs font-bold flex items-center gap-1.5 rounded-full bg-amber-500/10">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-            Tier 3 — Pending Approval
+    <div className="flex min-h-full flex-1 flex-col bg-background text-foreground">
+      <header className="shrink-0 border-b border-border px-4 py-6 sm:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Link to="/graduated-trust" className="transition-colors hover:text-foreground">
+              Graduated Trust
+            </Link>
+            <ChevronRight size={12} />
+            <Link to="/agent-log" className="transition-colors hover:text-foreground">
+              Agent Activity Log
+            </Link>
+            <ChevronRight size={12} />
+            <span className="text-amber-600 dark:text-amber-400">Tier Approval</span>
           </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Tier 3 — Human approval required
+            </h1>
+            <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400">
+              {queue.length} pending
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            An AI agent has prepared the following action. Review the summary, then expand into full context before approving or rejecting.
+          </p>
         </div>
-        <p className="text-muted-foreground mt-2 text-sm">An AI agent has prepared the following action. Review the full context before approving or rejecting.</p>
       </header>
 
       {/* Main Layout */}
@@ -304,8 +302,21 @@ export default function TierApproval() {
               )}
             </div>
           ) : (
-            <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in duration-300 pb-20">
+            <div className="mx-auto max-w-4xl space-y-8 animate-in fade-in duration-300 pb-20">
               
+              <ApprovalSummaryCard
+                item={selectedItem}
+                hasReviewed={hasReviewed}
+                onToggleReviewed={() => setHasReviewed(!hasReviewed)}
+                onApprove={() => setShowApproveConfirm(true)}
+                onReject={() => setShowRejectModal(true)}
+              />
+
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Shield size={16} />
+                Full review context
+              </div>
+
               {/* Section 1: Summary Card */}
               <div className="bg-card border border-border border-l-[3px] border-l-amber-500 p-8 shadow-sm rounded-xl">
                 <div className="flex items-center gap-4 mb-6">
@@ -385,11 +396,15 @@ export default function TierApproval() {
                     <div className="text-muted-foreground text-[11px] uppercase tracking-wider">Records Processed</div>
                   </div>
                   <div className="flex-1 px-4">
-                    <div className="text-green-500 font-mono text-lg mb-1">0</div>
-                    <div className="text-muted-foreground text-[11px] uppercase tracking-wider">Validation Errors</div>
+                    <div className="text-amber-600 dark:text-amber-400 font-mono text-lg mb-1">
+                      {selectedItem.id === "cbsl-report" ? "2" : "0"}
+                    </div>
+                    <div className="text-muted-foreground text-[11px] uppercase tracking-wider">
+                      {selectedItem.id === "cbsl-report" ? "Branch Gaps" : "Validation Errors"}
+                    </div>
                   </div>
                   <div className="flex-1 px-4">
-                    <div className="text-foreground font-mono text-lg mb-1">100%</div>
+                    <div className="text-foreground font-mono text-lg mb-1">{selectedItem.confidence}%</div>
                     <div className="text-muted-foreground text-[11px] uppercase tracking-wider">Data Completeness</div>
                   </div>
                   <div className="flex-1 px-4 last:pr-0">
