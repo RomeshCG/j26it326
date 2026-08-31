@@ -121,7 +121,7 @@ const LOAN_OFFICER_NAV = [
       pathname.startsWith("/loan-officer/applications"),
   },
   {
-    title: "EWS alerts",
+    title: "Early warning",
     url: "/loan-officer/alerts",
     icon: <AlertTriangleIcon />,
     match: (pathname) => pathname.startsWith("/loan-officer/alerts"),

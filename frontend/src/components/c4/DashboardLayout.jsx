@@ -34,7 +34,7 @@ const PAGE_TITLES = {
   "/loan-officer/disbursement": "Disbursement",
   "/loan-officer/collection": "Collection",
   "/loan-officer/overdue": "Overdue Queue",
-  "/loan-officer/alerts": "EWS Alerts",
+  "/loan-officer/alerts": "Early Warning Dashboard",
   "/loan-officer/branch": "Branch Portfolio",
   "/loan-officer/risk-report": "Risk Report",
   "/loan-officer/trust-profile": "My Trust Profile",
@@ -48,7 +48,7 @@ function getPageTitle(pathname) {
     return "Application Profile"
   }
   if (pathname.startsWith("/loan-officer/applications/")) return "Application Profile"
-  if (pathname.startsWith("/loan-officer/alerts/")) return "EWS Alert"
+  if (pathname.startsWith("/loan-officer/alerts/")) return "Temporal Signal Fusion"
   if (pathname.startsWith("/loan-officer/loans/")) return "Loan Detail"
   if (pathname.startsWith("/loan-officer/groups/")) return "Group Lending"
   return "MicroFlow"

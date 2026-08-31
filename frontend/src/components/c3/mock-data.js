@@ -138,6 +138,17 @@ export const ALERTS = {
       aligned: true,
       label: "Both signals declining simultaneously — Compounding Risk",
     },
+    distressTimeline: {
+      paymentDelay: [1, 2, 4, 7, 11],
+      groupAttendance: [95, 91, 82, 70],
+      savingsBehaviour: ["Stable", "Stable", "↓", "↓"],
+    },
+    signalFusion: {
+      paymentVelocity: "HIGH",
+      socialDecay: "HIGH",
+      correlation: "HIGH",
+      status: "EARLY WARNING",
+    },
   },
   "EWS-1038": {
     id: "EWS-1038",
@@ -168,9 +179,19 @@ export const ALERTS = {
       aligned: true,
       label: "Both signals declining simultaneously — Compounding Risk",
     },
+    distressTimeline: {
+      paymentDelay: [2, 5, 11, 18, 34],
+      groupAttendance: [88, 82, 74, 61],
+      savingsBehaviour: ["Stable", "↓", "↓", "↓"],
+    },
+    signalFusion: {
+      paymentVelocity: "HIGH",
+      socialDecay: "HIGH",
+      correlation: "HIGH",
+      status: "EARLY WARNING",
+    },
   },
   "EWS-1045": {
-    id: "EWS-1045",
     loanId: "LN-88077",
     borrower: "Fathima Nizar",
     nic: "198854321V",
@@ -197,6 +218,17 @@ export const ALERTS = {
     correlation: {
       aligned: true,
       label: "Both signals declining simultaneously — Compounding Risk",
+    },
+    distressTimeline: {
+      paymentDelay: [0, 1, 2, 4, 8],
+      groupAttendance: [96, 90, 78, 65],
+      savingsBehaviour: ["Stable", "Stable", "↓", "↓"],
+    },
+    signalFusion: {
+      paymentVelocity: "HIGH",
+      socialDecay: "HIGH",
+      correlation: "HIGH",
+      status: "EARLY WARNING",
     },
   },
 }
@@ -716,6 +748,40 @@ export const BRANCH_LIST = Object.values(BRANCHES)
 
 /** @deprecated use BRANCHES — kept for any leftover imports */
 export const BRANCH_PORTFOLIO = BRANCHES["br-gampaha"]
+
+export const EWS_MONITORING_SUMMARY = {
+  monitored: 127,
+  stable: 10842,
+  watch: 942,
+  highRisk: 127,
+}
+
+export const RISK_TREND_ROWS = [
+  {
+    id: "MFI001",
+    borrower: "Kumari Fernando",
+    alertId: "EWS-1042",
+    trendLevel: 3,
+    signal: "Payment delay",
+    band: "high",
+  },
+  {
+    id: "MFI002",
+    borrower: "Fathima Nizar",
+    alertId: "EWS-1045",
+    trendLevel: 1,
+    signal: "Attendance",
+    band: "watch",
+  },
+  {
+    id: "MFI003",
+    borrower: "Sanduni Wickramasinghe",
+    alertId: "EWS-1038",
+    trendLevel: 3,
+    signal: "Multiple signals",
+    band: "high",
+  },
+]
 
 export const EWS_ALERT_LIST = Object.values(ALERTS).map((alert) => ({
   id: alert.id,
