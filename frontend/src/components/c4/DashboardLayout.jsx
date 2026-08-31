@@ -17,23 +17,34 @@ import {
 
 const PAGE_TITLES = {
   "/dashboard": "Dashboard",
+  "/hr": "Human Resources",
   "/payroll": "Payroll",
   "/agent-log": "Agent Activity Log",
   "/tier-approval": "Tier Approvals",
   "/settings": "Settings",
   "/finance-manager": "Finance Manager Dashboard",
+  "/onboarding": "Setup & Onboarding",
   "/loan-officer": "Loan Officer Dashboard",
   "/loan-officer/application": "Loan Application",
+  "/loan-officer/disbursement": "Disbursement",
   "/loan-officer/collection": "Collection",
+  "/loan-officer/overdue": "Overdue Queue",
+  "/loan-officer/alerts": "EWS Alerts",
+  "/loan-officer/branch": "Branch Portfolio",
+  "/loan-officer/risk-report": "Risk Report",
+  "/loan-officer/trust-profile": "My Trust Profile",
+  "/research/ab-experiment": "A/B Experiment",
 }
 
 function getPageTitle(pathname) {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname]
   if (pathname.startsWith("/loan-officer/alerts/")) return "EWS Alert"
+  if (pathname.startsWith("/loan-officer/loans/")) return "Loan Detail"
+  if (pathname.startsWith("/loan-officer/groups/")) return "Group Lending"
   return "MicroFlow"
 }
 
-export default function DashboardLayout() {
+export default function DashboardLayout({ children }) {
   const location = useLocation()
   const pageTitle = getPageTitle(location.pathname)
 
@@ -59,7 +70,7 @@ export default function DashboardLayout() {
           </div>
         </header>
         <div className="flex flex-1 flex-col overflow-auto bg-background text-foreground">
-          <Outlet />
+          {children || <Outlet />}
         </div>
       </SidebarInset>
     </SidebarProvider>

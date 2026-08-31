@@ -1,20 +1,22 @@
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Building2, ShieldCheck, Clock, Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
+import { useStore } from "@/store"
 
 const DEMO_ACCOUNTS = [
-  { role: "Institution Admin", email: "admin@microflow.lk", password: "demo-password" },
-  { role: "Finance Officer", email: "finance@microflow.lk", password: "demo-password" },
-  { role: "HR Officer", email: "hr@microflow.lk", password: "demo-password" },
-  { role: "Branch Manager", email: "manager@microflow.lk", password: "demo-password" },
+  { role: "Admin", email: "admin@microflow.lk", password: "demo-password" },
+  { role: "Finance", email: "finance@microflow.lk", password: "demo-password" },
+  { role: "HR", email: "hr@microflow.lk", password: "demo-password" },
+  { role: "Manager", email: "manager@microflow.lk", password: "demo-password" },
+  { role: "Loan Officer", email: "loan@microflow.lk", password: "demo-password" },
 ]
 
 export default function Login() {
   const navigate = useNavigate()
+  const loginStore = useStore((state) => state.login)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [demoOpen, setDemoOpen] = useState(false)
 
   // Auto-detect role for prototype
   const detectedRole = React.useMemo(() => {
@@ -31,33 +33,48 @@ export default function Login() {
 
   const handleLogin = (e) => {
     e.preventDefault()
-    // Mock login logic
-    const role = detectedRole || "Institution Admin" // fallback
+    const role = detectedRole || "Institution Admin"
     localStorage.setItem("mf_auth_role", role)
     localStorage.setItem("mf_auth_token", "fake-jwt-token")
     
-    // Redirect based on role
+    // Set user in Zustand store
+    const nameMap = {
+      "Institution Admin": { first: "Jane", last: "Smith" },
+      "Finance Officer": { first: "Saman", last: "Kumara" },
+      "HR Officer": { first: "Ruwanthi", last: "de Silva" },
+      "Branch Manager": { first: "Nimal", last: "Silva" },
+      "Loan Officer": { first: "Nuwan", last: "Jayasuriya" },
+      "Field Officer": { first: "Dinesh", last: "Ranatunga" }
+    }
+    const names = nameMap[role] || { first: "Demo", last: "User" }
+    
+    loginStore({
+      firstName: names.first,
+      lastName: names.last,
+      email: email || "demo@microflow.lk",
+      phone: "+94 77 123 4567",
+      role: role,
+      memberSince: "Jan 2024",
+      language: "English"
+    })
+    
     switch (role) {
-      case "Institution Admin":
-        // For demo, if admin, we can go to onboarding or dashboard. 
-        // Let's assume onboarding for first-time setup or dashboard. We'll go to dashboard by default.
-        navigate("/dashboard")
-        break
-      case "Finance Officer":
-        navigate("/dashboard") // or /finance
+      case "Loan Officer":
+      case "Field Officer":
+        navigate("/loan-officer")
         break
       case "HR Officer":
         navigate("/payroll")
         break
+      case "Institution Admin":
+        if (!useStore.getState().onboardingComplete) {
+          navigate("/onboarding")
+        } else {
+          navigate("/dashboard")
+        }
+        break
+      case "Finance Officer":
       case "Branch Manager":
-        navigate("/dashboard") // or /branch-summary
-        break
-      case "Loan Officer":
-        navigate("/dashboard") // or /loan-officer
-        break
-      case "Field Officer":
-        navigate("/dashboard") // or /collection
-        break
       default:
         navigate("/dashboard")
     }
@@ -69,95 +86,52 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-card border-r border-border">
-        <div>
-          <div className="flex items-center gap-3 text-foreground mb-20">
-            <div className="w-8 h-8 rounded bg-blue-500 flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-white rounded-sm"></div>
-            </div>
-            <span className="text-xl font-bold tracking-tight">MicroFlow</span>
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-6 md:p-8 select-none relative font-sans">
+      {/* Subtle Background Accent */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_0%,var(--color-blue-500)/0.03,transparent_100%)] pointer-events-none" />
+
+      {/* Header Info */}
+      <div className="flex items-center justify-between z-10">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/10">
+            <div className="w-3 h-3 border-2 border-white rounded-xs transform rotate-45"></div>
           </div>
-
-          <div className="max-w-md">
-            <h1 className="text-4xl font-bold text-foreground mb-4">Intelligent ERP for Microfinance.</h1>
-            <p className="text-xl text-muted-foreground mb-12">Built for Sri Lankan MFIs. Powered by agentic AI.</p>
-
-            <div className="space-y-6">
-              <div className="flex items-start gap-4">
-                <div className="mt-1 bg-muted/50 p-2 rounded-lg text-blue-400">
-                  <ShieldCheck size={20} />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground">AI agents that work while you sleep</h3>
-                  <p className="text-sm text-muted-foreground">Automate approvals, reconciliation, and compliance reporting.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="mt-1 bg-muted/50 p-2 rounded-lg text-blue-400">
-                  <Building2 size={20} />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground">Central Bank reporting — automated</h3>
-                  <p className="text-sm text-muted-foreground">Generate CBSL-compliant reports instantly without manual Excel work.</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="mt-1 bg-muted/50 p-2 rounded-lg text-blue-400">
-                  <Clock size={20} />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground">60-minute setup. No IT team needed.</h3>
-                  <p className="text-sm text-muted-foreground">Self-serve onboarding wizard gets your institution running today.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="text-sm text-muted-foreground font-medium">
-          Trusted by licensed microfinance institutions across Sri Lanka.
+          <span className="text-sm font-bold tracking-tight text-foreground">MicroFlow</span>
         </div>
       </div>
 
-      {/* Right Panel - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md bg-muted border border-border rounded-2xl p-8 shadow-2xl">
-          <div className="flex items-center gap-3 text-foreground mb-8 lg:hidden">
-            <div className="w-6 h-6 rounded bg-blue-500 flex items-center justify-center">
-              <div className="w-3 h-3 border-2 border-white rounded-sm"></div>
-            </div>
-            <span className="text-lg font-bold tracking-tight">MicroFlow</span>
+      {/* Main Container */}
+      <div className="w-full max-w-[400px] mx-auto my-auto z-10">
+        <div className="border border-border bg-card p-6 md:p-8 rounded-2xl shadow-sm relative">
+          <div className="mb-6 space-y-1.5">
+            <div className="text-[10px] text-muted-foreground tracking-wider uppercase font-bold">Security Gate</div>
+            <h2 className="text-lg font-bold text-foreground tracking-tight">Authorization Required</h2>
+            <p className="text-xs text-muted-foreground">Enter your credentials to access the institution workspace.</p>
           </div>
 
-          <h2 className="text-2xl font-bold text-foreground mb-2">Sign in to your institution</h2>
-          <p className="text-muted-foreground text-sm mb-8">Enter your credentials to access your workspace.</p>
-
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2 relative">
-              <label className="text-sm font-medium text-foreground/80">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full bg-background border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors"
-                placeholder="name@institution.lk"
-              />
-              {detectedRole && (
-                <div className="absolute right-3 top-9 px-2 py-1 bg-blue-500/10 text-blue-400 text-xs font-medium rounded border border-blue-500/20">
-                  {detectedRole}
-                </div>
-              )}
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Identity / Email</label>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-10 w-full bg-background border border-border rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all"
+                  placeholder="operator@microflow.lk"
+                />
+                {detectedRole && (
+                  <div className="absolute right-3 top-2 px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] font-bold rounded border border-blue-500/25">
+                    {detectedRole}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-foreground/80">Password</label>
-                <button type="button" className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
-                  Forgot password?
-                </button>
+                <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Access Key</label>
               </div>
               <div className="relative">
                 <input
@@ -165,7 +139,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full bg-background border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors"
+                  className="h-10 w-full bg-background border border-border rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all"
                   placeholder="••••••••"
                 />
                 <button
@@ -173,64 +147,59 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mt-2">
-              <input
-                type="checkbox"
-                id="remember"
-                className="w-4 h-4 rounded border-border bg-background text-blue-500 focus:ring-blue-500 focus:ring-offset-background"
-              />
-              <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
-                Remember me for 30 days
-              </label>
-            </div>
-
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-lg transition-colors mt-2 cursor-pointer"
+              className="h-10 w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-xs transition-all hover:shadow-lg hover:shadow-blue-500/10 cursor-pointer tracking-wider uppercase font-bold"
             >
-              Sign In
+              Authenticate
             </button>
           </form>
 
-          {/* Demo Accounts Panel */}
-          <div className="mt-8 pt-6 border-t border-border">
-            <button
-              onClick={() => setDemoOpen(!demoOpen)}
-              className="w-full text-left text-sm text-muted-foreground hover:text-foreground font-medium flex items-center justify-between cursor-pointer"
-            >
-              <span>Demo accounts — click to fill</span>
-              <span className={`transform transition-transform ${demoOpen ? "rotate-180" : ""}`}>▼</span>
-            </button>
-            
-            {demoOpen && (
-              <div className="mt-4 space-y-2 animate-in slide-in-from-top-2 opacity-100">
-                {DEMO_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.role}
-                    onClick={() => fillDemo(acc)}
-                    className="w-full flex items-center justify-between px-4 py-2 bg-background hover:bg-muted border border-border rounded-lg text-left transition-colors group cursor-pointer"
-                  >
-                    <div>
-                      <div className="text-sm font-medium text-foreground group-hover:text-blue-400 transition-colors">{acc.role}</div>
-                      <div className="text-xs text-muted-foreground">{acc.email}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-8 text-center text-sm text-muted-foreground">
+          <div className="mt-4 text-center text-xs text-muted-foreground">
             New institution?{" "}
-            <button onClick={() => navigate("/signup")} className="text-blue-400 hover:text-blue-300 font-medium transition-colors cursor-pointer">
+            <button
+              type="button"
+              onClick={() => navigate("/signup")}
+              className="text-blue-600 hover:underline font-semibold cursor-pointer"
+            >
               Register here
             </button>
           </div>
+
+          {/* Quick Demo Autofills */}
+          <div className="mt-6 pt-5 border-t border-border space-y-2">
+            <div className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold">Simulated Profiles</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {DEMO_ACCOUNTS.map((acc) => (
+                <button
+                  key={acc.role}
+                  type="button"
+                  onClick={() => fillDemo(acc)}
+                  className="px-2.5 py-2 text-[10px] font-medium border border-border bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg text-left transition-colors cursor-pointer flex justify-between items-center"
+                >
+                  <span>{acc.role}</span>
+                  <span className="text-muted-foreground">→</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Info */}
+      <div className="flex flex-col sm:flex-row items-center justify-between text-[9px] text-muted-foreground gap-2 border-t border-border pt-4 z-10 font-medium uppercase tracking-wider">
+        <div>
+          <span>Secure ERP - Environment: Production</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span>ENC: AES-256</span>
+          <span className="hidden sm:inline">•</span>
+          <span>Compliance: CBSL / CBSL-MFI-R4</span>
         </div>
       </div>
     </div>
