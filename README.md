@@ -125,12 +125,8 @@ Suggested viva paths:
 
 ## Notes
 
-- Prototype data is mostly **mock / localStorage** for demonstration and viva.
+- Current frontend demo data uses **mock / localStorage**; backend and live integrations can replace this over time.
 - Theme supports light and dark mode via the header toggle.
 - Role-based sidebar navigation changes after login.
 
----
 
-## Licence / academic use
-
-Internal academic research prototype for SLIIT group **j26it326**. Not intended for production deployment without further hardening, real data integration, and security review.
