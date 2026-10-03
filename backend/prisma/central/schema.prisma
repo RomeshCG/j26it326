@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/central-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("CENTRAL_DATABASE_URL")
+}
+
+model Institution {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  licenseNumber String?  @map("license_number")
+  status        String   @default("trial") // active | suspended | trial
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  databases      InstitutionDatabase[]
+  subscriptions  Subscription[]
+  configurations SystemConfiguration[]
+  users          User[]
+
+  @@map("institutions")
+}
+
+model InstitutionDatabase {
+  id           String   @id @default(uuid()) @db.Uuid
+  institutionId String  @map("institution_id") @db.Uuid
+  dbIdentifier String   @map("db_identifier") // logical alias used by the app
+  dbHost       String   @map("db_host")
+  dbPort       Int      @default(5432) @map("db_port")
+  dbName       String   @map("db_name")
+  /// Full Neon connection string for this tenant (preferred for runtime routing)
+  connectionUrl String? @map("connection_url")
+  status       String   @default("provisioning") // provisioning | active | migrating | archived
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@unique([dbIdentifier])
+  @@index([institutionId])
+  @@map("institution_databases")
+}
+
+model Subscription {
+  id           String    @id @default(uuid()) @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  planName     String    @map("plan_name") // Starter | Standard | Professional | Enterprise
+  status       String    @default("active") // active | past_due | cancelled
+  billingCycle String    @map("billing_cycle") // monthly | annual
+  startDate    DateTime  @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@index([institutionId])
+  @@map("subscriptions")
+}
+
+model SystemConfiguration {
+  id            String   @id @default(uuid()) @db.Uuid
+  institutionId String?  @map("institution_id") @db.Uuid // null = global
+  configKey     String   @map("config_key")
+  configValue   Json     @map("config_value")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  institution Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@unique([institutionId, configKey])
+  @@map("system_configurations")
+}
+
+model Role {
+  id   Int    @id @default(autoincrement())
+  name String @unique // loan_officer | branch_manager | finance_officer | hr_officer | admin | executive
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  institutionId  String   @map("institution_id") @db.Uuid
+  roleId         Int      @map("role_id")
+  fullName       String   @map("full_name")
+  email          String   @unique
+  passwordHash   String   @map("password_hash")
+  status         String   @default("active") // active | disabled
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  role        Role        @relation(fields: [roleId], references: [id])
+  loginAudits LoginAudit[]
+
+  @@index([institutionId])
+  @@map("users")
+}
+
+model LoginAudit {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  event     String // login_success | login_failed | password_reset | ...
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("login_audit")
+}

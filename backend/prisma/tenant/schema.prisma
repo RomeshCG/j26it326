@@ -1,0 +1,681 @@
+// IMFS — TENANT database (one physical Neon DB PER institution/MFI)
+// Same schema is provisioned for every tenant. Soft refs to central.users
+// are UUID columns without Prisma relations (cross-database).
+
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/tenant-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TENANT_DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// M4 — Tenant self-reference, branches, HR, agents, audit
+// ---------------------------------------------------------------------------
+
+model TenantInfo {
+  id              Int      @id // always 1
+  institutionId   String   @map("institution_id") @db.Uuid // soft ref -> central.institutions.id
+  institutionName String   @map("institution_name")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("tenant_info")
+}
+
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  location  String?
+  district  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  employees              Employee[]
+  userBranchAssignments  UserBranchAssignment[]
+  borrowers              Borrower[]
+  lendingGroups          LendingGroup[]
+  loanApplications       LoanApplication[]
+  ewsAlerts              EwsAlert[]
+
+  @@map("branches")
+}
+
+model Employee {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @unique @map("user_id") @db.Uuid // soft ref -> central.users.id
+  branchId         String    @map("branch_id") @db.Uuid
+  position         String?
+  employmentStatus String    @default("active") @map("employment_status") // active | on_leave | terminated
+  epfNumber        String?   @map("epf_number")
+  etfNumber        String?   @map("etf_number")
+  joinedAt         DateTime? @map("joined_at") @db.Date
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  branch         Branch          @relation(fields: [branchId], references: [id])
+  payrollRecords PayrollRecord[]
+
+  @@index([branchId])
+  @@map("employees")
+}
+
+model UserBranchAssignment {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid // soft ref -> central.users.id
+  branchId  String   @map("branch_id") @db.Uuid
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, branchId])
+  @@index([userId])
+  @@map("user_branch_assignments")
+}
+
+model PayrollRecord {
+  id             String   @id @default(uuid()) @db.Uuid
+  employeeId     String   @map("employee_id") @db.Uuid
+  period         DateTime @db.Date
+  grossPay       Decimal  @map("gross_pay") @db.Decimal(14, 2)
+  epfAmount      Decimal  @map("epf_amount") @db.Decimal(14, 2)
+  etfAmount      Decimal  @map("etf_amount") @db.Decimal(14, 2)
+  netPay         Decimal  @map("net_pay") @db.Decimal(14, 2)
+  postedToLedger Boolean  @default(false) @map("posted_to_ledger")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("payroll_records")
+}
+
+model AgentTierPolicy {
+  id          String   @id @default(uuid()) @db.Uuid
+  actionType  String   @unique @map("action_type")
+  agentName   String   @map("agent_name")
+  tier        Int      @db.SmallInt // 1-4
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  actions AgentAction[]
+
+  @@map("agent_tier_policies")
+}
+
+model AgentAction {
+  id            String    @id @default(uuid()) @db.Uuid
+  policyId      String?   @map("policy_id") @db.Uuid
+  agentName     String    @map("agent_name")
+  tier          Int       @db.SmallInt
+  action        String
+  reason        String?
+  confidence    Decimal?  @db.Decimal(5, 2)
+  inputPayload  Json?     @map("input_payload")
+  outputPayload Json?     @map("output_payload")
+  status        String // pending_approval | approved | rejected | executed | notified | alert_only
+  approvedBy    String?   @map("approved_by") @db.Uuid // soft ref -> central.users.id
+  decidedAt     DateTime? @map("decided_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  policy AgentTierPolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([tier])
+  @@map("agent_actions")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorType String   @map("actor_type") // user | agent
+  actorId   String?  @map("actor_id") @db.Uuid
+  action    String
+  resource  String?
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// M1 — Credit risk
+// ---------------------------------------------------------------------------
+
+model RiskAssessment {
+  id                 String   @id @default(uuid()) @db.Uuid
+  /// Soft/API-set link to loan_applications.id (single direction — do not mirror on applications)
+  loanApplicationId  String   @map("loan_application_id") @db.Uuid
+  riskScore          Decimal  @map("risk_score") @db.Decimal(8, 4)
+  classification     String // low | medium | high
+  recommendation     String? // approve | review | reject
+  modelVersion       String?  @map("model_version")
+  explanationPayload Json?    @map("explanation_payload")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  shapExplanations ShapExplanation[]
+  shapInteractions ShapInteraction[]
+
+  @@index([loanApplicationId])
+  @@map("risk_assessments")
+}
+
+model ShapExplanation {
+  id               String  @id @default(uuid()) @db.Uuid
+  riskAssessmentId String  @map("risk_assessment_id") @db.Uuid
+  featureName      String  @map("feature_name")
+  contribution     Decimal @db.Decimal(12, 6)
+  direction        String // increases_risk | reduces_risk
+
+  riskAssessment RiskAssessment @relation(fields: [riskAssessmentId], references: [id], onDelete: Cascade)
+
+  @@index([riskAssessmentId])
+  @@map("shap_explanations")
+}
+
+model ShapInteraction {
+  id               String  @id @default(uuid()) @db.Uuid
+  riskAssessmentId String  @map("risk_assessment_id") @db.Uuid
+  featureA         String  @map("feature_a")
+  featureB         String  @map("feature_b")
+  interactionType  String  @map("interaction_type")
+  interactionValue Decimal @map("interaction_value") @db.Decimal(12, 6)
+
+  riskAssessment RiskAssessment @relation(fields: [riskAssessmentId], references: [id], onDelete: Cascade)
+
+  @@index([riskAssessmentId])
+  @@map("shap_interactions")
+}
+
+model RelianceProfile {
+  id                       String   @id @default(uuid()) @db.Uuid
+  userId                   String   @unique @map("user_id") @db.Uuid // soft ref -> central.users.id
+  preferredExplanationMode String?  @map("preferred_explanation_mode")
+  correctFollowCount       Int      @default(0) @map("correct_follow_count")
+  incorrectFollowCount     Int      @default(0) @map("incorrect_follow_count")
+  overrideCount            Int      @default(0) @map("override_count")
+  calibrationStatus        String   @default("calibrated") @map("calibration_status")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@map("reliance_profiles")
+}
+
+model DecisionLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid // soft ref -> central.users.id
+  contextType      String   @map("context_type")
+  referenceId      String   @map("reference_id") @db.Uuid
+  aiRecommendation String?  @map("ai_recommendation")
+  humanDecision    String?  @map("human_decision")
+  explanationMode  String?  @map("explanation_mode")
+  reasoning        String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([contextType, referenceId])
+  @@map("decision_log")
+}
+
+// ---------------------------------------------------------------------------
+// M3 — Products, borrowers, loans, collections, EWS
+// ---------------------------------------------------------------------------
+
+model LoanProduct {
+  id                   String   @id @default(uuid()) @db.Uuid
+  code                 String   @unique
+  name                 String
+  productCategory      String   @map("product_category")
+  defaultInterestRate  Decimal  @map("default_interest_rate") @db.Decimal(8, 4)
+  minAmount            Decimal  @map("min_amount") @db.Decimal(14, 2)
+  maxAmount            Decimal  @map("max_amount") @db.Decimal(14, 2)
+  minTermMonths        Int      @map("min_term_months")
+  maxTermMonths        Int      @map("max_term_months")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  applications LoanApplication[]
+  loans        Loan[]
+
+  @@map("loan_products")
+}
+
+model Borrower {
+  id                String    @id @default(uuid()) @db.Uuid
+  branchId          String    @map("branch_id") @db.Uuid
+  fullName          String    @map("full_name")
+  nicNumber         String    @unique @map("nic_number")
+  contactNumber     String?   @map("contact_number")
+  gender            String?
+  dateOfBirth       DateTime? @map("date_of_birth") @db.Date
+  addressLine       String?   @map("address_line")
+  district          String?
+  localityType      String?   @map("locality_type") // rural | urban | estate
+  monthlyIncome     Decimal?  @map("monthly_income") @db.Decimal(14, 2)
+  incomeBand        String?   @map("income_band")
+  occupation        String?
+  householdSize     Int?      @map("household_size")
+  isNewToBanking    Boolean?  @map("is_new_to_banking")
+  povertyProxyScore Decimal?  @map("poverty_proxy_score") @db.Decimal(8, 4)
+  kycStatus         String    @default("pending") @map("kyc_status")
+  status            String    @default("active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  branch              Branch              @relation(fields: [branchId], references: [id])
+  documents           BorrowerDocument[]
+  ledGroups           LendingGroup[]      @relation("GroupLeader")
+  memberships         GroupMember[]
+  applications        LoanApplication[]
+  loans               Loan[]
+  ewsSignals          EwsSignal[]
+  ewsScores           EwsScore[]
+
+  @@index([branchId])
+  @@map("borrowers")
+}
+
+model BorrowerDocument {
+  id           String   @id @default(uuid()) @db.Uuid
+  borrowerId   String   @map("borrower_id") @db.Uuid
+  documentType String   @map("document_type")
+  fileUrl      String   @map("file_url")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  borrower Borrower @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+
+  @@index([borrowerId])
+  @@map("borrower_documents")
+}
+
+model LendingGroup {
+  id               String   @id @default(uuid()) @db.Uuid
+  branchId         String   @map("branch_id") @db.Uuid
+  groupName        String   @map("group_name")
+  leaderBorrowerId String?  @map("leader_borrower_id") @db.Uuid
+  status           String   @default("forming")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  branch            Branch                @relation(fields: [branchId], references: [id])
+  leaderBorrower    Borrower?             @relation("GroupLeader", fields: [leaderBorrowerId], references: [id])
+  members           GroupMember[]
+  applications      LoanApplication[]
+  loans             Loan[]
+  ewsSignals        EwsSignal[]
+  ewsScores         EwsScore[]
+  repaymentStats    GroupRepaymentStat[]
+
+  @@index([branchId])
+  @@map("lending_groups")
+}
+
+model GroupMember {
+  id          String    @id @default(uuid()) @db.Uuid
+  groupId     String    @map("group_id") @db.Uuid
+  borrowerId  String    @map("borrower_id") @db.Uuid
+  roleInGroup String?   @map("role_in_group")
+  joinedAt    DateTime? @map("joined_at") @db.Date
+
+  group    LendingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  borrower Borrower     @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, borrowerId])
+  @@map("group_members")
+}
+
+model LoanApplication {
+  id                   String    @id @default(uuid()) @db.Uuid
+  branchId             String    @map("branch_id") @db.Uuid
+  productId            String    @map("product_id") @db.Uuid
+  applicationType      String    @map("application_type") // individual | group
+  borrowerId           String?   @map("borrower_id") @db.Uuid
+  groupId              String?   @map("group_id") @db.Uuid
+  requestedAmount      Decimal   @map("requested_amount") @db.Decimal(14, 2)
+  requestedTermMonths  Int?      @map("requested_term_months")
+  purpose              String?
+  purposeDetail        String?   @map("purpose_detail")
+  collateralType       String?   @map("collateral_type")
+  collateralDetail     Json?     @map("collateral_detail")
+  guarantorName        String?   @map("guarantor_name")
+  guarantorNic         String?   @map("guarantor_nic")
+  guarantorContact     String?   @map("guarantor_contact")
+  wizardPayload        Json?     @map("wizard_payload")
+  submittedBy          String    @map("submitted_by") @db.Uuid // soft ref -> central.users.id
+  status               String    @default("draft")
+  reviewedBy           String?   @map("reviewed_by") @db.Uuid
+  reviewedAt           DateTime? @map("reviewed_at")
+  decisionNotes        String?   @map("decision_notes")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  branch    Branch              @relation(fields: [branchId], references: [id])
+  product   LoanProduct         @relation(fields: [productId], references: [id])
+  borrower  Borrower?           @relation(fields: [borrowerId], references: [id])
+  group     LendingGroup?       @relation(fields: [groupId], references: [id])
+  documents ApplicationDocument[]
+  loans     Loan[]
+
+  @@index([branchId])
+  @@index([status])
+  @@index([submittedBy])
+  @@map("loan_applications")
+}
+
+model ApplicationDocument {
+  id            String   @id @default(uuid()) @db.Uuid
+  applicationId String   @map("application_id") @db.Uuid
+  documentType  String   @map("document_type")
+  fileUrl       String   @map("file_url")
+  uploadedAt    DateTime @default(now()) @map("uploaded_at")
+
+  application LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@map("application_documents")
+}
+
+model Loan {
+  id          String    @id @default(uuid()) @db.Uuid
+  applicationId String  @map("application_id") @db.Uuid
+  productId   String    @map("product_id") @db.Uuid
+  borrowerId  String    @map("borrower_id") @db.Uuid
+  groupId     String?   @map("group_id") @db.Uuid
+  principal   Decimal   @db.Decimal(14, 2)
+  interestRate Decimal  @map("interest_rate") @db.Decimal(8, 4)
+  termMonths  Int       @map("term_months")
+  status      String    @default("pending_disbursement")
+  activatedAt DateTime? @map("activated_at")
+  closedAt    DateTime? @map("closed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  application LoanApplication      @relation(fields: [applicationId], references: [id])
+  product     LoanProduct          @relation(fields: [productId], references: [id])
+  borrower    Borrower             @relation(fields: [borrowerId], references: [id])
+  group       LendingGroup?        @relation(fields: [groupId], references: [id])
+  disbursements Disbursement[]
+  schedules   RepaymentSchedule[]
+  collections Collection[]
+  parStatuses  ParStatus[]
+  ewsSignals  EwsSignal[]
+
+  @@index([borrowerId])
+  @@index([status])
+  @@map("loans")
+}
+
+model Disbursement {
+  id              String    @id @default(uuid()) @db.Uuid
+  loanId          String    @map("loan_id") @db.Uuid
+  amount          Decimal   @db.Decimal(14, 2)
+  method          String
+  referenceNumber String?   @map("reference_number")
+  status          String    @default("pending")
+  disbursedBy     String?   @map("disbursed_by") @db.Uuid // soft ref -> central.users.id
+  disbursedAt     DateTime? @map("disbursed_at")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@map("disbursements")
+}
+
+model RepaymentSchedule {
+  id            String   @id @default(uuid()) @db.Uuid
+  loanId        String   @map("loan_id") @db.Uuid
+  installmentNo Int      @map("installment_no")
+  dueDate       DateTime @map("due_date") @db.Date
+  principalDue  Decimal  @map("principal_due") @db.Decimal(14, 2)
+  interestDue   Decimal  @map("interest_due") @db.Decimal(14, 2)
+  amountDue     Decimal  @map("amount_due") @db.Decimal(14, 2)
+  amountPaid    Decimal  @default(0) @map("amount_paid") @db.Decimal(14, 2)
+  status        String   @default("upcoming")
+
+  loan        Loan         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  collections Collection[]
+
+  @@unique([loanId, installmentNo])
+  @@map("repayment_schedules")
+}
+
+model Collection {
+  id                 String    @id @default(uuid()) @db.Uuid
+  loanId             String    @map("loan_id") @db.Uuid
+  scheduleId         String    @map("schedule_id") @db.Uuid
+  officerId          String    @map("officer_id") @db.Uuid // soft ref -> central.users.id
+  visitDate          DateTime  @map("visit_date") @db.Date
+  outcome            String
+  amountCollected    Decimal   @map("amount_collected") @db.Decimal(14, 2)
+  promiseDate        DateTime? @map("promise_date") @db.Date
+  syncedOfflineEntry Boolean   @default(false) @map("synced_offline_entry")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  loan     Loan              @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  schedule RepaymentSchedule @relation(fields: [scheduleId], references: [id])
+  receipts Receipt[]
+
+  @@index([loanId])
+  @@index([officerId])
+  @@map("collections")
+}
+
+model Receipt {
+  id            String   @id @default(uuid()) @db.Uuid
+  collectionId  String   @map("collection_id") @db.Uuid
+  receiptNumber String   @unique @map("receipt_number")
+  amount        Decimal  @db.Decimal(14, 2)
+  issuedAt      DateTime @default(now()) @map("issued_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@map("receipts")
+}
+
+model ParStatus {
+  id                    String   @id @default(uuid()) @db.Uuid
+  loanId                String   @map("loan_id") @db.Uuid
+  parBucket             String   @map("par_bucket")
+  daysPastDue           Int      @default(0) @map("days_past_due")
+  outstandingPrincipal  Decimal? @map("outstanding_principal") @db.Decimal(14, 2)
+  computedAt            DateTime @default(now()) @map("computed_at")
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId])
+  @@map("par_status")
+}
+
+model EwsSignal {
+  id          String   @id @default(uuid()) @db.Uuid
+  borrowerId  String   @map("borrower_id") @db.Uuid
+  groupId     String?  @map("group_id") @db.Uuid
+  loanId      String?  @map("loan_id") @db.Uuid
+  signalType  String   @map("signal_type")
+  severity    String
+  signalValue Decimal? @map("signal_value") @db.Decimal(14, 4)
+  observedAt  DateTime @map("observed_at")
+  source      String
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  borrower Borrower      @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  group    LendingGroup? @relation(fields: [groupId], references: [id])
+  loan     Loan?         @relation(fields: [loanId], references: [id])
+
+  @@index([borrowerId, observedAt])
+  @@map("ews_signals")
+}
+
+model EwsScore {
+  id            String   @id @default(uuid()) @db.Uuid
+  borrowerId    String   @map("borrower_id") @db.Uuid
+  groupId       String?  @map("group_id") @db.Uuid
+  distressScore Decimal  @map("distress_score") @db.Decimal(8, 4)
+  riskBand      String   @map("risk_band") // stable | watch | high
+  modelVersion  String?  @map("model_version")
+  fusionSummary Json?    @map("fusion_summary")
+  computedAt    DateTime @default(now()) @map("computed_at")
+
+  borrower Borrower      @relation(fields: [borrowerId], references: [id], onDelete: Cascade)
+  group    LendingGroup? @relation(fields: [groupId], references: [id])
+  alerts   EwsAlert[]
+
+  @@index([borrowerId])
+  @@map("ews_scores")
+}
+
+model EwsAlert {
+  id                 String    @id @default(uuid()) @db.Uuid
+  ewsScoreId         String    @map("ews_score_id") @db.Uuid
+  assignedOfficerId  String?   @map("assigned_officer_id") @db.Uuid // soft ref
+  branchId           String    @map("branch_id") @db.Uuid
+  rationale          String?
+  status             String    @default("new")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  resolvedAt         DateTime? @map("resolved_at")
+
+  ewsScore       EwsScore       @relation(fields: [ewsScoreId], references: [id], onDelete: Cascade)
+  branch         Branch         @relation(fields: [branchId], references: [id])
+  interventions  Intervention[]
+
+  @@index([status])
+  @@map("ews_alerts")
+}
+
+model Intervention {
+  id          String   @id @default(uuid()) @db.Uuid
+  alertId     String   @map("alert_id") @db.Uuid
+  officerId   String   @map("officer_id") @db.Uuid // soft ref
+  actionTaken String   @map("action_taken")
+  outcome     String?
+  loggedAt    DateTime @default(now()) @map("logged_at")
+
+  alert EwsAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([alertId])
+  @@map("interventions")
+}
+
+model GroupRepaymentStat {
+  id              String   @id @default(uuid()) @db.Uuid
+  groupId         String   @map("group_id") @db.Uuid
+  period          DateTime @db.Date
+  repaymentRatio  Decimal  @map("repayment_ratio") @db.Decimal(8, 4)
+  arrearsCount    Int      @map("arrears_count")
+  arrearsRatio    Decimal  @map("arrears_ratio") @db.Decimal(8, 4)
+
+  group LendingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, period])
+  @@map("group_repayment_stats")
+}
+
+// ---------------------------------------------------------------------------
+// M2 — Ledger & dual-mission performance
+// ---------------------------------------------------------------------------
+
+model ChartOfAccount {
+  id          String  @id @default(uuid()) @db.Uuid
+  accountCode String  @unique @map("account_code")
+  accountName String  @map("account_name")
+  accountType String  @map("account_type") // asset | liability | equity | income | expense
+  isActive    Boolean @default(true) @map("is_active")
+
+  lines JournalEntryLine[]
+
+  @@map("chart_of_accounts")
+}
+
+model JournalEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  transactionDate DateTime @map("transaction_date") @db.Date
+  referenceType   String   @map("reference_type")
+  referenceId     String?  @map("reference_id") @db.Uuid
+  description     String?
+  createdBy       String?  @map("created_by") @db.Uuid // soft ref
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  lines JournalEntryLine[]
+
+  @@index([transactionDate])
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id             String  @id @default(uuid()) @db.Uuid
+  journalEntryId String  @map("journal_entry_id") @db.Uuid
+  accountId      String  @map("account_id") @db.Uuid
+  debitAmount    Decimal @default(0) @map("debit_amount") @db.Decimal(14, 2)
+  creditAmount   Decimal @default(0) @map("credit_amount") @db.Decimal(14, 2)
+
+  journalEntry JournalEntry  @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      ChartOfAccount @relation(fields: [accountId], references: [id])
+
+  @@index([journalEntryId])
+  @@map("journal_entry_lines")
+}
+
+model FinancialKpiSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  period          DateTime @db.Date
+  par30           Decimal? @db.Decimal(8, 4)
+  oss             Decimal? @db.Decimal(8, 4)
+  oer             Decimal? @db.Decimal(8, 4)
+  portfolioYield  Decimal? @map("portfolio_yield") @db.Decimal(8, 4)
+  costPerBorrower Decimal? @map("cost_per_borrower") @db.Decimal(14, 2)
+  writeOffRatio   Decimal? @map("write_off_ratio") @db.Decimal(8, 4)
+  computedAt      DateTime @default(now()) @map("computed_at")
+
+  @@unique([period])
+  @@map("financial_kpi_snapshots")
+}
+
+model SocialPerformanceIndicator {
+  id                   String   @id @default(uuid()) @db.Uuid
+  period               DateTime @db.Date
+  femaleBorrowerRatio  Decimal? @map("female_borrower_ratio") @db.Decimal(8, 4)
+  ruralBorrowerRatio   Decimal? @map("rural_borrower_ratio") @db.Decimal(8, 4)
+  lowIncomeClientRatio Decimal? @map("low_income_client_ratio") @db.Decimal(8, 4)
+  newToBankingRatio    Decimal? @map("new_to_banking_ratio") @db.Decimal(8, 4)
+  outreachCoverage     Decimal? @map("outreach_coverage") @db.Decimal(8, 4)
+  dropoutRate          Decimal? @map("dropout_rate") @db.Decimal(8, 4)
+  povertyProxyScore    Decimal? @map("poverty_proxy_score") @db.Decimal(8, 4)
+  literacyProgress     Decimal? @map("literacy_progress") @db.Decimal(8, 4)
+  groupSolidarityScore Decimal? @map("group_solidarity_score") @db.Decimal(8, 4)
+  computedAt           DateTime @default(now()) @map("computed_at")
+
+  @@unique([period])
+  @@map("social_performance_indicators")
+}
+
+model MissionDriftScore {
+  id                 String   @id @default(uuid()) @db.Uuid
+  period             DateTime @db.Date
+  mdiScore           Decimal  @map("mdi_score") @db.Decimal(8, 4)
+  thresholdState     String   @map("threshold_state") // normal | alert
+  contributingTrends Json?    @map("contributing_trends")
+  computedAt         DateTime @default(now()) @map("computed_at")
+
+  alerts MissionDriftAlert[]
+
+  @@unique([period])
+  @@map("mission_drift_scores")
+}
+
+model MissionDriftAlert {
+  id         String   @id @default(uuid()) @db.Uuid
+  mdiScoreId String   @map("mdi_score_id") @db.Uuid
+  narrative  String?
+  status     String   @default("new")
+  reviewedBy String?  @map("reviewed_by") @db.Uuid // soft ref
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  mdiScore MissionDriftScore @relation(fields: [mdiScoreId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("mission_drift_alerts")
+}

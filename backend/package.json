@@ -1,0 +1,38 @@
+{
+  "name": "imfs-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "postinstall": "npm run prisma:generate",
+    "prisma:generate": "npm run prisma:generate:central && npm run prisma:generate:tenant",
+    "prisma:generate:central": "prisma generate --schema prisma/central/schema.prisma",
+    "prisma:generate:tenant": "prisma generate --schema prisma/tenant/schema.prisma",
+    "prisma:migrate:central": "prisma migrate dev --schema prisma/central/schema.prisma",
+    "prisma:migrate:tenant": "prisma migrate dev --schema prisma/tenant/schema.prisma",
+    "prisma:migrate:central:deploy": "prisma migrate deploy --schema prisma/central/schema.prisma",
+    "prisma:migrate:tenant:deploy": "prisma migrate deploy --schema prisma/tenant/schema.prisma",
+    "prisma:studio:central": "prisma studio --schema prisma/central/schema.prisma",
+    "prisma:studio:tenant": "prisma studio --schema prisma/tenant/schema.prisma",
+    "db:seed:central": "tsx prisma/central/seed.ts",
+    "db:seed:tenant": "tsx prisma/tenant/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.19.1",
+    "prisma": "^6.16.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

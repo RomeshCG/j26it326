@@ -1,0 +1,26 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies / build
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+frontend/dist/
+backend/dist/
+*.log
+
+# Python
+backend/venv/
+**/__pycache__/
+*.pyc
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Optional local-only docs (uncomment if you do not want them on GitHub)
+internalDocs/

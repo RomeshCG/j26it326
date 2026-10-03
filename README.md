@@ -79,6 +79,29 @@ npm run preview
 
 ---
 
+## Getting started (backend)
+
+Node + **Prisma** API with **database-per-tenant** (Neon).
+
+Full instructions: [`backend/README.md`](backend/README.md)
+
+```bash
+cd backend
+cp .env.example .env
+# set CENTRAL_DATABASE_URL and TENANT_DATABASE_URL from Neon
+
+npm install
+npm run prisma:migrate:central -- --name init
+npm run prisma:migrate:tenant -- --name init
+npm run db:seed:central
+npm run db:seed:tenant
+npm run dev
+```
+
+API default: `http://localhost:4000`
+
+---
+
 ## Demo login
 
 Use any of these accounts on `/login`. Password for all demo users:
