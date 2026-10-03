@@ -13,8 +13,35 @@ backend/dist/
 
 # Python
 backend/venv/
+ml/.venv/
+ml/venv/
+**/.venv/
 **/__pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ML datasets & model artifacts (keep CODE in git, not generated data)
+# Synthetic / customer-demo datasets must stay local — do not push
+ml/**/data/raw/
+ml/**/data/synthetic/
+ml/**/data/private/
+ml/**/data/processed/
+ml/**/artifacts/
+ml/**/models/*.pkl
+ml/**/models/*.joblib
+ml/**/models/*.json
+ml/**/models/*.bst
+ml/**/models/*.bin
+ml/**/*.csv
+ml/**/*.parquet
+ml/**/*.feather
+ml/**/*.xlsx
+!ml/**/.keep
+
+# Allow tiny tracked samples if you ever add them explicitly under samples/
+!ml/**/data/samples/**
 
 # OS / IDE
 .DS_Store

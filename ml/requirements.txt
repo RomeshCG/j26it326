@@ -1,0 +1,8 @@
+# Shared base deps — each module may add more in its own requirements later
+numpy
+pandas
+scikit-learn
+xgboost
+shap
+joblib
+python-dotenv
