@@ -51,3 +51,4 @@ Thumbs.db
 
 # Optional local-only docs (uncomment if you do not want them on GitHub)
 internalDocs/
+.cursor/
