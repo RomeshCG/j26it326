@@ -1,0 +1,16 @@
+meta {
+  name: Tenant Info by Identifier
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/tenants/{{dbIdentifier}}/info
+  body: none
+  auth: inherit
+}
+
+docs {
+  # Tenant Info by Identifier
+  Resolves tenant DB using `dbIdentifier` (default env: `tenant_apex_demo`).
+}

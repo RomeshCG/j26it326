@@ -1,0 +1,51 @@
+meta {
+  name: IMFS
+}
+
+docs {
+  # IMFS API Collection
+
+  Bruno collection for the **IMFS / MicroFlow** backend (J26-IT-326).
+
+  ## What this is
+  Shared API tests for the Node + Prisma backend under `/backend`.
+  Use this instead of ad-hoc Postman setups so the whole team hits the same endpoints.
+
+  ## Base URL
+  Local default: `{{baseUrl}}` → `http://localhost:4000`
+
+  1. Start backend: `cd backend` → `npm run dev`
+  2. In Bruno, select environment **Local**
+  3. Run **00 Health → Health** then **Health DB**
+
+  ## Architecture (short)
+  - **Central DB** — institutions, users, roles, tenant routing
+  - **Tenant DB** — one database per MFI (loans, risk, EWS, ledger, agents)
+  - Auth target: **JWT + RBAC** (6 roles) — not fully wired yet
+
+  ## Folder guide
+  | Folder | Owner / purpose |
+  |--------|-----------------|
+  | `00 Health` | Connectivity checks (everyone) |
+  | `01 Auth` | Login, signup, JWT (M4) |
+  | `02 Central` | Institutions, users, routing (M4) |
+  | `03 Onboarding` | Provision tenant DB (M4) |
+  | `10 M1 Risk` | `/assess-risk`, decisions (M1) |
+  | `20 M2 Finance` | Ledger, KPIs, MDI (M2) |
+  | `30 M3 Loans` | Applications, collections, EWS (M3) |
+  | `40 M4 Agents` | Graduated Trust / tier approvals (M4) |
+
+  ## Team rules
+  - Add requests under the correct module folder
+  - Prefer `{{baseUrl}}` — never hardcode localhost in every request
+  - Do not commit secrets; use Bruno env vars / `.env` on the machine
+  - Keep request names clear: `GET Health`, `POST Assess Risk`, etc.
+
+  ## Docs
+  - Backend overview: `docs/BACKEND_GUIDE.md`
+  - Local Postgres setup: `docs/LOCAL_SETUP.md`
+}
+
+auth {
+  mode: none
+}

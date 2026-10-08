@@ -1,0 +1,17 @@
+meta {
+  name: Health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: inherit
+}
+
+docs {
+  # Health
+  Confirms the API process is running.
+  Expected: `{ "ok": true, "service": "imfs-backend", ... }`
+}

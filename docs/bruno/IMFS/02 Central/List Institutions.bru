@@ -1,0 +1,16 @@
+meta {
+  name: List Institutions
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/institutions
+  body: none
+  auth: inherit
+}
+
+docs {
+  # List Institutions
+  Returns institutions from the central DB (includes database routing rows when seeded).
+}

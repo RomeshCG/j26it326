@@ -1,0 +1,16 @@
+meta {
+  name: Tenant Health by Institution
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/institutions/{{institutionId}}/tenant-health
+  body: none
+  auth: inherit
+}
+
+docs {
+  # Tenant Health by Institution
+  Resolves tenant DB from central routing using `institutionId`.
+}
