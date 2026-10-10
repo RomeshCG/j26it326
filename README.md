@@ -46,9 +46,11 @@ rp-p/
 ├── frontend/     # Main UI prototype (run this for demos)
 ├── backend/      # API / services scaffold
 ├── ml/           # Model experiments
-├── docs/         # Project documentation
+├── docs/         # Project documentation (incl. SHARED_DATASETS.md)
 └── README.md
 ```
+
+**Datasets for all members:** see [`docs/SHARED_DATASETS.md`](docs/SHARED_DATASETS.md) (PAR primary + public downloads for M2/M3/M4).
 
 ---
 
