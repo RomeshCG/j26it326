@@ -28,6 +28,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useStore } from "@/store"
+import { clearSessionCache } from "@/lib/api"
 
 export function NavUser({ user }) {
   const { isMobile } = useSidebar()
@@ -38,8 +39,11 @@ export function NavUser({ user }) {
     `${user?.name?.split(" ")?.[0]?.[0] || "U"}${user?.name?.split(" ")?.[1]?.[0] || ""}`.toUpperCase()
 
   function handleLogout() {
+    clearSessionCache()
     logout()
     localStorage.removeItem("mf_auth_token")
+    localStorage.removeItem("mf_auth_role")
+    localStorage.removeItem("mf_auth_branch")
     navigate("/login")
   }
 
