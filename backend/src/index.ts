@@ -15,6 +15,7 @@ import { getJwtSecret } from "./lib/auth.js"
 import { authRouter } from "./routes/auth.js"
 import { tenantRouter } from "./routes/tenant.js"
 import { exampleRouter } from "./routes/_example.js"
+import { riskRouter } from "./routes/risk.js"
 import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
 
 // Strict JWT_SECRET startup guard: server must fail fast if secret is missing or insecure
@@ -110,6 +111,9 @@ app.use("/auth", authRouter)
 
 // Core Tenant routes (M4 and cross-module queries)
 app.use("/api/tenant", tenantRouter)
+
+// M1 — Credit risk (auth + tenant context required inside router)
+app.use("/api/risk", riskRouter)
 
 // Integration example router for teammates (non-production only)
 if (isDev) {
@@ -217,7 +221,9 @@ process.on("SIGTERM", shutdown)
 
 app.listen(port, () => {
   console.log(`IMFS backend listening on http://localhost:${port}`)
-  console.log(`Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me`)
+  console.log(
+    `Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me  POST /api/risk/assess`
+  )
   if (enableSwagger) {
     console.log(`Swagger Docs: http://localhost:${port}/docs  (OpenAPI JSON: http://localhost:${port}/openapi.json)`)
   }
