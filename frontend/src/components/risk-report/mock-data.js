@@ -231,7 +231,9 @@ export function getAiRecommendation(report, trustStatus = "OVER-RELIANT") {
   const classMeta = classificationMeta(report.classification)
   let recommendation = "REVIEW"
 
-  if (report.classification === "LOW") {
+  if (report.recommendation) {
+    recommendation = String(report.recommendation).toUpperCase()
+  } else if (report.classification === "LOW") {
     recommendation = "APPROVE"
   } else if (report.classification === "HIGH") {
     recommendation = "REJECT"

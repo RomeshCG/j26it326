@@ -21,6 +21,11 @@ body:json {
   }
 }
 
+vars:pre-request {
+  testPassword: Apex#e0bcdedf1669
+  testEmail:  loan.officer@apex.lk
+}
+
 vars:post-response {
   authToken: res.body.token
 }

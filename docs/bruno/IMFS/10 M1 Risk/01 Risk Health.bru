@@ -1,0 +1,20 @@
+meta {
+  name: 01 Risk Health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/risk/health
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # M1 Risk Health
+  Confirms the M1 risk router is mounted. Requires a valid JWT (run 01 Auth → Login Success first).
+}

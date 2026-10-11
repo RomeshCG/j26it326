@@ -352,6 +352,102 @@
           }
         }
       }
+    },
+    "/api/risk/health": {
+      "get": {
+        "summary": "M1 risk module health",
+        "description": "Confirms M1 risk router is mounted. Any authenticated role.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Module OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "module": { "type": "string" },
+                    "model_version": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/risk/assess": {
+      "post": {
+        "summary": "Assess credit risk for loan features",
+        "description": "M1 scoring endpoint. Returns risk_pct (0-100), band, recommendation, and explanatory factors. Optional persist writes tenant risk_assessments + shap_explanations. Roles: loan_officer, branch_manager, executive, admin.",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["features"],
+                "properties": {
+                  "persist": { "type": "boolean", "default": false },
+                  "loanApplicationId": { "type": "string", "format": "uuid" },
+                  "features": {
+                    "type": "object",
+                    "required": ["contract_amount", "balance_total", "paid_pct"],
+                    "properties": {
+                      "contract_amount": { "type": "number" },
+                      "balance_total": { "type": "number" },
+                      "arr_cap": { "type": "number" },
+                      "arr_int": { "type": "number" },
+                      "bal_penalty": { "type": "number" },
+                      "bal_charges": { "type": "number" },
+                      "paid_pct": { "type": "number" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Risk score result"
+          },
+          "400": {
+            "description": "Invalid body",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden role",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

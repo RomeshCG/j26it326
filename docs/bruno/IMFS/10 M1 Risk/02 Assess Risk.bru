@@ -1,0 +1,47 @@
+meta {
+  name: 02 Assess Risk
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/risk/assess
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "persist": false,
+    "features": {
+      "contract_amount": 100000,
+      "balance_total": 45000,
+      "arr_cap": 3000,
+      "arr_int": 400,
+      "bal_penalty": 500,
+      "bal_charges": 200,
+      "paid_pct": 60,
+      "interest_amount": 15000,
+      "installment": 4800,
+      "tenure": 24,
+      "branch": "Colombo",
+      "product_category": "Micro",
+      "product": "Group Enterprise"
+    }
+  }
+}
+
+docs {
+  # Assess Risk
+  Scores loan features → risk_pct, risk_band, recommendation, top_factors.
+  Roles: loan_officer, branch_manager, executive, admin.
+  Set persist=true and loanApplicationId (UUID) to write risk_assessments + shap_explanations.
+}
