@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Building2, ShieldCheck, Clock, CheckCircle, ChevronDown, Eye, EyeOff } from "lucide-react"
+import { CheckCircle, ChevronDown, Eye, EyeOff } from "lucide-react"
 import { useStore } from "@/store"
 
 const DISTRICTS = [
@@ -73,32 +73,38 @@ export default function Signup() {
         if (currentProgress >= 100) {
           clearInterval(interval)
           setTimeout(() => {
-            // Mock login as admin after signup
-            localStorage.setItem("mf_auth_role", "Institution Admin")
-            localStorage.setItem("mf_auth_token", "fake-jwt-token")
-            
-            useStore.getState().setOnboardingComplete(false)
-            useStore.getState().setOnboardingStartTime(Date.now())
-            
-            const names = formData.adminName.split(' ')
-            useStore.getState().login({
-              firstName: names[0] || "Admin",
-              lastName: names.slice(1).join(' ') || "",
-              email: formData.adminEmail,
-              phone: "",
-              role: "Institution Admin",
-              memberSince: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-              language: "English"
-            })
-            
-            navigate("/onboarding")
+            const isMockAuth = import.meta.env.VITE_USE_MOCK_AUTH === "true"
+            if (isMockAuth) {
+              // Mock login as admin after signup only in mock auth mode
+              localStorage.setItem("mf_auth_role", "Institution Admin")
+              localStorage.setItem("mf_auth_token", "fake-jwt-token")
+              
+              useStore.getState().setOnboardingComplete(false)
+              useStore.getState().setOnboardingStartTime(Date.now())
+              
+              const names = formData.adminName.split(' ')
+              useStore.getState().login({
+                firstName: names[0] || "Admin",
+                lastName: names.slice(1).join(' ') || "",
+                email: formData.adminEmail,
+                phone: "",
+                role: "Institution Admin",
+                memberSince: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+                language: "English"
+              })
+              
+              navigate("/onboarding")
+            } else {
+              // Real auth mode: Registration submitted, navigate to login without setting fake tokens
+              navigate("/login?registered=true")
+            }
           }, 400)
         }
       }, 150)
       
       return () => clearInterval(interval)
     }
-  }, [isSuccess, navigate])
+  }, [isSuccess, navigate, formData.adminEmail, formData.adminName])
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
