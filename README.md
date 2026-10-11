@@ -50,7 +50,7 @@ rp-p/
 └── README.md
 ```
 
-**Datasets for all members:** see [`docs/SHARED_DATASETS.md`](docs/SHARED_DATASETS.md) (PAR primary + public downloads for M2/M3/M4).
+**Datasets for all members:** [`docs/SHARED_DATASETS.md`](docs/SHARED_DATASETS.md) · beginner guide + synthetic recipes: [`docs/TEAM_DATA_AND_SYNTHETIC_GUIDE.md`](docs/TEAM_DATA_AND_SYNTHETIC_GUIDE.md).
 
 ---
 

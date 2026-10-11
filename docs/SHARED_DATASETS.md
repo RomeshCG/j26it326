@@ -1,5 +1,8 @@
 # Shared datasets for IMFS (M1–M4)
 
+> **Teammates (beginner guide):** how to use files already in `ml/shared/data` + how to build synthetic data →  
+> **[`TEAM_DATA_AND_SYNTHETIC_GUIDE.md`](./TEAM_DATA_AND_SYNTHETIC_GUIDE.md)**
+
 **Primary real extract:** M1’s cleaned partner PAR portfolio file  
 (~7k loan/performance rows). Other modules should treat this as the **Sri Lanka / IMFS-shaped spine**, then add public or synthetic data for what the export does not contain.
 
