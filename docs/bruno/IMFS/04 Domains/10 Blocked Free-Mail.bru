@@ -1,0 +1,32 @@
+meta {
+  name: 10 Blocked Free-Mail
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/tenant/domains
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "domain": "gmail.com",
+    "verificationMailbox": "admin",
+    "defaultRoleId": 6
+  }
+}
+
+docs {
+  # Blocked Free-Mail
+  Attempts to register a free-mail provider (gmail.com). Must fail with 400 Bad Request.
+}

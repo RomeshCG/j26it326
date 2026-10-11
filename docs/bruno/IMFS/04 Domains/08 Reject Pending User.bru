@@ -1,0 +1,20 @@
+meta {
+  name: 08 Reject Pending User
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/tenant/pending-users/{{pendingUserId}}/reject
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Reject Pending User
+  Rejects a pending user registration, setting their status to disabled.
+}

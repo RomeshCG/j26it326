@@ -1,0 +1,36 @@
+meta {
+  name: 01 Register Domain
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/tenant/domains
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "domain": "{{newDomain}}",
+    "verificationMailbox": "{{verificationMailbox}}",
+    "defaultRoleId": 6
+  }
+}
+
+vars:post-response {
+  domainId: res.body.domain.id
+}
+
+docs {
+  # Register Domain
+  Claims a corporate email domain for caller institution and initiates verification.
+}
