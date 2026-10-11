@@ -80,16 +80,17 @@ export function verifyAccessToken(token: string): JWTPayload {
   }
 }
 
+export const BCRYPT_SALT_ROUNDS = 10
+
 /**
  * Hash a plain-text password using bcrypt with salt rounds >= 10.
  */
 export async function hashPassword(plainText: string): Promise<string> {
-  const saltRounds = 10
-  return bcrypt.hash(plainText, saltRounds)
+  return bcrypt.hash(plainText, BCRYPT_SALT_ROUNDS)
 }
 
-// Pre-computed dummy hash to run on unknown email lookups (mitigates timing attacks & enumeration)
-const DUMMY_HASH = "$2a$10$wT0qQJ5sUvK0w6O5uH8Qbe6BwY3H27H6mSg5.C7qT0Y4w2L0f0aKy"
+// Generate dummy hash dynamically at module load using the same bcrypt cost
+const DUMMY_HASH = bcrypt.hashSync("dummy-password-timing-parity", BCRYPT_SALT_ROUNDS)
 
 /**
  * Verify a plain-text password against a bcrypt hash.
@@ -101,6 +102,23 @@ export async function comparePassword(plainText: string, passwordHash?: string |
     return false
   }
   return bcrypt.compare(plainText, passwordHash)
+}
+
+/**
+ * Safe error logger: logs only error name, Prisma error code, and context without echoing raw parameters or hashes.
+ */
+export function logSafeError(context: string, error: unknown): void {
+  const err = error as any
+  const errName = err?.name ?? "Error"
+  const prismaCode = err?.code ? ` [Code: ${err.code}]` : ""
+  let message = "Unknown error"
+  if (err?.message) {
+    const lines = String(err.message).split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean)
+    if (lines.length > 0) {
+      message = lines[0].substring(0, 120)
+    }
+  }
+  console.error(`${context}: ${errName}${prismaCode} - ${message}`)
 }
 
 /**
@@ -125,7 +143,7 @@ export async function recordLoginAudit(params: {
       // In production/Phase 2b this can be logged to a system security log.
     }
   } catch (error) {
-    console.error("[auth] Failed to record login audit:", error)
+    logSafeError("[auth] Failed to record login audit", error)
   }
 }
 

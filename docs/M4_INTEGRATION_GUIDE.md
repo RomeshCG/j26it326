@@ -179,3 +179,59 @@ Interactive Swagger documentation is served by the backend:
 | **`403 Forbidden: Access denied. Role '...' is not authorized`** | The logged-in user does not have permission for that route. | Log in with a user possessing the required role. |
 | **`403 Forbidden: Token institution does not match user institution`** | Forged token or cross-tenant access attempt. | Tokens can only query the tenant database of their own institution. |
 | **`Cannot find module '...'` after pulling** | New packages were introduced. | Run `npm install` inside the `backend` folder. |
+
+---
+
+## 10. Phase 5: Email-Domain Tenant Locking & Staff Self-Registration
+
+Phase 5 introduces corporate email domain claims, automated email verification links, self-service staff signup, and administrator approval workflows.
+
+### Domain Lifecycle
+
+1. **Register Domain Claim** (`POST /api/tenant/domains`):
+   - Restricted to authenticated `admin`.
+   - Rejects public/disposable free-mail domains (Gmail, Yahoo, Hotmail, etc.) and public suffixes (`.lk`, `.co.uk`, etc.).
+   - Rejects assigning the `admin` role as `defaultRoleId`.
+   - Sends a 64-character verification token link to `<verificationMailbox>@<domain>`.
+2. **Verify Claim** (`POST /auth/domains/verify`):
+   - Public endpoint accepting `{ "token": "<hex-token>" }`.
+   - Hashes the token with SHA-256 and matches against `verification_token_hash`.
+   - Marks domain as `verified` (enforced globally unique across active verified domains via partial index).
+   - > [!IMPORTANT]
+     > **Frontend Notice for `/verify-domain` page**:
+     > The token is single-use and consumed upon first verification. React 19 `StrictMode` (dev mode runs effects twice) runs `useEffect` twice on mount. The frontend component must guard against a double `POST` (e.g., via an `isSubmitting` ref or latch) so the user doesn't encounter a false 400 error on the second call.
+3. **Resend Verification** (`POST /api/tenant/domains/:domainId/resend`):
+   - Admin can request a fresh token (valid 24h) for unverified pending domains. Requires `{ "verificationMailbox": "admin" }` in the request body (validated with `^[a-z0-9._-]{1,64}$`).
+4. **Revoke Domain** (`DELETE /api/tenant/domains/:domainId`):
+   - Admin-only. If the domain was `verified`, atomically marks domain as `revoked` and disables all active and pending users on that domain.
+   - If the domain was `pending`, marks it `revoked`, clears the verification token, and disables no users (`deactivatedUsersCount: 0`).
+   - Guarded against removing the institution's last active admin (returns `409 Conflict`).
+   - Evicts all affected users from the in-memory 5-second auth cache (`invalidateUserAuthCache`).
+
+### Staff Self-Registration & Approval
+
+1. **Staff Registration** (`POST /auth/signup`):
+   - Accepts `{ "email", "password", "fullName" }`.
+   - Requires email domain to match an existing `verified` domain for an active institution.
+   - User is created with `status: "pending"` and the domain's `default_role_id`.
+   - Returns uniform 201 timing-parity response to prevent email enumeration.
+2. **Pending User Login Behavior** (`POST /auth/login`):
+   - Validates password first.
+   - If password is valid but user status is `"pending"`, returns `403 Forbidden`:
+     ```json
+     { "error": "Your account is pending administrator approval. Please contact your institution administrator." }
+     ```
+   - > [!IMPORTANT]
+     > **Frontend Notice for Login**:
+     > Frontend login components must inspect the 403 response message and display an informative notice to pending users ("Account Pending Approval") rather than treating it as an invalid username or password. Disabled users receive a generic `401 Unauthorized` to prevent account enumeration.
+3. **Review & Approval** (`GET /api/tenant/pending-users`, `POST /api/tenant/pending-users/:userId/approve`, `POST /api/tenant/pending-users/:userId/reject`):
+   - Admin can view pending users awaiting approval for their institution.
+   - Admin can approve with default role or optionally assign a non-admin role (`{ "roleId": 3 }`). Approval re-checks domain status and immediately activates the user.
+   - Admin can reject registration, setting user status to `disabled`.
+   - Both actions evict the target user from `invalidateUserAuthCache`.
+
+> [!CAUTION]
+> **Production Deployment Requirement**:
+> Production deployments must explicitly set `NODE_ENV=production` in environment variables. The `ConsoleEmailService` only fails closed (throwing if no production SMTP transport is configured) when `NODE_ENV` is exactly `"production"`. In any other environment, it logs verification links to stdout.
+
+

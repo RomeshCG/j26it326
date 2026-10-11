@@ -4,6 +4,7 @@ import {
   signAccessToken,
   comparePassword,
   recordLoginAudit,
+  logSafeError,
 } from "../lib/auth.js"
 import {
   ROLE_PERMISSIONS,
@@ -66,7 +67,17 @@ authRouter.post("/login", async (req, res) => {
       return
     }
 
-    // 2. Check user status
+    // 2. Check user status (verified password required first)
+    if (user.status === "pending") {
+      await recordLoginAudit({
+        userId: user.id,
+        event: "account_disabled",
+        ipAddress: clientIp,
+      })
+      res.status(403).json({ error: "Account is pending administrator approval" })
+      return
+    }
+
     if (user.status !== "active") {
       await recordLoginAudit({
         userId: user.id,
@@ -121,9 +132,8 @@ authRouter.post("/login", async (req, res) => {
       },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Internal login error"
-    console.error("[auth] Login error:", error)
-    res.status(500).json({ error: message })
+    logSafeError("[auth] Login error", error)
+    res.status(500).json({ error: "Internal login error" })
   }
 })
 

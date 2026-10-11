@@ -13,6 +13,7 @@ import {
 } from "./lib/tenant-context.js"
 import { getJwtSecret } from "./lib/auth.js"
 import { authRouter } from "./routes/auth.js"
+import { publicDomainRouter, tenantDomainRouter } from "./routes/domains.js"
 import { tenantRouter } from "./routes/tenant.js"
 import { exampleRouter } from "./routes/_example.js"
 import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
@@ -107,9 +108,11 @@ app.get("/health/db", async (_req, res) => {
 
 // Authentication & Profile routes
 app.use("/auth", authRouter)
+app.use("/auth", publicDomainRouter)
 
 // Core Tenant routes (M4 and cross-module queries)
 app.use("/api/tenant", tenantRouter)
+app.use("/api/tenant", tenantDomainRouter)
 
 // Integration example router for teammates (non-production only)
 if (isDev) {

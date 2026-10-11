@@ -1,0 +1,20 @@
+meta {
+  name: 06 List Pending Users
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/tenant/pending-users
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # List Pending Users
+  Lists all self-registered users awaiting approval for the caller's institution. Admin only.
+}
