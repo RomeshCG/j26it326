@@ -1,0 +1,357 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "IMFS M4 Core & Tenant API",
+    "description": "Multi-tenant ERP backend API for Sri Lankan Microfinance Institutions (IMFS Component 4: Agentic ERP & Graduated Trust Architecture). Provides JWT authentication, RBAC, tenant routing, and core tenant query contracts for M1, M2, and M3.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000",
+      "description": "Local development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "HS256 signed JWT access token. Payload claims: userId (UUID), institutionId (UUID), role (one of: admin, executive, finance_officer, hr_officer, branch_manager, loan_officer). Header format: 'Authorization: Bearer <token>'"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Missing or invalid Authorization header"
+          }
+        },
+        "required": ["error"]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "admin@apex.lk"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "example": "YourSecretPassword123!"
+          }
+        },
+        "required": ["email", "password"]
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Short-lived JWT access token (HS256)",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "expiresIn": {
+            "type": "string",
+            "example": "15m"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "email": { "type": "string" },
+              "fullName": { "type": "string" },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "executive",
+                  "finance_officer",
+                  "hr_officer",
+                  "branch_manager",
+                  "loan_officer"
+                ]
+              },
+              "institutionId": { "type": "string", "format": "uuid" },
+              "institutionName": { "type": "string" }
+            },
+            "required": ["id", "email", "fullName", "role", "institutionId", "institutionName"]
+          }
+        },
+        "required": ["token", "expiresIn", "user"]
+      },
+      "MeResponse": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string", "format": "uuid" },
+          "email": { "type": "string" },
+          "fullName": { "type": "string" },
+          "institutionId": { "type": "string", "format": "uuid" },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "executive",
+              "finance_officer",
+              "hr_officer",
+              "branch_manager",
+              "loan_officer"
+            ]
+          },
+          "capabilities": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Permissions map for UI and application enforcement"
+          }
+        },
+        "required": ["userId", "email", "fullName", "institutionId", "role", "capabilities"]
+      },
+      "TenantInfoResponse": {
+        "type": "object",
+        "properties": {
+          "institutionId": { "type": "string", "format": "uuid" },
+          "institutionName": { "type": "string" },
+          "databaseIdentifier": { "type": "string" },
+          "info": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "institutionId": { "type": "string" },
+              "institutionName": { "type": "string" },
+              "createdAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "required": ["institutionId", "institutionName", "databaseIdentifier"]
+      },
+      "Branch": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "location": { "type": "string", "nullable": true },
+          "district": { "type": "string", "nullable": true },
+          "isActive": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "name", "isActive", "createdAt"]
+      },
+      "BranchesResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Branch" }
+          },
+          "count": { "type": "integer" }
+        },
+        "required": ["data", "count"]
+      },
+      "ValidateUserResponse": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "Strict boolean indicating whether the userId exists, is active, and belongs to caller's institution."
+          }
+        },
+        "required": ["valid"]
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "User authentication",
+        "description": "Authenticates a user by email and bcrypt password. Validates against central.users and requires user status 'active'. Returns a 15-minute JWT access token. Logs attempts to central.login_audit.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing email or password",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials or account disabled (uniform error prevents user enumeration)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Institution is not active",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Current user profile & capabilities",
+        "description": "Returns current user details, role, and permissions map. Allowed roles: all 6 authenticated roles.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Authenticated user profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MeResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired Bearer token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Institution is not active",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenant/info": {
+      "get": {
+        "summary": "Get current tenant metadata",
+        "description": "Returns cached tenant_info from caller's dedicated tenant database. Allowed roles: all 6 authenticated roles.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Tenant metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TenantInfoResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenant/branches": {
+      "get": {
+        "summary": "List active branches",
+        "description": "Returns active branch records for the caller's tenant institution. Allowed roles: all 6 authenticated roles.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of active branches",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BranchesResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tenant/users/{userId}/validate": {
+      "get": {
+        "summary": "Validate soft user_id reference",
+        "description": "Verifies whether a user_id exists in central.users, has active status, and belongs to caller's institution. Returns strictly { valid: boolean } with no other user details to prevent enumeration. Allowed roles: all 6 authenticated roles.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "UUID of the user to validate",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Validation result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ValidateUserResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

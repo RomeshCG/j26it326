@@ -1,6 +1,10 @@
 import "dotenv/config"
+import fs from "fs"
+import path from "path"
+import { fileURLToPath } from "url"
 import cors from "cors"
 import express from "express"
+import swaggerUi from "swagger-ui-express"
 import { centralPrisma } from "./lib/prisma-central.js"
 import { defaultTenantPrisma, disconnectAllTenantClients } from "./lib/prisma-tenant.js"
 import {
@@ -9,6 +13,8 @@ import {
 } from "./lib/tenant-context.js"
 import { getJwtSecret } from "./lib/auth.js"
 import { authRouter } from "./routes/auth.js"
+import { tenantRouter } from "./routes/tenant.js"
+import { exampleRouter } from "./routes/_example.js"
 import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
 
 // Strict JWT_SECRET startup guard: server must fail fast if secret is missing or insecure
@@ -24,6 +30,55 @@ const port = Number(process.env.PORT ?? 4000)
 
 app.use(cors())
 app.use(express.json())
+
+// Compute paths relative to source file
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+// backend/src -> docs/openapi.json is at ../../docs/openapi.json
+const openApiPath = path.resolve(__dirname, "../../docs/openapi.json")
+
+// OpenAPI and Swagger UI configuration
+// Available in development by default; in production only if ENABLE_SWAGGER_DOCS === "true"
+const isDev = process.env.NODE_ENV !== "production"
+const enableSwagger = isDev || process.env.ENABLE_SWAGGER_DOCS === "true"
+
+let openApiSpec: any = null
+function getOpenApiSpec() {
+  if (openApiSpec) return openApiSpec
+  try {
+    if (fs.existsSync(openApiPath)) {
+      const content = fs.readFileSync(openApiPath, "utf8")
+      openApiSpec = JSON.parse(content)
+      return openApiSpec
+    } else {
+      console.warn(`[warning] openapi.json not found at ${openApiPath}`)
+      return null
+    }
+  } catch (err) {
+    console.warn(`[warning] Failed to load openapi.json:`, err)
+    return null
+  }
+}
+
+if (enableSwagger) {
+  app.get("/openapi.json", (_req, res) => {
+    const spec = getOpenApiSpec()
+    if (!spec) {
+      res.status(404).json({ error: "OpenAPI specification not available" })
+      return
+    }
+    res.json(spec)
+  })
+
+  app.use("/docs", swaggerUi.serve, (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const spec = getOpenApiSpec()
+    if (!spec) {
+      res.status(404).send("OpenAPI documentation not found")
+      return
+    }
+    swaggerUi.setup(spec)(req, res, next)
+  })
+}
 
 // Public health checks
 app.get("/health", (_req, res) => {
@@ -52,6 +107,14 @@ app.get("/health/db", async (_req, res) => {
 
 // Authentication & Profile routes
 app.use("/auth", authRouter)
+
+// Core Tenant routes (M4 and cross-module queries)
+app.use("/api/tenant", tenantRouter)
+
+// Integration example router for teammates (non-production only)
+if (isDev) {
+  app.use("/api/example", exampleRouter)
+}
 
 // ============================================================================
 // Protected Infrastructure Routes (Admin of caller's own institution only)
@@ -154,5 +217,8 @@ process.on("SIGTERM", shutdown)
 
 app.listen(port, () => {
   console.log(`IMFS backend listening on http://localhost:${port}`)
-  console.log("Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me")
+  console.log(`Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me`)
+  if (enableSwagger) {
+    console.log(`Swagger Docs: http://localhost:${port}/docs  (OpenAPI JSON: http://localhost:${port}/openapi.json)`)
+  }
 })

@@ -1,0 +1,20 @@
+meta {
+  name: 01 Tenant Info
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/tenant/info
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Tenant Info
+  Returns tenant metadata and institution name from caller's dedicated physical tenant database.
+}
