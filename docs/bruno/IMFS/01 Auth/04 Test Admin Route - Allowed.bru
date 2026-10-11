@@ -1,0 +1,20 @@
+meta {
+  name: 04 Test Admin Route - Allowed (200)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/auth/test/admin
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+docs {
+  # Test Admin Route - Allowed (200)
+  Demonstrates successful RBAC authorization when accessed with an admin role token.
+}

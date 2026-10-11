@@ -7,6 +7,17 @@ import {
   resolveTenantByDbIdentifier,
   resolveTenantByInstitutionId,
 } from "./lib/tenant-context.js"
+import { getJwtSecret } from "./lib/auth.js"
+import { authRouter } from "./routes/auth.js"
+import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
+
+// Strict JWT_SECRET startup guard: server must fail fast if secret is missing or insecure
+try {
+  getJwtSecret()
+} catch (error) {
+  console.error("FATAL: JWT configuration error:", error instanceof Error ? error.message : error)
+  process.exit(1)
+}
 
 const app = express()
 const port = Number(process.env.PORT ?? 4000)
@@ -14,6 +25,7 @@ const port = Number(process.env.PORT ?? 4000)
 app.use(cors())
 app.use(express.json())
 
+// Public health checks
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
@@ -38,14 +50,27 @@ app.get("/health/db", async (_req, res) => {
   }
 })
 
-app.get("/api/institutions", async (_req, res) => {
+// Authentication & Profile routes
+app.use("/auth", authRouter)
+
+// ============================================================================
+// Protected Infrastructure Routes (Admin of caller's own institution only)
+// ============================================================================
+
+/**
+ * GET /api/institutions
+ * Returns ONLY the caller's own institution (no cross-institution super-admin).
+ */
+app.get("/api/institutions", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
   try {
+    const callerInstitutionId = req.user!.institutionId
+
     const institutions = await centralPrisma.institution.findMany({
+      where: { id: callerInstitutionId },
       include: {
         databases: true,
         subscriptions: true,
       },
-      orderBy: { createdAt: "asc" },
     })
     res.json({ data: institutions })
   } catch (error) {
@@ -54,10 +79,21 @@ app.get("/api/institutions", async (_req, res) => {
   }
 })
 
-app.get("/api/tenants/:dbIdentifier/info", async (req, res) => {
-  const resolved = await resolveTenantByDbIdentifier(req.params.dbIdentifier)
+/**
+ * GET /api/tenants/:dbIdentifier/info
+ * Returns tenant info ONLY if dbIdentifier belongs to caller's own institution.
+ */
+app.get("/api/tenants/:dbIdentifier/info", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
+  const dbIdentifier = String(req.params.dbIdentifier)
+  const resolved = await resolveTenantByDbIdentifier(dbIdentifier)
   if (!resolved.ok) {
     res.status(resolved.status).json({ error: resolved.message })
+    return
+  }
+
+  // Cross-institution protection: tenant must belong to the caller's institution
+  if (resolved.institutionId !== req.user!.institutionId) {
+    res.status(403).json({ error: "Access denied to foreign tenant database" })
     return
   }
 
@@ -77,8 +113,18 @@ app.get("/api/tenants/:dbIdentifier/info", async (req, res) => {
   }
 })
 
-app.get("/api/institutions/:institutionId/tenant-health", async (req, res) => {
-  const resolved = await resolveTenantByInstitutionId(req.params.institutionId)
+/**
+ * GET /api/institutions/:institutionId/tenant-health
+ * Returns tenant health ONLY if institutionId matches caller's own institution.
+ */
+app.get("/api/institutions/:institutionId/tenant-health", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
+  const targetInstitutionId = String(req.params.institutionId)
+  if (targetInstitutionId !== req.user!.institutionId) {
+    res.status(403).json({ error: "Access denied to foreign institution health check" })
+    return
+  }
+
+  const resolved = await resolveTenantByInstitutionId(targetInstitutionId)
   if (!resolved.ok) {
     res.status(resolved.status).json({ error: resolved.message })
     return
@@ -108,5 +154,5 @@ process.on("SIGTERM", shutdown)
 
 app.listen(port, () => {
   console.log(`IMFS backend listening on http://localhost:${port}`)
-  console.log("Endpoints: GET /health  GET /health/db  GET /api/institutions")
+  console.log("Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me")
 })
