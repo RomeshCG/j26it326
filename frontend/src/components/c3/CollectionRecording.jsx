@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { formatLkr } from "./mock-data"
+import { recordCollection, syncOfflineCollections, getOfflineCollections } from "@/lib/m3-api"
 
 const OUTCOMES = [
   { id: "received", label: "Payment Received", icon: Check },
@@ -56,23 +57,53 @@ export default function CollectionRecording({
 
   const hasRouteNav = routeStops.length > 1 && onSelectStop
 
-  function handleGenerate() {
+  async function handleGenerate() {
     if (!canGenerate) return
     setGenerating(true)
-    window.setTimeout(() => {
-      setGenerating(false)
+
+    const finalAmount =
+      outcome === "received"
+        ? due
+        : outcome === "partial"
+          ? Number(amount)
+          : 0
+
+    // Outcome mapping from UI to backend enum
+    const outcomeMap = {
+      received: "paid",
+      partial: "partial",
+      "not-home": "not_at_home",
+      conflict: "missed",
+    }
+
+    try {
+      const res = await recordCollection({
+        loanId: stop?.id || "00000000-0000-4000-8000-000000000001",
+        scheduleId: stop?.scheduleId || "00000000-0000-4000-8000-000000000001",
+        visitDate: new Date().toISOString(),
+        outcome: outcomeMap[outcome] || "paid",
+        amountCollected: finalAmount,
+        notes: notes.trim(),
+      })
+
+      setReceipt({
+        id: res?.receiptNumber || res?.id || `RCP-${Date.now().toString().slice(-6)}`,
+        outcome,
+        amount: finalAmount,
+        notes: notes.trim(),
+        offline: Boolean(res?.offline),
+      })
+    } catch {
       setReceipt({
         id: `RCP-${Date.now().toString().slice(-6)}`,
         outcome,
-        amount:
-          outcome === "received"
-            ? due
-            : outcome === "partial"
-              ? Number(amount)
-              : 0,
+        amount: finalAmount,
         notes: notes.trim(),
+        offline: true,
       })
-    }, 650)
+    } finally {
+      setGenerating(false)
+    }
   }
 
   function goToStop(offset) {

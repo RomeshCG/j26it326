@@ -1,0 +1,22 @@
+meta {
+  name: List Products
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/m3/products
+  body: none
+  auth: inherit
+}
+
+headers {
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000001
+  x-mock-role: loan_officer
+}
+
+docs {
+  # List Loan Products
+  Returns active loan products from the tenant database.
+}

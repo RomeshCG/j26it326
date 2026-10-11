@@ -7,6 +7,7 @@ import {
   resolveTenantByDbIdentifier,
   resolveTenantByInstitutionId,
 } from "./lib/tenant-context.js"
+import { m3Router } from "./routes/m3/index.js"
 
 const app = express()
 const port = Number(process.env.PORT ?? 4000)
@@ -97,6 +98,9 @@ app.get("/api/institutions/:institutionId/tenant-health", async (req, res) => {
   }
 })
 
+// ── M3 — Loan Lifecycle & EWS ────────────────────────────────────────────────
+app.use("/api/m3", m3Router)
+
 async function shutdown() {
   await centralPrisma.$disconnect()
   await disconnectAllTenantClients()
@@ -109,4 +113,7 @@ process.on("SIGTERM", shutdown)
 app.listen(port, () => {
   console.log(`IMFS backend listening on http://localhost:${port}`)
   console.log("Endpoints: GET /health  GET /health/db  GET /api/institutions")
+  console.log("M3 routes: /api/m3/products  /api/m3/borrowers  /api/m3/groups")
+  console.log("           /api/m3/applications  /api/m3/loans  /api/m3/collections")
+  console.log("           /api/m3/par  /api/m3/ews")
 })

@@ -1,4 +1,5 @@
-import { ArrowLeft } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ArrowLeft, RefreshCw } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ import {
   RISK_TREND_ROWS,
   formatLkr,
 } from "./mock-data"
+import { getEwsAlerts } from "@/lib/m3-api"
 
 const BAND_META = {
   stable: {
@@ -40,7 +42,41 @@ const BAND_META = {
 
 export default function EwsAlertInbox({ onBack, onOpenAlert }) {
   const summary = EWS_MONITORING_SUMMARY
-  const sorted = [...EWS_ALERT_LIST].sort(
+  const [alerts, setAlerts] = useState(EWS_ALERT_LIST)
+  const [loading, setLoading] = useState(false)
+  const [isLive, setIsLive] = useState(false)
+
+  async function loadAlerts() {
+    setLoading(true)
+    try {
+      const data = await getEwsAlerts({ status: "open" })
+      if (Array.isArray(data) && data.length > 0) {
+        // Map backend schema to UI format if needed
+        const mapped = data.map((a) => ({
+          id: a.id,
+          borrower: a.ewsScore?.borrower?.fullName || a.borrowerName || "Borrower",
+          loanId: a.ewsScore?.loanId || a.loanId || "LOAN-ACT",
+          product: a.productName || "Microenterprise",
+          distressProbability: Math.round((a.ewsScore?.distressScore || 0.85) * 100),
+          daysLate: a.daysPastDue || 28,
+          outstanding: a.outstandingAmount || 65000,
+        }))
+        setAlerts(mapped)
+        setIsLive(true)
+      }
+    } catch {
+      // Keep mock data if offline
+      setIsLive(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAlerts()
+  }, [])
+
+  const sorted = [...alerts].sort(
     (a, b) => b.distressProbability - a.distressProbability
   )
 

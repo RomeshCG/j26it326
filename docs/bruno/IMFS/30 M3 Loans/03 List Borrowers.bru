@@ -1,0 +1,22 @@
+meta {
+  name: List Borrowers
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/m3/borrowers
+  body: none
+  auth: inherit
+}
+
+headers {
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000001
+  x-mock-role: loan_officer
+}
+
+docs {
+  # List Borrowers
+  Returns borrowers registered under this tenant, with optional branchId/status filter.
+}

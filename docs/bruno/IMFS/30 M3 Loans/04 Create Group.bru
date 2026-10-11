@@ -1,0 +1,30 @@
+meta {
+  name: Create Group
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/m3/groups
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000001
+  x-mock-role: loan_officer
+}
+
+body:json {
+  {
+    "branchId": "10000000-0000-4000-8000-000000000001",
+    "groupName": "Sithumina Women's Lending Circle"
+  }
+}
+
+docs {
+  # Create Lending Group
+  Creates a new lending group for group-guarantee microloans.
+}
