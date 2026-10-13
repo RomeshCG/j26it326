@@ -18,6 +18,7 @@ import ApplicationWizard from "@/components/application-profile/ApplicationWizar
 import ApplicationView from "@/components/application-profile/ApplicationView"
 import Login from "@/components/c4/auth/Login"
 import Signup from "@/components/c4/auth/Signup"
+import VerifyDomain from "@/components/c4/auth/VerifyDomain"
 import OnboardingWizard from "@/components/c4/onboarding-wizard"
 import Payroll from "@/components/c4/payroll"
 import HRManagement from "@/components/c4/hr-management"
@@ -162,36 +163,18 @@ function RequireRole({ allowedRoles, children }) {
 }
 
 function OnboardingRoute() {
-  const onboardingComplete = useStore((state) => state.onboardingComplete)
+  const isMockAuth = import.meta.env.VITE_USE_MOCK_AUTH === "true"
+  const token = localStorage.getItem("mf_auth_token")
   const cached = getCachedSession()
 
-  if (!cached) {
-    return <Navigate to="/login" replace />
+  // Real auth mode: if an active session exists, redirect to dashboard so logged-in admins cannot register another institution
+  if (!isMockAuth && (token || cached)) {
+    return <Navigate to="/dashboard" replace />
   }
 
-  if (cached.role !== "admin") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">
-        <div className="w-full max-w-md bg-card border border-border rounded-xl p-8 text-center shadow-lg">
-          <div className="mx-auto w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-          </div>
-          <h2 className="text-xl font-bold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground text-sm mb-8">
-            Onboarding configuration can only be accessed by the Institution Admin.
-          </p>
-          <Link 
-            to="/dashboard"
-            className="block w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg font-medium transition-colors"
-          >
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
-  if (onboardingComplete) {
+  // In mock auth mode: allow mock admin to view/re-run onboarding in layout if complete
+  const onboardingComplete = useStore((state) => state.onboardingComplete)
+  if (isMockAuth && onboardingComplete && cached) {
     return (
       <DashboardLayout>
         <OnboardingWizard />
@@ -199,6 +182,7 @@ function OnboardingRoute() {
     )
   }
 
+  // Otherwise public registration onboarding wizard for new institutions
   return <OnboardingWizard />
 }
 
@@ -210,14 +194,8 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route
-            path="/onboarding"
-            element={
-              <ProtectedRoute>
-                <OnboardingRoute />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/onboarding" element={<OnboardingRoute />} />
+          <Route path="/verify-domain" element={<VerifyDomain />} />
           <Route
             element={
               <ProtectedRoute>
