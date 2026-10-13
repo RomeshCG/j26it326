@@ -173,6 +173,7 @@ function canonicalize(val: unknown): string {
 
 export interface PayloadSummary {
   keys: string[]
+  keyCount: number
   sha256: string
   sizeBytes: number
 }
@@ -180,13 +181,13 @@ export interface PayloadSummary {
 /**
  * Summarizes an input or output payload for audit log storage.
  * Extracts top-level sorted keys (capped to 20 for lightweight storage),
- * computes a deterministic SHA-256 hash, and records byte length.
+ * records real top-level keyCount, computes a deterministic SHA-256 hash, and records byte length.
  * NEVER returns actual payload values (PII safety).
  */
 export function summarizePayload(payload: unknown): PayloadSummary {
   if (payload === undefined || payload === null) {
     const emptySha = createHash("sha256").update("").digest("hex")
-    return { keys: [], sha256: emptySha, sizeBytes: 0 }
+    return { keys: [], keyCount: 0, sha256: emptySha, sizeBytes: 0 }
   }
 
   const allKeys =
@@ -194,6 +195,7 @@ export function summarizePayload(payload: unknown): PayloadSummary {
       ? Object.keys(payload as object).sort()
       : []
 
+  const keyCount = allKeys.length
   // Retain up to 20 top-level keys to ensure summary is compact and under 2 KB
   const keys = allKeys.slice(0, 20)
 
@@ -201,7 +203,7 @@ export function summarizePayload(payload: unknown): PayloadSummary {
   const sha256 = createHash("sha256").update(canonical, "utf8").digest("hex")
   const sizeBytes = Buffer.byteLength(canonical, "utf8")
 
-  return { keys, sha256, sizeBytes }
+  return { keys, keyCount, sha256, sizeBytes }
 }
 
 /**

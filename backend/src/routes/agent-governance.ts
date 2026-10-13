@@ -281,11 +281,11 @@ export async function handleGetOverrideRates(
         status: true,
       },
       orderBy: { createdAt: "desc" },
-      take: 501,
+      take: MAX_METRICS_TAKE,
     })
 
-    const isCapped = rows.length > 500
-    const rowsToProcess = isCapped ? rows.slice(0, 500) : rows
+    const isCapped = rows.length > MAX_METRICS_ROW_CAP
+    const rowsToProcess = isCapped ? rows.slice(0, MAX_METRICS_ROW_CAP) : rows
 
     const metrics = computeOverrideRates(
       rowsToProcess,

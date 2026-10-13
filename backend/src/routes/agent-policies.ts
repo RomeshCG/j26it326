@@ -59,6 +59,19 @@ export async function handleListAgentPolicies(
 }
 
 /**
+ * Type guard for Prisma unique constraint violation (P2002).
+ * Handles both PrismaClientKnownRequestError and test fakes with code "P2002".
+ */
+export function isP2002Error(err: unknown): err is { code: "P2002" } {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: unknown }).code === "P2002"
+  )
+}
+
+/**
  * POST /agent-policies
  * Creates a new agent tier policy with audit logging (admin only).
  */
@@ -177,7 +190,7 @@ export async function handleCreateAgentPolicy(
 
     res.status(201).json({ status: "ok", policy: createdPolicy })
   } catch (err: unknown) {
-    if ((err as any)?.code === "P2002") {
+    if (isP2002Error(err)) {
       res.status(409).json({ error: "Policy for this actionType already exists" })
       return
     }

@@ -350,6 +350,15 @@ async function runTests() {
       summarizePayload(new Date("2026-10-13T10:00:00.000Z")).sha256,
     "Direct Date serialization gives stable sha256"
   )
+  const thirtyKeyPayload: Record<string, number> = {}
+  for (let i = 0; i < 30; i++) {
+    thirtyKeyPayload[`key_${i.toString().padStart(2, "0")}`] = i
+  }
+  const summary30 = summarizePayload(thirtyKeyPayload)
+  assert(
+    summary30.keys.length === 20 && summary30.keyCount === 30,
+    "summarizePayload caps keys array to 20 while recording exact keyCount of 30"
+  )
 
   // --------------------------------------------------------------------------
   // Group 7: Details 64 KB Capping
@@ -389,17 +398,18 @@ async function runTests() {
     "Largest oversized field was replaced with its PayloadSummary"
   )
 
-  // Test that capDetails replaces a field ONLY if summary is smaller than the field
+  // In fieldUnderSummary, the large field is replaced first, the total drops
+  // under 64 KB, and the loop stops, so the small field is never visited.
   const fieldUnderSummary = {
-    smallField: "small string value", // ~20 B; summary would be ~96 B (larger)
-    largeField: "x".repeat(70000),     // 70 KB; summary is ~96 B (smaller)
+    largeField: "x".repeat(70000), // 70 KB -> replaced with summary (~107 B), bringing total under 64 KB
+    smallField: "small string value",
   }
   const cappedSelective = capDetails(fieldUnderSummary)
   assert(
     cappedSelective.smallField === "small string value" &&
       typeof cappedSelective.largeField === "object" &&
       "sha256" in (cappedSelective.largeField as any),
-    "capDetails replaces field ONLY if summary JSON is smaller than field JSON"
+    "capDetails stops replacing fields once the total is under 64 KB (small field left untouched)"
   )
 
   // Test setup with 500 small fields of ~200 B each (> 64 KB total, no single big field)
