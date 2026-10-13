@@ -1,11 +1,19 @@
 import { Router } from "express"
 import { authenticate, resolveTenantContext } from "../middleware/auth.js"
 import { validateUserId } from "../lib/auth.js"
+import { agentGovernanceRouter } from "./agent-governance.js"
+import { agentPoliciesRouter } from "./agent-policies.js"
 
 export const tenantRouter = Router()
 
 // All tenant routes sit strictly behind authentication and tenant context resolution
 tenantRouter.use(authenticate, resolveTenantContext)
+
+// Agent governance & Graduated Trust action endpoints (/api/tenant/agent-actions)
+tenantRouter.use("/agent-actions", agentGovernanceRouter)
+
+// Agent tier policy management endpoints (/api/tenant/agent-policies)
+tenantRouter.use("/agent-policies", agentPoliciesRouter)
 
 /**
  * GET /api/tenant/info

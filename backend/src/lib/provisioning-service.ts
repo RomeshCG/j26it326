@@ -7,6 +7,7 @@ import { centralPrisma } from "./prisma-central.js"
 import { getTenantPrisma, evictTenantClient } from "./prisma-tenant.js"
 import { buildTenantDatabaseUrl } from "./tenant-context.js"
 import { hashPassword, comparePassword, logSafeError, DUMMY_HASH } from "./auth.js"
+import { DEFAULT_AGENT_POLICIES } from "./agent-defaults.js"
 
 const execFileAsync = promisify(execFile)
 
@@ -459,6 +460,11 @@ async function executeProvisioning(input: ProvisioningInput): Promise<Provisioni
         position: "Administrator",
         employmentStatus: "active",
       },
+    })
+
+    // 4. Default Graduated Trust agent tier policies (A1-A4)
+    await tenantPrisma.agentTierPolicy.createMany({
+      data: [...DEFAULT_AGENT_POLICIES],
     })
 
     // ------------------------------------------------------------------------
