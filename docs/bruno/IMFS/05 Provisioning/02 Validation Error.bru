@@ -1,0 +1,24 @@
+meta {
+  name: 02 Validation Error
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/register-institution
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "institutionName": "X",
+    "adminFullName": "A",
+    "adminEmail": "invalid-email",
+    "adminPassword": "short"
+  }
+}

@@ -127,10 +127,41 @@ export async function apiRequest(endpoint, options = {}) {
     )
     error.status = response.status
     error.data = data
+    const retryHeader = response.headers.get("retry-after")
+    if (retryHeader) {
+      const parsed = parseInt(retryHeader, 10)
+      error.retryAfter = !isNaN(parsed) ? parsed : retryHeader
+    }
     throw error
   }
 
+  if (data && typeof data === "object") {
+    data._status = response.status
+  }
+
   return data
+}
+
+/**
+ * Register and provision a new tenant institution
+ * POST /auth/register-institution
+ */
+export async function registerInstitution(payload) {
+  return await apiRequest("/auth/register-institution", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+/**
+ * Verify an institution domain with a one-time token
+ * POST /auth/domains/verify
+ */
+export async function verifyDomainToken(token) {
+  return await apiRequest("/auth/domains/verify", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  })
 }
 
 /**

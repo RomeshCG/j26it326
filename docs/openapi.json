@@ -256,6 +256,51 @@
             "description": "Optional custom non-admin role id to assign upon approval"
           }
         }
+      },
+      "RegisterInstitutionRequest": {
+        "type": "object",
+        "properties": {
+          "institutionName": { "type": "string", "example": "Apex Microfinance Ltd", "minLength": 3, "maxLength": 100 },
+          "licenseNumber": { "type": "string", "example": "MFI-LK-001", "nullable": true },
+          "adminFullName": { "type": "string", "example": "Anura Perera", "minLength": 2, "maxLength": 100 },
+          "adminEmail": { "type": "string", "format": "email", "example": "admin@apex.lk" },
+          "adminPassword": { "type": "string", "format": "password", "example": "SecurePassword123!" },
+          "institutionType": {
+            "type": "string",
+            "enum": ["licensed_finance_company", "microfinance_ngo", "rural_development_bank", "cooperative_society"],
+            "default": "microfinance_ngo"
+          },
+          "district": { "type": "string", "example": "Colombo", "nullable": true },
+          "planName": { "type": "string", "enum": ["Starter", "Standard", "Professional", "Enterprise"], "default": "Starter" },
+          "billingCycle": { "type": "string", "enum": ["monthly", "annual"], "default": "monthly" }
+        },
+        "required": ["institutionName", "adminFullName", "adminEmail", "adminPassword"]
+      },
+      "RegisterInstitutionResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "Institution registered and provisioned successfully" },
+          "institution": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string" },
+              "status": { "type": "string", "example": "active" }
+            },
+            "required": ["id", "name", "status"]
+          },
+          "admin": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "email": { "type": "string" },
+              "fullName": { "type": "string" },
+              "role": { "type": "string", "example": "admin" }
+            },
+            "required": ["id", "email", "fullName", "role"]
+          }
+        },
+        "required": ["message", "institution", "admin"]
       }
     }
   },
@@ -299,6 +344,82 @@
           },
           "403": {
             "description": "Account pending approval or institution is not active",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests or temporary account lockout. Includes Retry-After header with backoff duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register-institution": {
+      "post": {
+        "summary": "Register and provision new institution",
+        "description": "Public onboarding endpoint to provision an isolated tenant database, bootstrap organization metadata and activate sole initial administrator. Protected by abuse gate and pre-hijack domain checks.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterInstitutionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Institution registered and provisioned successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RegisterInstitutionResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or registration request conflict (timing-parity protected)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Public registration disabled or invalid setup key",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily busy (concurrency limit reached)",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }
@@ -485,6 +606,20 @@
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }
               }
             }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -512,6 +647,20 @@
           },
           "400": {
             "description": "Validation error or unverified/blocked domain",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }
@@ -577,7 +726,21 @@
             }
           },
           "400": { "description": "Invalid domain format, blocked free-mail provider, or invalid default role" },
-          "409": { "description": "Domain already verified or active pending claim exists" }
+          "409": { "description": "Domain already verified or active pending claim exists" },
+          "429": {
+            "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     },
@@ -629,7 +792,21 @@
             }
           },
           "400": { "description": "Missing/invalid verificationMailbox or domain is not pending verification" },
-          "404": { "description": "Domain not found" }
+          "404": { "description": "Domain not found" },
+          "429": {
+            "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     },
@@ -664,7 +841,21 @@
             }
           },
           "404": { "description": "Domain not found" },
-          "409": { "description": "Cannot revoke domain: would disable the last active administrator" }
+          "409": { "description": "Cannot revoke domain: would disable the last active administrator" },
+          "429": {
+            "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     },
@@ -736,7 +927,21 @@
             }
           },
           "400": { "description": "Cannot assign admin role, or domain no longer verified" },
-          "404": { "description": "User not found or not pending" }
+          "404": { "description": "User not found or not pending" },
+          "429": {
+            "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     },
@@ -770,7 +975,21 @@
               }
             }
           },
-          "404": { "description": "User not found or not pending" }
+          "404": { "description": "User not found or not pending" },
+          "429": {
+            "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     }

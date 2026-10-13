@@ -1,6 +1,7 @@
-import React from "react"
+import React, { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Eye, EyeOff } from "lucide-react"
 
 export const SRI_LANKAN_DISTRICTS = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo",
@@ -17,7 +18,16 @@ export const INSTITUTION_TYPES = [
   "Co-operative Society"
 ]
 
-export default function Step1Institution({ formData, errors, handleInputChange }) {
+export default function Step1Institution({
+  formData,
+  errors,
+  handleInputChange,
+  adminPassword = "",
+  handlePasswordChange = () => {},
+  passwordWasCleared = false,
+}) {
+  const [showPassword, setShowPassword] = useState(false)
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -156,7 +166,7 @@ export default function Step1Institution({ formData, errors, handleInputChange }
 
           <div className="space-y-2">
             <Label htmlFor="contactPhone" className="text-sm font-medium">
-              Mobile Number <span className="text-destructive">*</span>
+              Mobile Number
             </Label>
             <Input
               id="contactPhone"
@@ -168,6 +178,40 @@ export default function Step1Institution({ formData, errors, handleInputChange }
             />
             {errors.contactPhone && (
               <p className="text-xs text-destructive font-medium">{errors.contactPhone}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="adminPassword" className="text-sm font-medium">
+              Administrator Password <span className="text-destructive">*</span>
+            </Label>
+            <div className="relative">
+              <Input
+                id="adminPassword"
+                type={showPassword ? "text" : "password"}
+                value={adminPassword}
+                onChange={(e) => handlePasswordChange(e.target.value)}
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+                className={`h-9 pr-9 ${errors.adminPassword || (passwordWasCleared && !adminPassword) ? "border-destructive focus-visible:ring-destructive/30" : ""}`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {errors.adminPassword && (
+              <p className="text-xs text-destructive font-medium">{errors.adminPassword}</p>
+            )}
+            {!errors.adminPassword && passwordWasCleared && !adminPassword && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                For security, your password was cleared after the previous submission attempt. Please re-enter your administrator password to proceed.
+              </p>
             )}
           </div>
         </div>

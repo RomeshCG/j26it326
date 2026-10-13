@@ -1,0 +1,28 @@
+meta {
+  name: 07 Rate Limit Exceeded
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "rate-limit-test@example.com",
+    "password": "incorrect_password"
+  }
+}
+
+docs {
+  # Rate Limit / Lockout Exceeded
+  Demonstrates HTTP 429 response with Retry-After header when rate limit or lockout threshold is hit.
+  Generic error response: { "error": "Too many requests. Please try again later." }
+}
