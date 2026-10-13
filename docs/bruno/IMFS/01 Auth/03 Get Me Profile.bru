@@ -1,0 +1,20 @@
+meta {
+  name: 03 Get Me Profile
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/auth/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Get Profile (Me)
+  Returns profile and capabilities map for currently authenticated user.
+}

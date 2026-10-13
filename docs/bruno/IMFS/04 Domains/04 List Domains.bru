@@ -1,0 +1,20 @@
+meta {
+  name: 04 List Domains
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/tenant/domains
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # List Domains
+  Returns all domain claims registered to caller's institution. Admin only.
+}

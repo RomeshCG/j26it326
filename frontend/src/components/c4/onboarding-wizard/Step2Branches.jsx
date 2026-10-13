@@ -26,6 +26,17 @@ export default function Step2Branches({ formData, errors, handleAddBranch, handl
         </Button>
       </div>
 
+      {/* Honesty / Provisioning Notice */}
+      <div className="p-3.5 rounded-lg border border-blue-500/20 bg-blue-500/5 text-xs space-y-1 text-muted-foreground">
+        <p className="font-semibold text-foreground flex items-center gap-1.5">
+          <Landmark className="size-3.5 text-blue-500" />
+          Initial Launch Provisioning Notice
+        </p>
+        <p>
+          Initial workspace provisioning creates your <strong className="text-foreground">Head Office</strong> branch. Additional regional branches defined below are saved in setup preferences and can be activated from the Branch Management dashboard after launch.
+        </p>
+      </div>
+
       {errors.global && (
         <div className="p-3 text-sm rounded-lg bg-destructive/10 text-destructive font-medium">
           {errors.global}

@@ -1,0 +1,20 @@
+meta {
+  name: 02 Tenant Branches
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/tenant/branches
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Tenant Branches
+  Lists active branches for the caller's institution from the tenant database.
+}

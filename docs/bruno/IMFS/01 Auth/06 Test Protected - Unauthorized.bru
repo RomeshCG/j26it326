@@ -1,0 +1,16 @@
+meta {
+  name: 06 Test Protected - Unauthorized (401)
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/auth/test/admin
+  body: none
+  auth: none
+}
+
+docs {
+  # Test Protected - Unauthorized (401)
+  Demonstrates rejection (401) when Authorization Bearer token is missing.
+}

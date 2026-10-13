@@ -50,6 +50,63 @@ export default function Step5Review({ formData, setupDurationText }) {
         <span className="font-semibold text-foreground tabular-nums">{setupDurationText || "calculating..."}</span>
       </div>
 
+      {/* Honesty: What is provisioned at launch vs configured afterwards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <div className="p-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-md">
+              <Check className="size-3.5 stroke-[3px]" />
+            </div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              Provisioned at Launch
+            </h4>
+          </div>
+          <ul className="text-xs space-y-1.5 text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-500 font-bold">•</span>
+              <span>Central Institution & dedicated Tenant Database</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-500 font-bold">•</span>
+              <span>Primary Admin Account (<strong className="text-foreground">{formData.contactEmail}</strong>)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-500 font-bold">•</span>
+              <span>Starter Subscription Plan & Monthly Billing Cycle</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-500 font-bold">•</span>
+              <span>Head Office Branch ({formData.district || "HQ District"})</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="p-4 rounded-lg border border-border bg-card/40 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <div className="p-1 bg-muted text-muted-foreground rounded-md">
+              <Sparkles className="size-3.5" />
+            </div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              Configured from Dashboard
+            </h4>
+          </div>
+          <ul className="text-xs space-y-1.5 text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="text-muted-foreground font-bold">•</span>
+              <span>Additional Branches ({Math.max(0, formData.branches.length - 1)} regional offices saved in preferences)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-muted-foreground font-bold">•</span>
+              <span>Loan Products ({getProductsCount()} offerings to activate after launch)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-muted-foreground font-bold">•</span>
+              <span>Staff User Invitations ({Math.max(0, formData.users.length - 1)} staff invited from Admin console)</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
       {/* Compliance & Config Checklist */}
       <div className="border border-border/80 rounded-lg overflow-hidden bg-card/30">
         <div className="bg-muted px-4 py-3 border-b border-border/80">

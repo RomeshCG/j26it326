@@ -1,0 +1,30 @@
+meta {
+  name: 07 Approve Pending User
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/tenant/pending-users/{{pendingUserId}}/approve
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "roleId": 6
+  }
+}
+
+docs {
+  # Approve Pending User
+  Approves a pending staff user and activates them, optionally assigning a specific non-admin roleId.
+}
