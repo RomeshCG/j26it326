@@ -20,9 +20,9 @@ Welcome! This guide explains how Component 1 (Credit Risk), Component 2 (Finance
 
 ---
 
-## 2. Environment Setup (First Time Pulling)
+## 2. After You Pull (Checklist & Environment Setup)
 
-Whenever you pull changes from `main` or `m4/*`:
+Whenever you pull changes from `main` or `m4/*`, follow this checklist in order:
 
 1. **Install dependencies**:
    ```bash
@@ -30,20 +30,55 @@ Whenever you pull changes from `main` or `m4/*`:
    npm install
    ```
 2. **Configure your `.env`**:
-   Make sure you have a `JWT_SECRET` configured in `backend/.env`.
+   Ensure you have a `JWT_SECRET` configured in `backend/.env`.
    - Must be at least 32 characters long.
-   - Generate one in terminal (e.g. `node -e "console.log(crypto.randomBytes(32).toString('hex'))"`).
+   - Generate your own secret (e.g. `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
    - **Never commit `.env` or share your secret.**
    ```dotenv
    JWT_SECRET="your-own-secure-secret-minimum-32-characters"
    JWT_EXPIRES_IN="15m"
    ```
+3. **Database Port Assignment**:
+   Use **your own component's dedicated database port only**:
+   - **M1**: 5433
+   - **M2**: 5434
+   - **M3**: 5435
+   - **M4**: 5436
+   *(Never use 5437 or another component's port.)*
+4. **Apply Tenant Database Migration**:
+   Apply migration `20261013143500_graduated_trust_audit` to **your own tenant databases only**:
+   Set `TENANT_DATABASE_URL` in your own shell to ONE of your own tenant databases (use your own credentials, never commit them), run `prisma migrate deploy`, then repeat for your next tenant database:
+   ```bash
+   npx prisma migrate deploy --schema prisma/tenant/schema.prisma
+   ```
+   - **Important**: Always use `prisma migrate deploy` against your own databases. Never run `prisma migrate dev` against a shared database, and never run `prisma migrate reset`.
+5. **Regenerate Tenant Prisma Client**:
+   Stop the backend server first, then regenerate the client:
+   ```bash
+   npx prisma generate --schema prisma/tenant/schema.prisma
+   ```
+   > [!WARNING]
+   > **Consequence of Skipping Migration**:
+   > The tables `agent_tier_policies`, `agent_actions` and audit_log columns `actor_type` and `details` already existed previously. This migration adds the following new columns, and agent routes fail without them:
+   > - `agent_tier_policies.agent_id`
+   > - `agent_actions.agent_id`, `decision_reason`, `is_override`, `model_version`, `processing_time_ms`, `prompt_version`, `tools_used`
+   > - `audit_log.ip_address`, `user_agent`
 
 ---
 
-## 3. How to Mount a Module Router
 
-In Express, mount your router behind the M4 middleware chain:
+## 3. How to Mount a Module Router (Auth & Roles)
+
+In Express, mount your router strictly behind the M4 middleware chain in this exact order:
+**`authenticate` -> `resolveTenantContext` -> `requireRole(...)`**
+
+1. `authenticate`: Verifies JWT signature and expiry, attaching `req.user`.
+2. `resolveTenantContext`: Resolves the tenant physical database connection pool, attaching `req.tenantPrisma`.
+3. `requireRole(...)`: Enforces role-based permissions per endpoint.
+
+> [!IMPORTANT]
+> **Module Table Isolation**:
+> Modules must **never write directly into another module's tables**. Cross-component communication must happen strictly through public module APIs or asynchronous events.
 
 ```typescript
 import { Router } from "express"
@@ -293,7 +328,7 @@ IMFS supports public self-service onboarding for new microfinance institutions v
 
 ---
 
-## 11. Security Hardening A: Rate Limiting & Account Lockout
+## 12. Security Hardening A: Rate Limiting & Account Lockout
 
 Component 4 enforces bounded in-memory sliding window rate limiters and multi-tier account lockout on all public endpoints and tenant admin surfaces.
 
@@ -363,6 +398,67 @@ When implementing the client-side experience:
    - Catch 429 errors from `login()` calls.
    - Display a countdown timer (e.g., "Too many attempts. Please wait 14 minutes and 30 seconds before trying again.").
    - Disable the submit button until the countdown expires.
+
+---
+
+## 13. Graduated Trust & Agent Governance (Phase 9a)
+
+Component 4 provides the Graduated Trust engine and governance APIs for AI agent action execution, policy configuration, and human-in-the-loop oversight.
+
+### Internal-Only Dispatch
+- **Internal Only**: Action dispatch is internal-only until Phase 10 service authentication is implemented. AI agent components execute actions through internal service calls to `dispatchAgentAction()`.
+- **Test Dispatch Endpoint**: `POST /api/tenant/agent-actions/test-dispatch` is restricted to administrators (`admin` role) for development simulation and is **strictly blocked in production** (`NODE_ENV === "production"` returns `403 Forbidden`).
+
+### The 4 Tiers & Action Statuses
+Actions are categorized into four trust tiers:
+- **Tier 1 (Auto-Execute)**: Action executes immediately without human intervention. Final status: `executed` (or `failed` if execution encounters an error).
+- **Tier 2 (Execute & Notify)**: Action executes immediately and notifies stakeholders. Final status: `notified` (or `failed`).
+- **Tier 3 (Human Approval Required)**: Action halts in `pending_approval`. A human supervisor reviews the action:
+  - **Approve**: Transitions to `approved`, executes handler, and reaches `executed` (or `failed`).
+  - **Reject**: Transitions to `rejected` with `is_override: true`; no handler runs.
+- **Tier 4 (Alert Only)**: Raises an alert without executing any automated action. Final status: `alert_only`. A human decides subsequent steps.
+
+*(Lifecycle status `running` denotes an action currently executing its handler).*
+
+### Policy Decision & Fallback Rule
+- The tier for any action is decided **strictly by the active policy** (`is_active: true`) configured for the `actionType` in `agent_tier_policies`.
+- **Fallback Rule**: Unknown action types or inactive policies automatically fall back to **Tier 4 (`alert_only`)** with `isFallback: true`.
+
+> [!NOTE]
+> **Tenant Policy Provisioning**:
+> Newly provisioned tenants receive the 4 default policies automatically. Tenants created before Phase 9a may have no policies, or older policies without an agent_id; an admin should create or update them. An action type with no active policy falls back to Tier 4 alert_only.
+
+### Existing Router Endpoints
+
+#### Agent Actions (`/api/tenant/agent-actions` — in `backend/src/routes/agent-governance.ts`)
+- `GET /api/tenant/agent-actions`: Lists agent actions with filters (`tier`, `status`, `agentId`, `from`, `to`, `page`, `limit`). Protected by `agents:view_actions` (roles: `admin`, `executive`, `finance_officer`, `hr_officer`, `branch_manager`, `loan_officer`). Strictly omits `input_payload` and `output_payload`.
+- `GET /api/tenant/agent-actions/pending`: Lists pending Tier 3 actions awaiting decision. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`). Strictly omits payloads. Hard capped at 500 rows (`MAX_PENDING_TAKE`).
+- `GET /api/tenant/agent-actions/metrics/override-rates`: Returns override rate metrics and tier statistics. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`). Hard capped at 500 rows (`MAX_METRICS_ROW_CAP`); returns `capped: true` when exceeded.
+- `POST /api/tenant/agent-actions/test-dispatch`: Simulates dispatch across tiers in non-production environments. Admin-only (`agents:manage_policies`, role: `admin`).
+- `GET /api/tenant/agent-actions/:id`: Fetches complete single action details, including full `inputPayload` and `outputPayload`. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`).
+- `POST /api/tenant/agent-actions/:id/approve`: Approves a pending Tier 3 action and executes its handler. Requires `{ "reason": "..." }`. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`).
+- `POST /api/tenant/agent-actions/:id/reject`: Rejects a pending Tier 3 action. Requires `{ "reason": "..." }`. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`).
+- `POST /api/tenant/agent-actions/:id/override`: Human override for an executed/notified Tier 1 or Tier 2 action. Permitted once per action. Requires `{ "reason": "..." }`. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`).
+
+#### Agent Policies (`/api/tenant/agent-policies` — in `backend/src/routes/agent-policies.ts`)
+- `GET /api/tenant/agent-policies`: Lists all configured agent policies. Protected by `agents:view_actions` (roles: `admin`, `executive`, `finance_officer`, `hr_officer`, `branch_manager`, `loan_officer`).
+- `POST /api/tenant/agent-policies`: Creates a new policy (`actionType`, `agentId`, `agentName`, `tier`, `description`). Admin-only (`agents:manage_policies`, role: `admin`). Writes audit log entry.
+- `PUT /api/tenant/agent-policies/:id`: Updates an existing policy (`tier`, `description`, `isActive`). Admin-only (`agents:manage_policies`, role: `admin`). Justification `reason` (10 to 1000 characters) is required only when changing policy tier. Writes audit log entry.
+
+### Lightweight Projection (Zero Payload Leakage)
+> [!IMPORTANT]
+> **Payload Privacy Guarantee**:
+> List queries (`GET /api/tenant/agent-actions`) and pending queues (`GET /api/tenant/agent-actions/pending`) **never return `input_payload` or `output_payload`**. Payloads are excluded at the database projection level (`LIGHTWEIGHT_ACTION_SELECT`) to protect sensitive borrower PII and prevent memory bloat. Only single-item inspection (`GET /:id`) returns payload fields.
+
+---
+
+## 14. Open Items for Team Lead
+
+1. **Pull Request into `main`**: When is the scheduled merge window for branch `m4/tenant-routing` into `main`?
+2. **Cross-Module Event Format**: What is the agreed schema, transport, and delivery guarantee for cross-module asynchronous events:
+   - Component 4 Payroll events triggering Component 2 journal entries?
+   - Component 3 Loan Disbursements triggering Component 2 ledger entries?
+3. **Dataset Status**: What is the current status and availability of standardized tenant seed datasets across developer environments?
 
 
 
