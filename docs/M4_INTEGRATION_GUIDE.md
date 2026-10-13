@@ -291,9 +291,79 @@ IMFS supports public self-service onboarding for new microfinance institutions v
 > **Prisma CLI Packaging in Production**:
 > The `prisma` package is listed in `devDependencies`. In production container deployments where devDependencies are pruned (`npm install --omit=dev`), the CLI script will be absent. Production Docker images must either retain the Prisma CLI or execute migrations via a dedicated migration runner container.
 
-> [!IMPORTANT]
-> **Orphan Database & Provisioning Reconciliation (Follow-Up Note)**:
-> In production operations, a report-only background reconciliation check should be scheduled to alert operators to any orphan `imfs_tenant_%` databases (databases without an active `central.institution_databases` mapping) or institutions stuck in `provisioning` status older than $N$ minutes (e.g., > 15 minutes). **This reconciliation routine must be strictly report-only and never auto-drop or auto-delete physical databases or customer data.**
+---
+
+## 11. Security Hardening A: Rate Limiting & Account Lockout
+
+Component 4 enforces bounded in-memory sliding window rate limiters and multi-tier account lockout on all public endpoints and tenant admin surfaces.
+
+### Architecture & Per-Process Storage Limitation
+- **In-Process Memory**: Limiters utilize high-performance in-memory sliding window stores with zero external dependencies.
+- > [!WARNING]
+  > **Per-Process Memory Limitation**:
+  > Counters and lockout states are tracked **per backend Node.js process**. When running multiple backend replicas in production behind a round-robin load balancer, an attacker's attempts could be distributed across processes. For horizontally scaled deployments, counters and lockouts must be backed by a centralized store such as **Redis** or Memcached.
+
+### Protected Endpoints & Configurable Limits
+All thresholds are configurable via environment variables in `backend/.env` (documented in `backend/.env.example`):
+
+| Endpoint | Protection Tier | Default Limit | Window / Duration | Env Variables |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST /auth/login` | Total IP Request Cap | 200 requests | 15 min | `RATE_LIMIT_LOGIN_IP_TOTAL_MAX`, `..._WINDOW_MS` |
+| `POST /auth/login` | Failed IP Attempts | 20 failed attempts | 15 min | `RATE_LIMIT_LOGIN_IP_FAIL_MAX`, `..._WINDOW_MS` |
+| `POST /auth/login` | Pair Lockout `(email\|ip)` | 5 failed attempts | 15 min lock | `LOCKOUT_PAIR_FAIL_MAX`, `..._WINDOW_MS`, `..._DURATION_MS` |
+| `POST /auth/login` | Aggregate Email Lockout | 100 failed attempts | 15 min lock | `LOCKOUT_EMAIL_FAIL_MAX`, `..._WINDOW_MS`, `..._DURATION_MS` |
+| `POST /auth/signup` | Staff Self-Registration | 10 requests | 1 hour | `RATE_LIMIT_SIGNUP_MAX`, `..._WINDOW_MS` |
+| `POST /auth/domains/verify` | Domain Token Verify | 20 requests | 1 hour | `RATE_LIMIT_VERIFY_DOMAIN_MAX`, `..._WINDOW_MS` |
+| `POST /auth/register-institution` | Tenant Onboarding | 3 requests | 1 hour | `RATE_LIMIT_REGISTER_INSTITUTION_MAX`, `..._WINDOW_MS` |
+| `/api/tenant/*` (mutating) | Domain & Staff Mutations | 30 requests | 15 min / institution | `RATE_LIMIT_ADMIN_TENANT_MAX`, `..._WINDOW_MS` |
+
+> [!WARNING]
+> **Aggregate Email Lockout Trade-Off & Future Mitigations**:
+> While pair lockout (`email|ip`) prevents an attacker from locking out a user from a different IP, the secondary aggregate lockout (100 failures/hour across all IPs) exists to mitigate large-scale distributed brute-force attacks. However, this creates a trade-off: a determined distributed attacker can still trigger a temporary 15-minute lockout for a known email address. Future enhancements (e.g. Agent 3 anomaly scoring, known-IP exemptions, CAPTCHA challenges, or TOTP/MFA) will be evaluated under separate approvals.
+
+### Security Properties
+1. **Timing Parity on Locked Path**:
+   When an account or IP pair is locked, requests to `POST /auth/login` still execute `comparePassword(password, DUMMY_HASH)` (~80ms bcrypt) to maintain constant response timing with standard authentication checks.
+2. **Oracle Prevention**:
+   Every non-success login outcome (unknown email, invalid password, pending status, disabled status, provisioning/inactive institution) increments the failure counters identically. Counters reset to zero only upon a fully successful authenticated login.
+   - Crucially, `clearLoginCounters()` clears the `(email|ip)` pair and aggregate email counters, but **preserves the IP failed-attempts counter**. This prevents an attacker with a valid account from alternating failures on victim accounts and successes on their own account to repeatedly wipe their IP's failure history.
+3. **No Account Enumeration**:
+   Responses for rate limits and lockouts return an identical generic HTTP 429 payload:
+   ```json
+   { "error": "Too many requests. Please try again later." }
+   ```
+   accompanied by a standard `Retry-After: <seconds>` HTTP response header.
+4. **Bounded Memory & 3-Tier Eviction**:
+   Each limiter operates within an isolated `BoundedStore` capped at `RATE_LIMIT_MAX_ENTRIES` (default 10,000 entries). When full, entries are evicted in priority order:
+   - Expired entries are swept first.
+   - Unlocked entries are evicted second via LRU (`lastSeen`).
+   - Actively locked targets are evicted only if 100% of the store capacity consists of active locks.
+5. **Reverse Proxy & Client IP (`TRUST_PROXY`)**:
+   - `TRUST_PROXY=false` in local development (direct socket IP).
+   - In production behind a single reverse proxy (Railway, Render, Fly.io), set `TRUST_PROXY=1`.
+   - `TRUST_PROXY=true` trusts all headers and must **not** be used when the service is directly addressable from the internet.
+   - The backend validates `TRUST_PROXY` at startup and fails closed to `false` on unrecognized values.
+6. **Admin Mutation Limiting**:
+   - The admin limiter is keyed by institution ID (`admin:inst:<institutionId>`), allowing multi-admin collaboration while shielding the tenant from runaway automation or script abuse.
+   - Applies only to mutating routes (`POST /domains`, `POST /domains/:id/resend`, `DELETE /domains/:id`, approve, reject). Safe read-only `GET` endpoints remain unconstrained.
+7. **Audit Trail**:
+   - For registered users, `recordLoginAudit('account_locked')` is recorded in `central.login_audit` **once** when a lockout initiates (not on subsequent blocked requests).
+   - Rate limit hits and blocked attempts emit structured `[security-audit]` logs to stdout with masked emails (e.g. `ad***@apex.lk`) and never passwords or tokens.
+
+### Frontend Integration Guidance
+> [!NOTE]
+> Frontend changes for 429 handling will be wired in future frontend tickets. No frontend files should be modified in this backend hardening phase.
+
+When implementing the client-side experience:
+1. **`frontend/src/lib/api.js`**:
+   - Enhance the global fetch/axios response interceptor to intercept `HTTP 429`.
+   - Read the `Retry-After` response header (integer in seconds).
+   - Propagate a structured error object containing `retryAfter` and the generic message to callers.
+2. **`frontend/src/components/c4/auth/Login.jsx`**:
+   - Catch 429 errors from `login()` calls.
+   - Display a countdown timer (e.g., "Too many attempts. Please wait 14 minutes and 30 seconds before trying again.").
+   - Disable the submit button until the countdown expires.
+
 
 
 

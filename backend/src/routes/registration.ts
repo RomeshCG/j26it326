@@ -2,6 +2,11 @@ import crypto from "crypto"
 import express from "express"
 import { provisionTenant } from "../lib/provisioning-service.js"
 import { logSafeError } from "../lib/auth.js"
+import {
+  registerInstitutionIpStore,
+  checkAndIncrementRateLimit,
+  GENERIC_RATE_LIMIT_ERROR,
+} from "../middleware/rate-limit.js"
 
 export const registrationRouter = express.Router()
 
@@ -76,7 +81,24 @@ registrationRouter.post("/register-institution", async (req, res) => {
     return
   }
 
-  // 2. Delegate to Provisioning Service
+  // 2. IP Rate Limit Check (Amendment 8: sits after abuse gate, before provisioning service)
+  const clientIp = req.ip || req.socket.remoteAddress || "127.0.0.1"
+  const rateLimitMax = parseInt(process.env.RATE_LIMIT_REGISTER_INSTITUTION_MAX ?? "3", 10) || 3
+  const rateLimitWindowMs = parseInt(process.env.RATE_LIMIT_REGISTER_INSTITUTION_WINDOW_MS ?? "3600000", 10) || 3600000
+  const rateCheck = checkAndIncrementRateLimit(
+    registerInstitutionIpStore,
+    clientIp,
+    rateLimitMax,
+    rateLimitWindowMs
+  )
+
+  if (!rateCheck.allowed) {
+    res.setHeader("Retry-After", String(rateCheck.retryAfter))
+    res.status(429).json({ error: GENERIC_RATE_LIMIT_ERROR })
+    return
+  }
+
+  // 3. Delegate to Provisioning Service
   try {
     const {
       institutionName,

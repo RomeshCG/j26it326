@@ -18,6 +18,7 @@ import { registrationRouter } from "./routes/registration.js"
 import { tenantRouter } from "./routes/tenant.js"
 import { exampleRouter } from "./routes/_example.js"
 import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
+import { configureTrustProxy } from "./middleware/rate-limit.js"
 
 // Strict JWT_SECRET startup guard: server must fail fast if secret is missing or insecure
 try {
@@ -29,6 +30,14 @@ try {
 
 const app = express()
 const port = Number(process.env.PORT ?? 4000)
+
+// Configure client IP resolution via trust proxy
+configureTrustProxy(app, process.env.TRUST_PROXY)
+
+// Startup check: ENABLE_RATE_LIMITING=false is ignored in production (Amendment 5)
+if (process.env.NODE_ENV === "production" && process.env.ENABLE_RATE_LIMITING === "false") {
+  console.warn("[security-audit] WARNING: ENABLE_RATE_LIMITING=false is ignored in production. Rate limiting is active.")
+}
 
 app.use(cors())
 app.use(express.json())

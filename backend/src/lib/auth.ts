@@ -127,7 +127,7 @@ export function logSafeError(context: string, error: unknown): void {
  */
 export async function recordLoginAudit(params: {
   userId?: string | null
-  event: "login_success" | "login_failed" | "account_disabled" | "institution_inactive"
+  event: "login_success" | "login_failed" | "account_disabled" | "institution_inactive" | "account_locked"
   ipAddress?: string | null
 }): Promise<void> {
   try {

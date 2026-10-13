@@ -349,6 +349,20 @@
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }
               }
             }
+          },
+          "429": {
+            "description": "Too many requests or temporary account lockout. Includes Retry-After header with backoff duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -384,6 +398,20 @@
           },
           "403": {
             "description": "Public registration disabled or invalid setup key",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }
@@ -578,6 +606,20 @@
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }
               }
             }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
           }
         }
       }
@@ -605,6 +647,20 @@
           },
           "400": {
             "description": "Validation error or unverified/blocked domain",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ErrorResponse" }
@@ -670,7 +726,21 @@
             }
           },
           "400": { "description": "Invalid domain format, blocked free-mail provider, or invalid default role" },
-          "409": { "description": "Domain already verified or active pending claim exists" }
+          "409": { "description": "Domain already verified or active pending claim exists" },
+          "429": {
+            "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     },
@@ -722,7 +792,21 @@
             }
           },
           "400": { "description": "Missing/invalid verificationMailbox or domain is not pending verification" },
-          "404": { "description": "Domain not found" }
+          "404": { "description": "Domain not found" },
+          "429": {
+            "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     },
@@ -757,7 +841,21 @@
             }
           },
           "404": { "description": "Domain not found" },
-          "409": { "description": "Cannot revoke domain: would disable the last active administrator" }
+          "409": { "description": "Cannot revoke domain: would disable the last active administrator" },
+          "429": {
+            "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     },
@@ -829,7 +927,21 @@
             }
           },
           "400": { "description": "Cannot assign admin role, or domain no longer verified" },
-          "404": { "description": "User not found or not pending" }
+          "404": { "description": "User not found or not pending" },
+          "429": {
+            "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     },
@@ -863,7 +975,21 @@
               }
             }
           },
-          "404": { "description": "User not found or not pending" }
+          "404": { "description": "User not found or not pending" },
+          "429": {
+            "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
+            "headers": {
+              "Retry-After": {
+                "schema": { "type": "integer" },
+                "description": "Number of seconds to wait before retrying"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
         }
       }
     }

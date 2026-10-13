@@ -11,6 +11,11 @@ import {
   approveUser,
   rejectUser,
 } from "../lib/domain-service.js"
+import {
+  signupLimiter,
+  verifyDomainLimiter,
+  adminTenantLimiter,
+} from "../middleware/rate-limit.js"
 
 export const publicDomainRouter = Router()
 export const tenantDomainRouter = Router()
@@ -23,7 +28,7 @@ export const tenantDomainRouter = Router()
  * POST /auth/domains/verify
  * Public endpoint called with { token } in the body.
  */
-publicDomainRouter.post("/domains/verify", async (req, res) => {
+publicDomainRouter.post("/domains/verify", verifyDomainLimiter, async (req, res) => {
   const { token } = req.body ?? {}
   const result = await verifyDomain(token)
   if (!result.success) {
@@ -37,7 +42,7 @@ publicDomainRouter.post("/domains/verify", async (req, res) => {
  * POST /auth/signup
  * Staff self-registration under an existing verified institution domain.
  */
-publicDomainRouter.post("/signup", async (req, res) => {
+publicDomainRouter.post("/signup", signupLimiter, async (req, res) => {
   const { email, password, fullName } = req.body ?? {}
   const result = await signupUser({ email, password, fullName })
   if (!result.success) {
@@ -55,7 +60,7 @@ publicDomainRouter.post("/signup", async (req, res) => {
  * POST /api/tenant/domains
  * Register an email domain for the admin's institution.
  */
-tenantDomainRouter.post("/domains", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
+tenantDomainRouter.post("/domains", authenticate, resolveTenantContext, requireRole("admin"), adminTenantLimiter, async (req, res) => {
   const institutionId = req.user!.institutionId
   const { domain, defaultRoleId, verificationMailbox } = req.body ?? {}
 
@@ -111,7 +116,7 @@ tenantDomainRouter.get("/domains", authenticate, resolveTenantContext, requireRo
  * POST /api/tenant/domains/:domainId/resend
  * Resend verification link for a pending domain.
  */
-tenantDomainRouter.post("/domains/:domainId/resend", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
+tenantDomainRouter.post("/domains/:domainId/resend", authenticate, resolveTenantContext, requireRole("admin"), adminTenantLimiter, async (req, res) => {
   const institutionId = req.user!.institutionId
   const domainId = String(req.params.domainId)
   const { verificationMailbox } = req.body ?? {}
@@ -133,7 +138,7 @@ tenantDomainRouter.post("/domains/:domainId/resend", authenticate, resolveTenant
  * DELETE /api/tenant/domains/:domainId
  * Revoke a domain. Disables active and pending users only if domain was verified.
  */
-tenantDomainRouter.delete("/domains/:domainId", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
+tenantDomainRouter.delete("/domains/:domainId", authenticate, resolveTenantContext, requireRole("admin"), adminTenantLimiter, async (req, res) => {
   const institutionId = req.user!.institutionId
   const domainId = String(req.params.domainId)
 
@@ -188,7 +193,7 @@ tenantDomainRouter.get("/pending-users", authenticate, resolveTenantContext, req
  * POST /api/tenant/pending-users/:userId/approve
  * Approve a pending user.
  */
-tenantDomainRouter.post("/pending-users/:userId/approve", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
+tenantDomainRouter.post("/pending-users/:userId/approve", authenticate, resolveTenantContext, requireRole("admin"), adminTenantLimiter, async (req, res) => {
   const institutionId = req.user!.institutionId
   const userId = String(req.params.userId)
   const { roleId } = req.body ?? {}
@@ -210,7 +215,7 @@ tenantDomainRouter.post("/pending-users/:userId/approve", authenticate, resolveT
  * POST /api/tenant/pending-users/:userId/reject
  * Reject a pending user. Disables the user account and invalidates cache.
  */
-tenantDomainRouter.post("/pending-users/:userId/reject", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
+tenantDomainRouter.post("/pending-users/:userId/reject", authenticate, resolveTenantContext, requireRole("admin"), adminTenantLimiter, async (req, res) => {
   const institutionId = req.user!.institutionId
   const userId = String(req.params.userId)
 
