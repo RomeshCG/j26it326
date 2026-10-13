@@ -76,10 +76,23 @@ export default function CollectionRecording({
       conflict: "missed",
     }
 
+    const isUuid = (str) =>
+      Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str))
+
+    const targetLoanId = isUuid(stop?.loanId)
+      ? stop.loanId
+      : isUuid(stop?.id)
+        ? stop.id
+        : "00000000-0000-4000-8000-000000000001"
+
+    const targetScheduleId = isUuid(stop?.scheduleId)
+      ? stop.scheduleId
+      : "00000000-0000-4000-8000-000000000001"
+
     try {
       const res = await recordCollection({
-        loanId: stop?.id || "00000000-0000-4000-8000-000000000001",
-        scheduleId: stop?.scheduleId || "00000000-0000-4000-8000-000000000001",
+        loanId: targetLoanId,
+        scheduleId: targetScheduleId,
         visitDate: new Date().toISOString(),
         outcome: outcomeMap[outcome] || "paid",
         amountCollected: finalAmount,

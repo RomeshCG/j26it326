@@ -22,14 +22,27 @@ ewsRouter.get("/alerts", requireAuth, async (req, res) => {
   const tenant = await resolveTenant(req, res)
   if (!tenant) return
 
-  const status = qs(req.query.status as string | string[] | undefined)
+  const rawStatus = qs(req.query.status as string | string[] | undefined)
   const branchId = qs(req.query.branchId as string | string[] | undefined)
   const assignedOfficerId = qs(req.query.assignedOfficerId as string | string[] | undefined)
 
-  // Loan officers only see their own alerts unless they're branch manager+
+  // Map 'open' alias to active statuses
+  const statusFilter =
+    rawStatus === "open"
+      ? { status: { in: ["new", "in_progress"] } }
+      : rawStatus
+      ? { status: rawStatus }
+      : { status: { in: ["new", "in_progress"] } }
+
+  // Loan officers see their assigned alerts or unassigned alerts in pool
   const officerFilter =
     req.auth!.role === "loan_officer"
-      ? { assignedOfficerId: req.auth!.userId }
+      ? {
+          OR: [
+            { assignedOfficerId: req.auth!.userId },
+            { assignedOfficerId: null },
+          ],
+        }
       : assignedOfficerId
       ? { assignedOfficerId }
       : {}
@@ -37,7 +50,7 @@ ewsRouter.get("/alerts", requireAuth, async (req, res) => {
   try {
     const alerts = await tenant.prisma.ewsAlert.findMany({
       where: {
-        ...(status ? { status } : { status: { in: ["new", "in_progress"] } }),
+        ...statusFilter,
         ...(branchId ? { branchId } : {}),
         ...officerFilter,
       },
