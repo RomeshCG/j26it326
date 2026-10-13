@@ -211,7 +211,7 @@ function App() {
             <Route
               path="/agent-log"
               element={
-                <RequireRole allowedRoles={["admin"]}>
+                <RequireRole allowedRoles={["admin", "executive", "branch_manager"]}>
                   <AgentLog />
                 </RequireRole>
               }
