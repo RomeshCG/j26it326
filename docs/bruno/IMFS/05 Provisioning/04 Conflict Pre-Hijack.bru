@@ -1,0 +1,24 @@
+meta {
+  name: 04 Conflict Pre-Hijack
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/auth/register-institution
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "institutionName": "Hijack Attempt Ltd",
+    "adminFullName": "Attacker Admin",
+    "adminEmail": "attacker@verified-corporate-domain.lk",
+    "adminPassword": "{{adminPassword}}"
+  }
+}

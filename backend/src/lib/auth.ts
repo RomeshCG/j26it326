@@ -90,7 +90,7 @@ export async function hashPassword(plainText: string): Promise<string> {
 }
 
 // Generate dummy hash dynamically at module load using the same bcrypt cost
-const DUMMY_HASH = bcrypt.hashSync("dummy-password-timing-parity", BCRYPT_SALT_ROUNDS)
+export const DUMMY_HASH = bcrypt.hashSync("dummy-password-timing-parity", BCRYPT_SALT_ROUNDS)
 
 /**
  * Verify a plain-text password against a bcrypt hash.
@@ -105,12 +105,13 @@ export async function comparePassword(plainText: string, passwordHash?: string |
 }
 
 /**
- * Safe error logger: logs only error name, Prisma error code, and context without echoing raw parameters or hashes.
+ * Safe error logger: logs only error name, error codes, and context without echoing raw parameters, hashes, or URLs.
  */
 export function logSafeError(context: string, error: unknown): void {
   const err = error as any
   const errName = err?.name ?? "Error"
-  const prismaCode = err?.code ? ` [Code: ${err.code}]` : ""
+  const codeVal = err?.code ?? err?.errorCode
+  const prismaCode = codeVal ? ` [Code: ${codeVal}]` : ""
   let message = "Unknown error"
   if (err?.message) {
     const lines = String(err.message).split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean)

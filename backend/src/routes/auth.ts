@@ -89,6 +89,16 @@ authRouter.post("/login", async (req, res) => {
     }
 
     // 3. Check institution status
+    if (user.institution.status === "provisioning" || user.institution.status === "failed") {
+      await recordLoginAudit({
+        userId: user.id,
+        event: "institution_inactive",
+        ipAddress: clientIp,
+      })
+      res.status(401).json({ error: "Invalid email or password" })
+      return
+    }
+
     if (user.institution.status !== "active") {
       await recordLoginAudit({
         userId: user.id,

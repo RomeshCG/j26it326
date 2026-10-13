@@ -234,4 +234,67 @@ Phase 5 introduces corporate email domain claims, automated email verification l
 > **Production Deployment Requirement**:
 > Production deployments must explicitly set `NODE_ENV=production` in environment variables. The `ConsoleEmailService` only fails closed (throwing if no production SMTP transport is configured) when `NODE_ENV` is exactly `"production"`. In any other environment, it logs verification links to stdout.
 
+---
+
+## 11. Institution Registration & Tenant Provisioning (Phase 6)
+
+IMFS supports public self-service onboarding for new microfinance institutions via `POST /auth/register-institution`.
+
+### Public Endpoint: `POST /auth/register-institution`
+- **Access**: Public / Unauthenticated (controlled via abuse guards).
+- **Abuse Gate**: Gated by `ENABLE_PUBLIC_TENANT_REGISTRATION=true`. In production (`NODE_ENV=production`), the `x-registration-setup-key` header matching `REGISTRATION_SETUP_KEY` is strictly required (timing-safe comparison). Returns `403 Forbidden` if disabled or invalid.
+- **Concurrency Guard**: Limited to max 2 concurrent provisioning operations in-process (`MAX_CONCURRENT_PROVISIONING`), returning `503 Service Unavailable` when exceeded.
+
+### Request Payload:
+```json
+{
+  "institutionName": "Apex Microfinance Ltd",
+  "licenseNumber": "MFI-LK-001",
+  "adminFullName": "Anura Perera",
+  "adminEmail": "admin@apex.lk",
+  "adminPassword": "SecurePassword123!",
+  "institutionType": "microfinance_ngo",
+  "district": "Colombo",
+  "planName": "Starter",
+  "billingCycle": "monthly"
+}
+```
+
+### Validation & Behavior:
+1. **Institution Type**: Must be one of `licensed_finance_company | microfinance_ngo | rural_development_bank | cooperative_society`.
+2. **District**: Case-insensitive match against the 25 official Sri Lankan districts.
+3. **Password**: UTF-8 byte length strictly between 8 and 72 bytes (bcrypt truncation safe limit).
+4. **Pre-Hijack Mitigation & Timing Parity**:
+   - If `adminEmail` is already registered, or if the email domain matches an existing `verified` domain claim, registration returns a generic `400 Bad Request` (`{"error": "Registration request could not be processed"}`) after running constant-time dummy bcrypt work.
+   - > [!NOTE]
+     > **Known Security Gap**: Admin emails are activated immediately upon provisioning without prior email inbox verification. Email domain verification (Phase 5) remains an optional administrative step post-registration.
+5. **Physical Provisioning Sequence**:
+   - Creates a dedicated PostgreSQL tenant database named `imfs_tenant_<slug>_<8hex>` on port 5436.
+   - Applies tenant schema migrations (`prisma/tenant/schema.prisma`) using Node's `execFile` with local Prisma CLI.
+   - Bootstraps tenant data: `tenant_info` (id 1), Head Office branch with district, and admin employee.
+   - Atomic rollback: If any step fails, the newly created physical database is safely dropped and all central records deleted.
+6. **Response Shape (`201 Created`)**:
+   - Returns only institution and admin metadata. Internal database identifiers (`dbIdentifier`, `dbHost`) are strictly excluded:
+     ```json
+     {
+       "message": "Institution registered and provisioned successfully",
+       "institution": { "id": "uuid", "name": "Apex Microfinance Ltd", "status": "active" },
+       "admin": { "id": "uuid", "email": "admin@apex.lk", "fullName": "Anura Perera", "role": "admin" }
+     }
+     ```
+
+> [!WARNING]
+> **Provisioning Duration & Wizard Timeout (Phase 7 Notice)**:
+> Physical database creation and migration deployment takes between 3 to 8 seconds. The frontend onboarding wizard must show an explicit progress/loading state and configure an HTTP client timeout of at least 30 seconds.
+
+> [!CAUTION]
+> **Prisma CLI Packaging in Production**:
+> The `prisma` package is listed in `devDependencies`. In production container deployments where devDependencies are pruned (`npm install --omit=dev`), the CLI script will be absent. Production Docker images must either retain the Prisma CLI or execute migrations via a dedicated migration runner container.
+
+> [!IMPORTANT]
+> **Orphan Database & Provisioning Reconciliation (Follow-Up Note)**:
+> In production operations, a report-only background reconciliation check should be scheduled to alert operators to any orphan `imfs_tenant_%` databases (databases without an active `central.institution_databases` mapping) or institutions stuck in `provisioning` status older than $N$ minutes (e.g., > 15 minutes). **This reconciliation routine must be strictly report-only and never auto-drop or auto-delete physical databases or customer data.**
+
+
+
 
