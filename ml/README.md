@@ -2,6 +2,8 @@
 
 Shared ML workspace for M1 / M2 / M3. M4 agents live in `/agents`.
 
+**Team train + hosting guide (share with teammates / AI agents):** [`docs/TEAM_ML_TRAINING_GUIDE.md`](../docs/TEAM_ML_TRAINING_GUIDE.md)
+
 ## Layout
 
 ```text

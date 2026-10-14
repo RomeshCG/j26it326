@@ -50,6 +50,8 @@ rp-p/
 └── README.md
 ```
 
+**ML for the whole team (humans + AI agents):** [`docs/TEAM_ML_TRAINING_GUIDE.md`](docs/TEAM_ML_TRAINING_GUIDE.md) — how to train, where models are hosted, Colab FAQ, M1–M4 jobs.
+
 ---
 
 ## Getting started (frontend)
