@@ -30,6 +30,16 @@ function getPool(): Map<string, TenantClientEntry> {
   return globalForPrisma.tenantClientPool
 }
 
+/** Log-safe DB URL: never include userinfo/password. */
+function redactDbUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    return `${u.protocol}//***@${u.host}${u.pathname}`
+  } catch {
+    return "[unparseable-db-url]"
+  }
+}
+
 export function getMaxCachedClients(): number {
   const envVal = process.env.MAX_TENANT_CLIENTS
   const parsed = envVal ? Number.parseInt(envVal, 10) : 10
@@ -58,7 +68,7 @@ async function evictIdleClientsIfNeeded(targetSize?: number): Promise<void> {
     try {
       await entry.client.$disconnect()
     } catch (err) {
-      console.error(`[prisma-tenant] Error disconnecting evicted client for ${key}:`, err)
+      console.error(`[prisma-tenant] Error disconnecting evicted client for ${redactDbUrl(key)}:`, err)
     }
   }
 }
@@ -135,7 +145,7 @@ export async function evictTenantClient(connectionUrl: string): Promise<void> {
     try {
       await entry.client.$disconnect()
     } catch (err) {
-      console.error(`[prisma-tenant] Error disconnecting client for ${connectionUrl}:`, err)
+      console.error(`[prisma-tenant] Error disconnecting client for ${redactDbUrl(connectionUrl)}:`, err)
     }
   } else {
     // In flight: wait for inFlight to reach 0 before disconnecting
@@ -145,7 +155,7 @@ export async function evictTenantClient(connectionUrl: string): Promise<void> {
         try {
           await entry.client.$disconnect()
         } catch (err) {
-          console.error(`[prisma-tenant] Error disconnecting deferred client for ${connectionUrl}:`, err)
+          console.error(`[prisma-tenant] Error disconnecting deferred client for ${redactDbUrl(connectionUrl)}:`, err)
         }
       }
     }, 100)
