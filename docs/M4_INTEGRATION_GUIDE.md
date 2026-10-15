@@ -405,9 +405,19 @@ When implementing the client-side experience:
 
 Component 4 provides the Graduated Trust engine and governance APIs for AI agent action execution, policy configuration, and human-in-the-loop oversight.
 
-### Internal-Only Dispatch
-- **Internal Only**: Action dispatch is internal-only until Phase 10 service authentication is implemented. AI agent components execute actions through internal service calls to `dispatchAgentAction()`.
+### Internal / Service Dispatch
+- **Phase 10 service auth**: Internal service-key dispatch is implemented for allowlisted action types (currently `volume_spike_alert` / A3). Callers still cannot supply `tier`, `agentId`, `agentName`, or `policyId`.
 - **Test Dispatch Endpoint**: `POST /api/tenant/agent-actions/test-dispatch` is restricted to administrators (`admin` role) for development simulation and is **strictly blocked in production** (`NODE_ENV === "production"` returns `403 Forbidden`).
+
+### A2 Workflow — budget threshold (v1)
+- **Endpoint**: `POST /api/tenant/agent-actions/budget-threshold/evaluate`
+- **Auth**: JWT + tenant context. Roles with `agents:decide_tier3` **or** `finance:manage_ledger` (admin, executive, branch_manager, finance_officer). **Not** granted by `agents:view_actions` alone.
+- **Body**: `{ "metricName": string, "metricValue": number, "threshold": number, "periodKey"?: string, "source"?: "manual_api_v1", "branchId"?: uuid }`
+- **Rule**: breach when `metricValue >= threshold` (equality counts). Non-breach returns `dispatched: false` without creating an action.
+- **On breach**: dispatches `budget_threshold_alert`; active policy supplies **Tier 2 / A2**. Handler writes Agent Log evidence (`notified`). **No email/SMS/push** in v1.
+- **Metrics**: caller-supplied only (`source` must be `manual_api_v1`). **Automatic M2 ledger/budget monitoring is a later milestone** (no M2 routes exist yet).
+- **Soft dedupe**: within ~24h, same `dedupeKey` may return `duplicate: true` without a new row. Race possible under concurrency (no unique DB index; migration deferred). Pass `?allowDuplicate=true` to force a new dispatch for tests.
+- **Offline check**: `npx tsx scripts/verify-a2-budget-threshold.ts` from `backend/`.
 
 ### The 4 Tiers & Action Statuses
 Actions are categorized into four trust tiers:

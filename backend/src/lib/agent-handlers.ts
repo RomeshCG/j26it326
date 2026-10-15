@@ -4,6 +4,11 @@
  * Handlers execute in-process and NEVER inside a database transaction.
  */
 
+import {
+  A2_BUDGET_ACTION_TYPE,
+  A2_BUDGET_MODEL_VERSION,
+} from "./agent-a2-budget.js"
+
 export interface ActionHandlerContext {
   actionId: string
   actionType: string
@@ -36,6 +41,53 @@ export const defaultStubHandler: ActionHandler = async (ctx) => {
   }
 }
 
+/**
+ * A2 budget threshold handler — records Agent Log notification evidence only.
+ * Does not send email/SMS/push.
+ */
+export const budgetThresholdAlertHandler: ActionHandler = (ctx) => {
+  const input =
+    ctx.inputPayload && typeof ctx.inputPayload === "object" && !Array.isArray(ctx.inputPayload)
+      ? (ctx.inputPayload as Record<string, unknown>)
+      : {}
+  const evaluation =
+    input.evaluation && typeof input.evaluation === "object" && !Array.isArray(input.evaluation)
+      ? (input.evaluation as Record<string, unknown>)
+      : {}
+
+  const metricName = typeof evaluation.metricName === "string" ? evaluation.metricName : "unknown"
+  const metricValue = evaluation.metricValue
+  const threshold = evaluation.threshold
+  const periodKey = typeof evaluation.periodKey === "string" ? evaluation.periodKey : "unspecified"
+
+  return {
+    outputPayload: {
+      stubExecuted: false,
+      handler: "budgetThresholdAlertHandler",
+      modelVersion: A2_BUDGET_MODEL_VERSION,
+      notificationChannel: "agent_log",
+      notificationDelivered: true,
+      emailSent: false,
+      smsSent: false,
+      pushSent: false,
+      message:
+        `Budget threshold alert recorded in Agent Log: ${metricName} ` +
+        `${String(metricValue)} >= ${String(threshold)} (period=${periodKey}). ` +
+        `No email/SMS/push was sent (A2 v1).`,
+      metricName,
+      metricValue,
+      threshold,
+      periodKey,
+      source: evaluation.source ?? null,
+      branchId: evaluation.branchId ?? null,
+      dedupeKey: typeof input.dedupeKey === "string" ? input.dedupeKey : null,
+      comparedAt: evaluation.comparedAt ?? null,
+      actionId: ctx.actionId,
+      recordedAt: new Date().toISOString(),
+    },
+  }
+}
+
 const handlerRegistry: Map<string, ActionHandler> = new Map()
 
 /**
@@ -60,6 +112,20 @@ export function getActionHandler(actionType: string): ActionHandler {
  */
 export function clearActionHandlers(): void {
   handlerRegistry.clear()
+}
+
+/**
+ * Registers built-in production handlers. Safe to call once at process start.
+ */
+export function registerDefaultAgentHandlers(): void {
+  registerActionHandler(A2_BUDGET_ACTION_TYPE, budgetThresholdAlertHandler)
+}
+
+/**
+ * True when a non-stub handler is registered for the action type.
+ */
+export function hasRegisteredActionHandler(actionType: string): boolean {
+  return handlerRegistry.has(actionType)
 }
 
 /**
