@@ -76,7 +76,7 @@ const WORKSPACE_NAV = [
     title: "Agent Activity Log",
     url: "/agent-log",
     icon: <ActivityIcon />,
-    roles: ["Institution Admin"],
+    roles: ["Institution Admin", "Executive", "Branch Manager"],
   },
   {
     title: "Graduated Trust",

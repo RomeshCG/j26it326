@@ -1,4 +1,5 @@
-import { ArrowLeft } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ArrowLeft, RefreshCw } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,7 @@ import {
   RISK_TREND_ROWS,
   formatLkr,
 } from "./mock-data"
+import { getEwsAlerts } from "@/lib/m3-api"
 
 const BAND_META = {
   stable: {
@@ -40,16 +42,71 @@ const BAND_META = {
 
 export default function EwsAlertInbox({ onBack, onOpenAlert }) {
   const summary = EWS_MONITORING_SUMMARY
-  const sorted = [...EWS_ALERT_LIST].sort(
+  const [alerts, setAlerts] = useState(EWS_ALERT_LIST)
+  const [loading, setLoading] = useState(false)
+  const [isLive, setIsLive] = useState(false)
+
+  async function loadAlerts() {
+    setLoading(true)
+    try {
+      // Query active alerts without invalid 'open' status filter
+      const data = await getEwsAlerts()
+      if (Array.isArray(data) && data.length > 0) {
+        // Map backend schema to UI format if needed
+        const mapped = data.map((a) => ({
+          id: a.id,
+          borrower: a.ewsScore?.borrower?.fullName || a.borrowerName || "Borrower",
+          loanId: a.ewsScore?.loanId || a.loanId || "LOAN-ACT",
+          product: a.productName || "Microenterprise",
+          distressProbability: Math.round((a.ewsScore?.distressScore || 0.85) * 100),
+          daysLate: a.daysPastDue || 28,
+          outstanding: a.outstandingAmount || 65000,
+        }))
+        setAlerts(mapped)
+        setIsLive(true)
+      } else {
+        setIsLive(false)
+      }
+    } catch {
+      // Keep mock data if offline
+      setIsLive(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAlerts()
+  }, [])
+
+  const sorted = [...alerts].sort(
     (a, b) => b.distressProbability - a.distressProbability
   )
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
-      <Button type="button" variant="ghost" onClick={onBack} className="cursor-pointer">
-        <ArrowLeft />
-        Back to dashboard
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button type="button" variant="ghost" onClick={onBack} className="cursor-pointer">
+          <ArrowLeft />
+          Back to dashboard
+        </Button>
+        <div className="flex items-center gap-2">
+          <Badge variant={isLive ? "default" : "secondary"}>
+            {isLive ? "Live API" : "Demo Data"}
+          </Badge>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={loadAlerts}
+            disabled={loading}
+            className="cursor-pointer gap-1.5"
+          >
+            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
 
       <div className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

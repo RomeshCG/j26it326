@@ -1,0 +1,35 @@
+meta {
+  name: Record Collection
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/m3/collections
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000001
+  x-mock-role: loan_officer
+}
+
+body:json {
+  {
+    "loanId": "{{loanId}}",
+    "scheduleId": "{{scheduleId}}",
+    "visitDate": "2026-10-11T10:00:00.000Z",
+    "outcome": "paid",
+    "amountCollected": 9167,
+    "notes": "Collected cash during morning field route",
+    "collectedBy": "20000000-0000-4000-8000-000000000001"
+  }
+}
+
+docs {
+  # Record Field Collection
+  Records field collection outcome and amount, updates repayment installment status, auto-generates digital receipt, and emits payment event to M2.
+}

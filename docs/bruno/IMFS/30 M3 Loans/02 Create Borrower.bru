@@ -1,0 +1,41 @@
+meta {
+  name: Create Borrower
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/m3/borrowers
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000001
+  x-mock-role: loan_officer
+}
+
+body:json {
+  {
+    "branchId": "10000000-0000-4000-8000-000000000001",
+    "fullName": "Kusumawathi Perera",
+    "nicNumber": "198254301290",
+    "contactNumber": "+94771234567",
+    "gender": "female",
+    "dateOfBirth": "1982-05-14",
+    "addressLine": "No 42, Temple Road",
+    "district": "Colombo",
+    "monthlyIncome": 45000,
+    "occupation": "Batik Textiles & Tailoring",
+    "householdSize": 4,
+    "isNewToBanking": true,
+    "povertyProxyScore": 0.42
+  }
+}
+
+docs {
+  # Create Borrower
+  Registers a new borrower with KYC status 'pending'.
+}

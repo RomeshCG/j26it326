@@ -1,0 +1,28 @@
+meta {
+  name: 05 Staff Signup
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/auth/signup
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{pendingUserEmail}}",
+    "password": "{{pendingUserPassword}}",
+    "fullName": "{{pendingUserFullName}}"
+  }
+}
+
+docs {
+  # Staff Signup
+  Public self-registration endpoint for staff whose email domain matches a verified institution domain.
+}

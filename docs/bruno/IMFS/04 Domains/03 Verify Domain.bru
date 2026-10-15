@@ -1,0 +1,26 @@
+meta {
+  name: 03 Verify Domain
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/auth/domains/verify
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "token": "{{domainVerificationToken}}"
+  }
+}
+
+docs {
+  # Verify Domain
+  Public endpoint to confirm domain ownership using the 64-character verification token.
+}

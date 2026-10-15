@@ -11,12 +11,16 @@ import {
   resolveTenantByDbIdentifier,
   resolveTenantByInstitutionId,
 } from "./lib/tenant-context.js"
+import { m3Router } from "./routes/m3/index.js"
 import { getJwtSecret } from "./lib/auth.js"
 import { authRouter } from "./routes/auth.js"
+import { publicDomainRouter, tenantDomainRouter } from "./routes/domains.js"
+import { registrationRouter } from "./routes/registration.js"
 import { tenantRouter } from "./routes/tenant.js"
 import { exampleRouter } from "./routes/_example.js"
 import { riskRouter } from "./routes/risk.js"
 import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
+import { configureTrustProxy } from "./middleware/rate-limit.js"
 
 // Strict JWT_SECRET startup guard: server must fail fast if secret is missing or insecure
 try {
@@ -28,6 +32,14 @@ try {
 
 const app = express()
 const port = Number(process.env.PORT ?? 4000)
+
+// Configure client IP resolution via trust proxy
+configureTrustProxy(app, process.env.TRUST_PROXY)
+
+// Startup check: ENABLE_RATE_LIMITING=false is ignored in production (Amendment 5)
+if (process.env.NODE_ENV === "production" && process.env.ENABLE_RATE_LIMITING === "false") {
+  console.warn("[security-audit] WARNING: ENABLE_RATE_LIMITING=false is ignored in production. Rate limiting is active.")
+}
 
 app.use(cors())
 app.use(express.json())
@@ -108,9 +120,12 @@ app.get("/health/db", async (_req, res) => {
 
 // Authentication & Profile routes
 app.use("/auth", authRouter)
+app.use("/auth", publicDomainRouter)
+app.use("/auth", registrationRouter)
 
 // Core Tenant routes (M4 and cross-module queries)
 app.use("/api/tenant", tenantRouter)
+app.use("/api/tenant", tenantDomainRouter)
 
 // M1 — Credit risk (auth + tenant context required inside router)
 app.use("/api/risk", riskRouter)
@@ -210,6 +225,9 @@ app.get("/api/institutions/:institutionId/tenant-health", authenticate, resolveT
   }
 })
 
+// ── M3 — Loan Lifecycle & EWS ────────────────────────────────────────────────
+app.use("/api/m3", m3Router)
+
 async function shutdown() {
   await centralPrisma.$disconnect()
   await disconnectAllTenantClients()
@@ -221,9 +239,10 @@ process.on("SIGTERM", shutdown)
 
 app.listen(port, () => {
   console.log(`IMFS backend listening on http://localhost:${port}`)
-  console.log(
-    `Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me  POST /api/risk/assess`
-  )
+  console.log(`Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me  POST /api/risk/assess`)
+  console.log("M3 routes: /api/m3/products  /api/m3/borrowers  /api/m3/groups")
+  console.log("           /api/m3/applications  /api/m3/loans  /api/m3/collections")
+  console.log("           /api/m3/par  /api/m3/ews")
   if (enableSwagger) {
     console.log(`Swagger Docs: http://localhost:${port}/docs  (OpenAPI JSON: http://localhost:${port}/openapi.json)`)
   }

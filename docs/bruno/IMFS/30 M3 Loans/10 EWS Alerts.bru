@@ -1,0 +1,22 @@
+meta {
+  name: EWS Alerts Inbox
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/m3/ews/alerts?status=open
+  body: none
+  auth: inherit
+}
+
+headers {
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000001
+  x-mock-role: loan_officer
+}
+
+docs {
+  # EWS Alerts Inbox
+  Returns distress alerts ranked by distress score for the officer's portfolio, including distress reasons and recommended interventions.
+}

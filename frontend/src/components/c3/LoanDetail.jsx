@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import {
   ArrowLeft,
   CalendarClock,
@@ -20,6 +21,7 @@ import {
   formatLkr,
   scheduleStatusBadge,
 } from "./mock-data"
+import { getLoan } from "@/lib/m3-api"
 
 function loanStatusBadge(status) {
   if (status === "ews") return <Badge variant="destructive">EWS</Badge>
@@ -34,14 +36,57 @@ export default function LoanDetail({
   onOpenGroup,
   onOpenCollection,
 }) {
-  const loan = LOAN_DETAILS[loanId] ?? LOAN_DETAILS["LN-88421"]
+  const [loan, setLoan] = useState(LOAN_DETAILS[loanId] ?? LOAN_DETAILS["LN-88421"])
+  const [isLive, setIsLive] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    async function loadLoanDetail() {
+      if (!loanId) return
+      try {
+        const live = await getLoan(loanId)
+        if (live && active) {
+          const fallback = LOAN_DETAILS[loanId] ?? LOAN_DETAILS["LN-88421"]
+          setLoan({
+            ...fallback,
+            id: live.id || loanId,
+            borrower: live.borrower?.fullName || fallback.borrower,
+            product: live.product?.name || fallback.product,
+            outstanding: live.principal ? Number(live.principal) : fallback.outstanding,
+            status: live.status || fallback.status,
+            village: live.borrower?.district || fallback.village,
+            schedule: Array.isArray(live.schedules) && live.schedules.length > 0
+              ? live.schedules.map((s) => ({
+                  installment: s.installmentNo,
+                  due: typeof s.dueDate === "string" ? s.dueDate.slice(0, 10) : s.dueDate,
+                  amount: Number(s.amountDue),
+                  status: s.status,
+                }))
+              : fallback.schedule,
+          })
+          setIsLive(true)
+        }
+      } catch {
+        if (active) setIsLive(false)
+      }
+    }
+    loadLoanDetail()
+    return () => {
+      active = false
+    }
+  }, [loanId])
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-8">
-      <Button type="button" variant="ghost" size="default" onClick={onBack} className="cursor-pointer">
-        <ArrowLeft />
-        Back to dashboard
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button type="button" variant="ghost" size="default" onClick={onBack} className="cursor-pointer">
+          <ArrowLeft />
+          Back to dashboard
+        </Button>
+        <Badge variant={isLive ? "default" : "secondary"}>
+          {isLive ? "Live API" : "Demo Data"}
+        </Badge>
+      </div>
 
       <Card className="rounded-xl border bg-card">
         <CardHeader className="border-b border-border/50 pb-4">

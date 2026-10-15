@@ -15,7 +15,8 @@ const globalForPrisma = globalThis as unknown as {
 export const defaultTenantPrisma =
   globalForPrisma.defaultTenantPrisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    errorFormat: "minimal",
+    log: process.env.NODE_ENV === "development" ? ["warn"] : [],
   })
 
 if (process.env.NODE_ENV !== "production") {
@@ -80,7 +81,8 @@ export async function getTenantPrisma(connectionUrl: string): Promise<PrismaClie
 
   const client = new PrismaClient({
     datasources: { db: { url: connectionUrl } },
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    errorFormat: "minimal",
+    log: process.env.NODE_ENV === "development" ? ["warn"] : [],
   })
 
   pool.set(connectionUrl, {

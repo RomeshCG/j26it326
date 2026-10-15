@@ -1,0 +1,30 @@
+meta {
+  name: 02 Resend Verification
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/tenant/domains/{{domainId}}/resend
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "verificationMailbox": "{{verificationMailbox}}"
+  }
+}
+
+docs {
+  # Resend Verification
+  Generates a fresh 24h verification token and sends verification email to the specified verificationMailbox for an unverified domain.
+}

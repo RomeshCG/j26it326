@@ -4,6 +4,8 @@ import {
   signAccessToken,
   comparePassword,
   recordLoginAudit,
+  logSafeError,
+  DUMMY_HASH,
 } from "../lib/auth.js"
 import {
   ROLE_PERMISSIONS,
@@ -15,24 +17,37 @@ import {
   resolveTenantContext,
   requireRole,
 } from "../middleware/auth.js"
+import {
+  loginIpTotalLimiter,
+  checkLoginIpFailLimit,
+  checkLoginLockout,
+  handleLoginFailure,
+  clearLoginCounters,
+  GENERIC_RATE_LIMIT_ERROR,
+} from "../middleware/rate-limit.js"
 
 export const authRouter = Router()
-
-// ============================================================================
-// TODO: Phase 2 Security Extra — Login Rate Limiting & Account Lockout
-// Place rate limiting middleware here (e.g., max 5 attempts per IP / email per 15 min)
-// ============================================================================
 
 /**
  * POST /auth/login
  * Body: { email, password }
  * Validates against central.users, compares bcrypt hash, requires status 'active',
  * logs attempt to login_audit, returns short-lived access token.
+ * Protected by IP total cap, IP failed attempts limiter, and pair/aggregate lockout.
  */
-authRouter.post("/login", async (req, res) => {
+authRouter.post("/login", loginIpTotalLimiter, async (req, res) => {
   const { email, password } = req.body ?? {}
-  const clientIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null
+  const clientIp = req.ip || req.socket.remoteAddress || "127.0.0.1"
 
+  // 1. IP failed attempts limit check (Amendment 3)
+  const ipFailCheck = checkLoginIpFailLimit(clientIp)
+  if (!ipFailCheck.allowed) {
+    res.setHeader("Retry-After", String(ipFailCheck.retryAfter))
+    res.status(429).json({ error: GENERIC_RATE_LIMIT_ERROR })
+    return
+  }
+
+  // 2. Body validation
   if (!email || typeof email !== "string" || !password || typeof password !== "string") {
     res.status(400).json({ error: "Email and password are required" })
     return
@@ -40,8 +55,19 @@ authRouter.post("/login", async (req, res) => {
 
   const normalizedEmail = email.trim().toLowerCase()
 
+  // 3. Login Lockout Check: pair (email|ip) and aggregate (email) (Amendment 1)
+  const lockoutCheck = checkLoginLockout(normalizedEmail, clientIp)
+  if (lockoutCheck.locked) {
+    // Run dummy bcrypt to maintain timing parity with non-locked requests,
+    // preventing attackers from distinguishing locked accounts from rapid rejections.
+    await comparePassword(password, DUMMY_HASH)
+    res.setHeader("Retry-After", String(lockoutCheck.retryAfter))
+    res.status(429).json({ error: GENERIC_RATE_LIMIT_ERROR })
+    return
+  }
+
   try {
-    // 1. Find user in central
+    // 4. Find user in central
     const user = await centralPrisma.user.findUnique({
       where: { email: normalizedEmail },
       include: {
@@ -53,6 +79,23 @@ authRouter.post("/login", async (req, res) => {
     // Constant-time comparison: runs against user.passwordHash if found, or DUMMY_HASH if not
     const passwordValid = await comparePassword(password, user?.passwordHash)
 
+    // Helper to process non-success login outcome
+    const recordFailureAndCheckLockout = async () => {
+      // Count EVERY non-success outcome toward failure counters and lockout.
+      // Rationale: If disabled/pending/inactive statuses did not increment failure counters,
+      // or behaved differently under lockout, an attacker could deduce account state
+      // or verify password correctness on non-active accounts (a password-correctness oracle).
+      const failResult = handleLoginFailure(normalizedEmail, clientIp)
+      if (failResult.justLocked && user) {
+        // Record account_locked ONCE when lock begins for an existing user (Amendment 7)
+        await recordLoginAudit({
+          userId: user.id,
+          event: "account_locked",
+          ipAddress: clientIp,
+        })
+      }
+    }
+
     // Check credentials (identical error message to prevent user enumeration)
     if (!user || !passwordValid) {
       if (user) {
@@ -62,40 +105,65 @@ authRouter.post("/login", async (req, res) => {
           ipAddress: clientIp,
         })
       }
+      await recordFailureAndCheckLockout()
       res.status(401).json({ error: "Invalid email or password" })
       return
     }
 
-    // 2. Check user status
+    // 5. Check user status (verified password required first)
+    if (user.status === "pending") {
+      await recordLoginAudit({
+        userId: user.id,
+        event: "account_disabled",
+        ipAddress: clientIp,
+      })
+      await recordFailureAndCheckLockout()
+      res.status(403).json({ error: "Account is pending administrator approval" })
+      return
+    }
+
     if (user.status !== "active") {
       await recordLoginAudit({
         userId: user.id,
         event: "account_disabled",
         ipAddress: clientIp,
       })
-      res.status(401).json({ error: "Invalid email or password" }) // Avoid revealing disabled status to unauthorized parties
+      await recordFailureAndCheckLockout()
+      res.status(401).json({ error: "Invalid email or password" }) // Avoid revealing disabled status
       return
     }
 
-    // 3. Check institution status
+    // 6. Check institution status
+    if (user.institution.status === "provisioning" || user.institution.status === "failed") {
+      await recordLoginAudit({
+        userId: user.id,
+        event: "institution_inactive",
+        ipAddress: clientIp,
+      })
+      await recordFailureAndCheckLockout()
+      res.status(401).json({ error: "Invalid email or password" })
+      return
+    }
+
     if (user.institution.status !== "active") {
       await recordLoginAudit({
         userId: user.id,
         event: "institution_inactive",
         ipAddress: clientIp,
       })
+      await recordFailureAndCheckLockout()
       res.status(403).json({ error: "Institution account is not active" })
       return
     }
 
-    // 4. Validate role name
+    // 7. Validate role name
     const roleName = user.role.name
     if (!isValidRole(roleName)) {
       res.status(500).json({ error: `Internal error: unrecognized role '${roleName}'` })
       return
     }
 
-    // 5. Generate token & record audit success
+    // 8. Generate token & record audit success
     const token = signAccessToken({
       userId: user.id,
       institutionId: user.institutionId,
@@ -107,6 +175,9 @@ authRouter.post("/login", async (req, res) => {
       event: "login_success",
       ipAddress: clientIp,
     })
+
+    // Clear failed attempt counters and lockout state upon authenticated login success
+    clearLoginCounters(normalizedEmail, clientIp)
 
     res.json({
       token,
@@ -121,9 +192,8 @@ authRouter.post("/login", async (req, res) => {
       },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Internal login error"
-    console.error("[auth] Login error:", error)
-    res.status(500).json({ error: message })
+    logSafeError("[auth] Login error", error)
+    res.status(500).json({ error: "Internal login error" })
   }
 })
 

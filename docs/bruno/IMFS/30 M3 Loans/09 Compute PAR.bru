@@ -1,0 +1,22 @@
+meta {
+  name: Compute PAR
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/m3/par/compute
+  body: none
+  auth: inherit
+}
+
+headers {
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000002
+  x-mock-role: branch_manager
+}
+
+docs {
+  # Compute Portfolio at Risk (PAR)
+  Calculates days past due across all active loans and updates `par_status` rows and returns aggregate portfolio metrics (PAR1, PAR30, PAR90, PAR30 ratio).
+}

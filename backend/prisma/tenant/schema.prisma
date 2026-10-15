@@ -96,6 +96,7 @@ model PayrollRecord {
 model AgentTierPolicy {
   id          String   @id @default(uuid()) @db.Uuid
   actionType  String   @unique @map("action_type")
+  agentId     String?  @map("agent_id")
   agentName   String   @map("agent_name")
   tier        Int      @db.SmallInt // 1-4
   description String?
@@ -104,28 +105,41 @@ model AgentTierPolicy {
 
   actions AgentAction[]
 
+  @@index([agentId])
+  @@index([tier])
   @@map("agent_tier_policies")
 }
 
 model AgentAction {
-  id            String    @id @default(uuid()) @db.Uuid
-  policyId      String?   @map("policy_id") @db.Uuid
-  agentName     String    @map("agent_name")
-  tier          Int       @db.SmallInt
-  action        String
-  reason        String?
-  confidence    Decimal?  @db.Decimal(5, 2)
-  inputPayload  Json?     @map("input_payload")
-  outputPayload Json?     @map("output_payload")
-  status        String // pending_approval | approved | rejected | executed | notified | alert_only
-  approvedBy    String?   @map("approved_by") @db.Uuid // soft ref -> central.users.id
-  decidedAt     DateTime? @map("decided_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  policyId         String?   @map("policy_id") @db.Uuid
+  agentId          String?   @map("agent_id")
+  agentName        String    @map("agent_name")
+  tier             Int       @db.SmallInt
+  action           String
+  // Note: 'reason' stores the action justification. 'approvedBy' and 'decidedAt' store the decider and timestamp for approve, reject, and override.
+  reason           String?
+  confidence       Decimal?  @db.Decimal(5, 2)
+  modelVersion     String?   @map("model_version")
+  promptVersion    String?   @map("prompt_version")
+  toolsUsed        Json?     @map("tools_used")
+  inputPayload     Json?     @map("input_payload")
+  outputPayload    Json?     @map("output_payload")
+  status           String // running | pending_approval | approved | rejected | executed | notified | alert_only | failed
+  isOverride       Boolean   @default(false) @map("is_override")
+  decisionReason   String?   @map("decision_reason")
+  approvedBy       String?   @map("approved_by") @db.Uuid // soft ref -> central.users.id
+  decidedAt        DateTime? @map("decided_at")
+  processingTimeMs Int?      @map("processing_time_ms")
+  createdAt        DateTime  @default(now()) @map("created_at")
 
   policy AgentTierPolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([tier])
+  @@index([agentId])
+  @@index([isOverride])
+  @@index([createdAt])
   @@map("agent_actions")
 }
 
@@ -136,9 +150,12 @@ model AuditLog {
   action    String
   resource  String?
   details   Json?
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([createdAt])
+  @@index([actorType, actorId])
   @@map("audit_log")
 }
 

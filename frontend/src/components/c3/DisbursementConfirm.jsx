@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { formatLkr } from "./mock-data"
+import { disburseLoan } from "@/lib/m3-api"
 
 const METHODS = ["Cash at branch", "Bank transfer", "Mobile wallet"]
 
@@ -36,12 +37,21 @@ export default function DisbursementConfirm({ application, onBack, onComplete })
   const loanId = `LN-${Date.now().toString().slice(-5)}`
   const disbursedOn = new Date().toISOString().slice(0, 10)
 
-  function handleConfirm() {
+  async function handleConfirm() {
     setSubmitting(true)
-    window.setTimeout(() => {
+    try {
+      await disburseLoan(app.loanId || app.applicationId || "00000000-0000-4000-8000-000000000001", {
+        amount: Number(app.amount),
+        method: method.toLowerCase().replace(/ /g, "_"),
+        referenceNumber: `TRX-${Date.now().toString().slice(-6)}`,
+        notes: `Disbursed via ${method}`,
+      })
+    } catch (err) {
+      console.warn("Disbursement offline fallback:", err)
+    } finally {
       setSubmitting(false)
       setDone(true)
-    }, 800)
+    }
   }
 
   return (

@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react"
-import { ArrowLeft, ChevronRight, ShieldAlert } from "lucide-react"
+import { useMemo, useState, useEffect } from "react"
+import { ArrowLeft, ChevronRight, ShieldAlert, RefreshCw } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { ALERTS, BRANCH_LIST, BRANCHES } from "./mock-data"
+import { computePar, getParSummary } from "@/lib/m3-api"
 
 const selectClass =
   "flex h-9 w-full max-w-xs rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
@@ -36,11 +37,26 @@ function StatCard({ label, value, hint, emphasize }) {
 
 export default function BranchPortfolio({ onBack, onOpenAlert, onOpenEarlyWarning, initialBranchId }) {
   const [branchId, setBranchId] = useState(initialBranchId || BRANCH_LIST[0].id)
+  const [computing, setComputing] = useState(false)
+  const [livePar, setLivePar] = useState(null)
+
   const portfolio = useMemo(
     () => BRANCHES[branchId] ?? BRANCH_LIST[0],
     [branchId]
   )
   const { branch, manager, stats, officers, topAlerts } = portfolio
+
+  async function handleComputePar() {
+    setComputing(true)
+    try {
+      const summary = await computePar()
+      if (summary) setLivePar(summary)
+    } catch (err) {
+      console.warn("Compute PAR offline fallback:", err)
+    } finally {
+      setComputing(false)
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
@@ -76,6 +92,16 @@ export default function BranchPortfolio({ onBack, onOpenAlert, onOpenEarlyWarnin
               ))}
             </select>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 shrink-0 cursor-pointer px-3 text-sm"
+            onClick={handleComputePar}
+            disabled={computing}
+          >
+            <RefreshCw className={`size-3.5 ${computing ? "animate-spin" : ""}`} />
+            {computing ? "Computing..." : "Run PAR30"}
+          </Button>
           <Button
             type="button"
             variant="destructive"
