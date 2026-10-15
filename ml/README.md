@@ -42,10 +42,9 @@ Put generator **code** in git. Put generated **files** only on your machine (or 
 ```powershell
 cd ml
 .\.venv\Scripts\Activate.ps1
-python m1_credit_risk/scripts/generate_synthetic.py -n 3000
-python m1_credit_risk/scripts/merge_par_synthetic.py
-python m1_credit_risk/train/train_xgb.py --data m1_credit_risk/data/processed/train_par_synth_v1.csv
-python m1_credit_risk/explain/shap_local.py --data m1_credit_risk/data/processed/train_par_synth_v1.csv
+python m1_credit_risk/tests/test_overdue.py
+python m1_credit_risk/train/train_xgb.py          # real PAR only, target: age > 1
+python m1_credit_risk/explain/shap_local.py
 python m1_credit_risk/serve/demo_predict.py
 ```
 

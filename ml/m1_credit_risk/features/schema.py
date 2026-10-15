@@ -123,3 +123,60 @@ def prepare_xy(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
         x[c] = x[c].astype(int)
     y = df[TARGET].astype(float)
     return x, y
+
+
+# ---------------------------------------------------------------------------
+# Overdue model (v2): real target from PAR `age`, origination-time features only
+# ---------------------------------------------------------------------------
+# `age` = arrears age in instalment periods (inferred from its 0.75 correlation with
+# arrears_ratio; confirm with the partner's data dictionary).
+OVERDUE_TARGET = "overdue"
+OVERDUE_AGE_THRESHOLD = 1  # age > 1 period => "severely overdue"
+
+# Known at disbursement. Arrears / paid / last-payment columns are deliberately
+# excluded: they define `age` arithmetically, so using them is target leakage.
+V2_NUMERIC = [
+    "contract_amount",
+    "interest_amount",
+    "installment",
+    "tenure",
+    "installment_ratio",
+    "interest_ratio",
+]
+V2_CATEGORICAL = ["branch", "product_category", "product_type", "product"]
+V2_FEATURES = V2_NUMERIC + V2_CATEGORICAL
+
+LEAKY_COLUMNS = {
+    "age", "arr_cap", "arr_int", "arrears_total", "arrears_ratio", "debtor",
+    "paid_pct", "paid_capital", "paid_interest", "paid_total", "total_paid",
+    "balance_capital", "balance_interest", "balance_total", "stock", "portfolio",
+    "utilization", "left_tenure", "last_paid_date", "last_paid_amount",
+    "next_due_date", "risk_pct",
+}
+
+# Provisional bands on predicted P(overdue); tune on validation data.
+BAND_CUTS = (0.33, 0.66)
+
+
+def add_v2_features(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    amt = out["contract_amount"].clip(lower=1)
+    out["installment_ratio"] = out["installment"] / amt
+    out["interest_ratio"] = out["interest_amount"] / amt
+    return out
+
+
+def add_overdue_label(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    out[OVERDUE_TARGET] = (out["age"] > OVERDUE_AGE_THRESHOLD).astype(int)
+    return out
+
+
+def prepare_xy_v2(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    df = add_v2_features(df)
+    return df[V2_FEATURES].copy(), df[OVERDUE_TARGET].astype(int)
+
+
+def overdue_band(p: float) -> str:
+    lo, hi = BAND_CUTS
+    return "low" if p < lo else "medium" if p < hi else "high"
