@@ -16,6 +16,7 @@ export type LoanTerms = {
 
 export type RiskFactor = {
   feature: string
+  value: string | number
   shap_logodds: number
   direction: "increases_risk" | "reduces_risk"
 }
