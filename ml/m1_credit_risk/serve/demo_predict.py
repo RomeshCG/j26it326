@@ -1,4 +1,4 @@
-"""CLI demo: predict risk_pct + band for one JSON feature object."""
+"""CLI demo: P(overdue) + band for one loan, using origination-time features only."""
 
 from __future__ import annotations
 
@@ -13,19 +13,20 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from features.schema import FEATURE_COLUMNS, risk_band  # noqa: E402
+from features.schema import V2_FEATURES, add_v2_features, overdue_band  # noqa: E402
 
-MODEL_PATH = ROOT / "artifacts" / "risk_xgb.joblib"
+MODEL_PATH = ROOT / "artifacts" / "overdue_xgb.joblib"
+RAW_INPUTS = ["contract_amount", "interest_amount", "installment", "tenure",
+              "branch", "product_category", "product_type", "product"]
 
 
 def predict(features: dict) -> dict:
-    pipe = joblib.load(MODEL_PATH)
-    row = pd.DataFrame([{c: features.get(c) for c in FEATURE_COLUMNS}])
-    for c in FEATURE_COLUMNS:
-        if row[c].isna().any():
-            raise ValueError(f"Missing feature: {c}")
-    pct = float(pipe.predict(row)[0])
-    return {"risk_pct": round(pct, 2), "risk_band": risk_band(pct), "features_used": FEATURE_COLUMNS}
+    missing = [c for c in RAW_INPUTS if features.get(c) is None]
+    if missing:
+        raise ValueError(f"Missing feature(s): {missing}")
+    row = add_v2_features(pd.DataFrame([{c: features[c] for c in RAW_INPUTS}]))[V2_FEATURES]
+    prob = float(joblib.load(MODEL_PATH).predict_proba(row)[0, 1])
+    return {"overdue_prob": round(prob, 4), "risk_band": overdue_band(prob), "features_used": RAW_INPUTS}
 
 
 def main() -> None:
@@ -35,37 +36,10 @@ def main() -> None:
     if args.json:
         features = json.loads(args.json.read_text(encoding="utf-8"))
     else:
-        # Tiny default sample
         features = {
-            "contract_amount": 100000,
-            "interest_amount": 15000,
-            "installment": 4800,
-            "tenure": 24,
-            "balance_capital": 40000,
-            "balance_interest": 5000,
-            "balance_total": 45000,
-            "bal_penalty": 500,
-            "bal_charges": 200,
-            "arr_cap": 3000,
-            "arr_int": 400,
-            "paid_capital": 60000,
-            "paid_interest": 10000,
-            "paid_total": 70000,
-            "paid_pct": 60,
-            "total_paid": 70000,
-            "over_payment": 0,
-            "arrears_total": 3400,
-            "arrears_ratio": 0.075,
-            "utilization": 0.45,
-            "branch": "Colombo",
-            "center": "C001",
-            "product_category": "Micro",
-            "product_type": "Group",
-            "product": "Group Enterprise",
-            "gender": "female",
-            "area_type": "rural",
-            "income_band": "low",
-            "is_group_loan": True,
+            "contract_amount": 50000, "interest_amount": 20000, "installment": 1950, "tenure": 36,
+            "branch": "Kandy", "product_category": "Micro Loan",
+            "product_type": "Weekly", "product": "SASIRI LOAN 01 (sl01)",
         }
     print(json.dumps(predict(features), indent=2))
 
