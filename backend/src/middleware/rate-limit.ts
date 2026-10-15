@@ -9,6 +9,7 @@ import type { Request, Response, NextFunction } from "express"
  * 3. Pair lockout per (email|ip) (default 5 failures per 15 min -> 15 min lock)
  * 4. Aggregate email lockout across all IPs (default 30 failures per hour -> 15 min lock)
  * 5. IP limiters for /auth/signup, /auth/domains/verify, /auth/register-institution, and admin endpoints
+ * 6. IP limiter for POST /api/internal/agent-actions/dispatch (default 60 / 15 min)
  *
  * Limitation: Counters are stored in-process. When running multiple backend
  * instances behind a load balancer, a distributed store such as Redis is required.
@@ -196,6 +197,10 @@ export const signupIpStore = new BoundedStore("signup-ip", getMaxEntries())
 export const verifyDomainIpStore = new BoundedStore("verify-domain-ip", getMaxEntries())
 export const registerInstitutionIpStore = new BoundedStore("register-institution-ip", getMaxEntries())
 export const adminTenantIpStore = new BoundedStore("admin-tenant-ip", getMaxEntries())
+export const internalAgentDispatchStore = new BoundedStore(
+  "internal-agent-dispatch",
+  getMaxEntries()
+)
 
 /**
  * Resets all rate limit and lockout stores (for test isolation)
@@ -209,6 +214,7 @@ export function resetRateLimits(): void {
   verifyDomainIpStore.clear()
   registerInstitutionIpStore.clear()
   adminTenantIpStore.clear()
+  internalAgentDispatchStore.clear()
 }
 
 /**
@@ -555,4 +561,13 @@ export const adminTenantLimiter = createRateLimiter({
     const institutionId = (req as any).user?.institutionId || req.ip || req.socket.remoteAddress || "unknown"
     return getAdminTenantKey(institutionId)
   },
+})
+
+// 6. Internal agent service dispatch (default 60 / 15m per IP — research-friendly, before DB work)
+export const internalAgentDispatchLimiter = createRateLimiter({
+  store: internalAgentDispatchStore,
+  actionName: "internal-agent-dispatch",
+  max: (env) => parseEnvInt(env.RATE_LIMIT_INTERNAL_AGENT_DISPATCH_MAX, 60),
+  windowMs: (env) =>
+    parseEnvInt(env.RATE_LIMIT_INTERNAL_AGENT_DISPATCH_WINDOW_MS, 15 * 60 * 1000),
 })
