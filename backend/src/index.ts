@@ -18,6 +18,7 @@ import { publicDomainRouter, tenantDomainRouter } from "./routes/domains.js"
 import { registrationRouter } from "./routes/registration.js"
 import { tenantRouter } from "./routes/tenant.js"
 import { exampleRouter } from "./routes/_example.js"
+import { internalAgentDispatchRouter } from "./routes/internal-agent-dispatch.js"
 import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
 import { configureTrustProxy } from "./middleware/rate-limit.js"
 
@@ -125,6 +126,9 @@ app.use("/auth", registrationRouter)
 // Core Tenant routes (M4 and cross-module queries)
 app.use("/api/tenant", tenantRouter)
 app.use("/api/tenant", tenantDomainRouter)
+
+// Internal agent → Node dispatch (shared service key; not user JWT)
+app.use("/api/internal", internalAgentDispatchRouter)
 
 // Integration example router for teammates (non-production only)
 if (isDev) {
