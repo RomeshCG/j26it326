@@ -216,7 +216,14 @@ function App() {
                 </RequireRole>
               }
             />
-            <Route path="/graduated-trust" element={<GraduatedTrust />} />
+            <Route
+              path="/graduated-trust"
+              element={
+                <RequireRole allowedRoles={["admin", "executive", "branch_manager"]}>
+                  <GraduatedTrust />
+                </RequireRole>
+              }
+            />
             <Route
               path="/tier-approval"
               element={

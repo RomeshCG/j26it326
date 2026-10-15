@@ -86,7 +86,7 @@ const WORKSPACE_NAV = [
     title: "Graduated Trust",
     url: "/graduated-trust",
     icon: <ShieldCheckIcon />,
-    roles: ["Institution Admin", "Finance Officer"],
+    roles: ["Institution Admin", "Executive", "Branch Manager"],
   },
   {
     title: "Tier Approvals",

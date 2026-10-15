@@ -304,8 +304,40 @@ export async function overrideAgentAction(id, reason) {
 /**
  * Lists all configured agent tier policies
  * GET /api/tenant/agent-policies
+ * Success: { data, count }
  */
 export async function fetchAgentPolicies() {
   return await apiRequest("/api/tenant/agent-policies")
+}
+
+/**
+ * Updates an existing agent tier policy (admin only)
+ * PUT /api/tenant/agent-policies/:id
+ * Body: at least one of { tier, isActive, description }; reason required when tier changes (10–1000)
+ * Success: { status: "ok", policy } — not a bare engine result
+ */
+export async function updateAgentPolicy(id, body) {
+  return await apiRequest(`/api/tenant/agent-policies/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(body ?? {}),
+  })
+}
+
+/**
+ * Override / approval rate metrics (decide_tier3 roles only)
+ * GET /api/tenant/agent-actions/metrics/override-rates
+ * Optional params: { from, to } ISO-8601 strings; server defaults to last 30 days
+ * Success: { data: { ...metrics, capped }, capped }
+ */
+export async function fetchOverrideRates(params = {}) {
+  const query = new URLSearchParams()
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, String(val))
+    }
+  }
+  const queryString = query.toString()
+  const endpoint = `/api/tenant/agent-actions/metrics/override-rates${queryString ? `?${queryString}` : ""}`
+  return await apiRequest(endpoint)
 }
 
