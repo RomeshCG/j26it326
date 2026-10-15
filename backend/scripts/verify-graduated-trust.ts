@@ -1127,6 +1127,11 @@ async function runTests() {
     rejectedActionRow?.status === "rejected" && rejectedActionRow?.isOverride === true,
     "Rejected action has status rejected and isOverride true"
   )
+  assert(
+    rejectedActionRow?.decisionReason ===
+      "Rejected due to missing regulatory annex documents",
+    "Rejected action stores decisionReason for Agent Log display"
+  )
 
   // 13. Approve after reject is refused (conflict)
   const resApproveAfterReject = await decideTier3Action(fakePrisma, {
@@ -1175,6 +1180,12 @@ async function runTests() {
   assert(
     handlerSawApproved && handlerSawDecidedAt,
     "Tier 3 handler executes when row status is approved and decidedAt is set (Point 6)"
+  )
+  const approvedTimedRow = fakePrisma._getActions().find((a: any) => a.id === resTimedT3.actionId)
+  assert(
+    approvedTimedRow?.decisionReason ===
+      "Approved by authorized chief risk officer",
+    "Approved Tier 3 action keeps decisionReason after handler result update"
   )
 
   // 15. Tier 3 unresolvable policy: fails safely with short error, writes audit entry, runs no handler
