@@ -1,8 +1,9 @@
 """
-Agent 3 (Anomaly) stub scorer.
+DEPRECATED — S0c stub scorer.
 
-No Isolation Forest / sklearn inference in S0c — returns a deterministic stub
-score for wiring Python → Node → Graduated Trust. Replace with real IF later.
+Phase B replaces the live scoring path with ``app.iforest_scorer`` /
+``a3-iforest-v2``. This module is retained only for historical reference and
+must not be wired into FastAPI routes.
 """
 
 from __future__ import annotations
@@ -27,10 +28,7 @@ def score_volume_spike_stub(
     features: dict[str, Any] | None = None,
 ) -> AnomalyStubResult:
     """
-    Produce a stub anomaly score in [0, 1].
-
-    If features contain numeric ``spike_ratio`` >= 1.5, mark as anomaly with
-    elevated confidence; otherwise return a low non-anomaly stub score.
+    Legacy stub. Do not use in production paths — prefer IForestScorer.
     """
     feats = dict(features or {})
     spike_ratio = feats.get("spike_ratio")
@@ -46,7 +44,7 @@ def score_volume_spike_stub(
         score = 0.12
         is_anomaly = False
 
-    confidence = round(score * 100, 2)  # Node accepts 0–100
+    confidence = round(score * 100, 2)
     return AnomalyStubResult(
         score=round(score, 4),
         confidence=confidence,

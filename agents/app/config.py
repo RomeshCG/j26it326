@@ -31,6 +31,10 @@ class Settings(BaseSettings):
         default=False,
         description="When false, POST /v1/anomaly/dispatch-stub returns 404",
     )
+    agents_artifacts_dir: str = Field(
+        default="artifacts",
+        description="Directory with a3-iforest-v2.joblib + .meta.json (relative to agents/)",
+    )
     http_timeout_seconds: float = Field(default=15.0, ge=1.0, le=120.0)
 
     @property

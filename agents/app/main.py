@@ -1,8 +1,9 @@
 """
-IMFS Agents — Phase 10 S0c FastAPI entrypoint.
+IMFS Agents — Phase 10 FastAPI entrypoint (Phase B Isolation Forest).
 
-Graduated Trust decisions stay in Node. This service scores (stub) and may
-forward allowlisted dispatches via the service-key client.
+Graduated Trust decisions stay in Node. This service scores with a3-iforest-v2
+and may forward allowlisted dispatches via the service-key client.
+Dispatch remains disabled by default.
 """
 
 from __future__ import annotations
@@ -15,8 +16,15 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from . import __version__
-from .anomaly_stub import score_volume_spike_stub
 from .config import get_settings
+from .iforest_scorer import (
+    FeatureValidationError,
+    ModelUnavailableError,
+    get_load_error,
+    get_scorer,
+    init_scorer,
+    require_scorer,
+)
 from .node_client import NodeDispatchClient, NodeDispatchError, NodeTransportError
 from .security import (
     MAX_INPUT_PAYLOAD_JSON_BYTES,
@@ -25,22 +33,27 @@ from .security import (
 )
 
 
-class StubScoreRequest(BaseModel):
+class ScoreRequest(BaseModel):
     features: dict[str, Any] = Field(default_factory=dict)
 
 
-class StubScoreResponse(BaseModel):
+class ScoreResponse(BaseModel):
     score: float
     confidence: float
     modelVersion: str
     isAnomaly: bool
+    threshold: float
+    decisionFunction: float
+    explanations: list[str]
     featureSummary: dict[str, Any]
+    scoreSemantics: str
+    limitations: list[str]
 
 
 class StubDispatchRequest(BaseModel):
     institutionId: str = Field(..., min_length=36, max_length=36)
     action: str = Field(
-        default="Stub volume spike alert from Agent 3 runtime",
+        default="Volume spike alert from Agent 3 Isolation Forest",
         min_length=1,
         max_length=1000,
     )
@@ -59,7 +72,6 @@ def _is_uuid(value: str) -> bool:
 def _bounded_features(features: dict[str, Any]) -> dict[str, Any]:
     """Reject oversized / non-serializable feature maps before scoring or dispatch."""
     try:
-        # Leave headroom for score metadata wrapped around features in inputPayload.
         ensure_json_object_within_limit(
             features,
             limit=max(1024, MAX_INPUT_PAYLOAD_JSON_BYTES - 2048),
@@ -69,9 +81,35 @@ def _bounded_features(features: dict[str, Any]) -> dict[str, Any]:
     return features
 
 
+def _score_or_http(features: dict[str, Any]) -> ScoreResponse:
+    try:
+        scorer = require_scorer()
+        result = scorer.score(features)
+    except ModelUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except FeatureValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return ScoreResponse(
+        score=result.score,
+        confidence=result.confidence,
+        modelVersion=result.model_version,
+        isAnomaly=result.is_anomaly,
+        threshold=result.threshold,
+        decisionFunction=result.decision_function,
+        explanations=result.explanations,
+        featureSummary=result.feature_summary,
+        scoreSemantics=result.score_semantics,
+        limitations=result.limitations,
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    # Fail closed for scoring if artifacts are missing — do not crash the process
+    # so /health can still report modelReady=false.
+    init_scorer(settings.agents_artifacts_dir)
     client = NodeDispatchClient(settings)
     app.state.node_client = client
     yield
@@ -81,7 +119,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="IMFS Agents",
     version=__version__,
-    description="Phase 10 agent runtime (stub anomaly → Node Graduated Trust)",
+    description=(
+        "Phase 10 agent runtime (a3-iforest-v2 → Node Graduated Trust). "
+        "Scores are non-probabilistic; dispatch disabled by default."
+    ),
     lifespan=lifespan,
 )
 
@@ -95,6 +136,9 @@ async def health() -> dict[str, Any]:
         key_configured = True
     except ValueError:
         key_configured = False
+
+    scorer = get_scorer()
+    model_ready = scorer is not None
     return {
         "ok": True,
         "service": "imfs-agents",
@@ -102,21 +146,32 @@ async def health() -> dict[str, Any]:
         "nodeApiUrl": settings.node_api_base,
         "agentServiceKeyConfigured": key_configured,
         "dispatchStubEnabled": bool(settings.enable_dispatch_stub),
+        "modelReady": model_ready,
+        "modelVersion": scorer.model_version if scorer else None,
+        "threshold": scorer.threshold if scorer else None,
+        "modelLoadError": None if model_ready else get_load_error(),
+        "scoreSemantics": (
+            "non-probabilistic Isolation Forest score; not a probability or fraud likelihood"
+        ),
     }
 
 
-@app.post("/v1/anomaly/stub-score", response_model=StubScoreResponse)
-async def stub_score(body: StubScoreRequest) -> StubScoreResponse:
-    """Local stub score only — does not call Node or touch any database."""
+@app.post("/v1/anomaly/score", response_model=ScoreResponse)
+async def anomaly_score(body: ScoreRequest) -> ScoreResponse:
+    """Local IF score only — does not call Node or touch any database."""
     features = _bounded_features(body.features)
-    result = score_volume_spike_stub(features)
-    return StubScoreResponse(
-        score=result.score,
-        confidence=result.confidence,
-        modelVersion=result.model_version,
-        isAnomaly=result.is_anomaly,
-        featureSummary=result.feature_summary,
-    )
+    return _score_or_http(features)
+
+
+@app.post("/v1/anomaly/stub-score", response_model=ScoreResponse, deprecated=True)
+async def stub_score_compat(body: ScoreRequest) -> ScoreResponse:
+    """
+    Compatibility alias for /v1/anomaly/score.
+
+    Previously returned a3-iforest-stub-v0. Now uses a3-iforest-v2.
+    """
+    features = _bounded_features(body.features)
+    return _score_or_http(features)
 
 
 @app.post("/v1/anomaly/dispatch-stub")
@@ -125,10 +180,11 @@ async def dispatch_stub(
     x_agents_local_token: str | None = Header(default=None, alias="X-Agents-Local-Token"),
 ) -> dict[str, Any]:
     """
-    Score with the stub, then POST volume_spike_alert to Node internal dispatch.
+    Score with a3-iforest-v2, then POST volume_spike_alert to Node internal dispatch.
 
     Disabled by default (ENABLE_DISPATCH_STUB=false). When enabled, requires
     X-Agents-Local-Token (AGENTS_LOCAL_TOKEN) — separate from AGENT_SERVICE_KEY.
+    Tier / agent selection remain Node-owned (Tier 4 alert_only for A3).
     """
     settings = get_settings()
     if not settings.enable_dispatch_stub:
@@ -137,7 +193,6 @@ async def dispatch_stub(
     try:
         expected_token = settings.require_local_token()
     except ValueError:
-        # Fail closed without naming which secret is missing.
         raise HTTPException(
             status_code=503,
             detail="Dispatch stub is not configured",
@@ -154,17 +209,25 @@ async def dispatch_stub(
         raise HTTPException(status_code=400, detail="action must not be empty after trim")
 
     features = _bounded_features(body.features)
-    result = score_volume_spike_stub(features)
-    if not result.is_anomaly:
+    scored = _score_or_http(features)
+    if not scored.isAnomaly:
         raise HTTPException(
             status_code=422,
-            detail="Stub score is not anomalous; adjust features (e.g. spike_ratio >= 1.5)",
+            detail=(
+                "Score is not anomalous under the frozen v2 threshold; "
+                "dispatch not sent"
+            ),
         )
 
     input_payload = {
-        "score": result.score,
-        "isAnomaly": result.is_anomaly,
-        "featureSummary": result.feature_summary,
+        "score": scored.score,
+        "isAnomaly": scored.isAnomaly,
+        "threshold": scored.threshold,
+        "decisionFunction": scored.decisionFunction,
+        "explanations": scored.explanations,
+        "featureSummary": scored.featureSummary,
+        "scoreSemantics": scored.scoreSemantics,
+        "limitations": scored.limitations,
     }
     try:
         ensure_json_object_within_limit(input_payload)
@@ -180,8 +243,8 @@ async def dispatch_stub(
         node_result = await client.dispatch_volume_spike_alert(
             institution_id=body.institutionId,
             action=action_trimmed,
-            confidence=result.confidence,
-            model_version=result.model_version,
+            confidence=scored.confidence,
+            model_version=scored.modelVersion,
             input_payload=input_payload,
             reason=reason,
         )
@@ -196,11 +259,13 @@ async def dispatch_stub(
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from None
 
     return {
-        "stub": {
-            "score": result.score,
-            "confidence": result.confidence,
-            "modelVersion": result.model_version,
-            "isAnomaly": result.is_anomaly,
+        "score": {
+            "score": scored.score,
+            "confidence": scored.confidence,
+            "modelVersion": scored.modelVersion,
+            "isAnomaly": scored.isAnomaly,
+            "threshold": scored.threshold,
+            "explanations": scored.explanations,
         },
         "dispatch": node_result,
     }

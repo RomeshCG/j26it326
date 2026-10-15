@@ -45,6 +45,13 @@ ml/**/*.xlsx
 # Allow tiny tracked samples if you ever add them explicitly under samples/
 !ml/**/data/samples/**
 
+# Agents Phase A — synthetic data + IF artifacts (code tracked; outputs local)
+agents/data/synthetic/**
+!agents/data/synthetic/.keep
+agents/artifacts/**
+!agents/artifacts/.keep
+agents/**/__pycache__/
+
 # OS / IDE
 .DS_Store
 Thumbs.db
