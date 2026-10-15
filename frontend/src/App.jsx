@@ -217,7 +217,14 @@ function App() {
               }
             />
             <Route path="/graduated-trust" element={<GraduatedTrust />} />
-            <Route path="/tier-approval" element={<TierApproval />} />
+            <Route
+              path="/tier-approval"
+              element={
+                <RequireRole allowedRoles={["admin", "executive", "branch_manager"]}>
+                  <TierApproval />
+                </RequireRole>
+              }
+            />
             <Route path="/settings" element={<Settings />} />
             <Route path="/finance-manager" element={<FinanceManagerDashboard />} />
             <Route path="/alerts" element={<MissionDriftAlerts />} />

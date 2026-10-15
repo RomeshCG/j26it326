@@ -256,6 +256,41 @@ export async function fetchAgentActionById(id) {
 }
 
 /**
+ * Lists pending Tier 3 actions awaiting human approval (no payloads)
+ * GET /api/tenant/agent-actions/pending
+ * Success: { data, count }
+ */
+export async function fetchPendingAgentActions() {
+  return await apiRequest("/api/tenant/agent-actions/pending")
+}
+
+/**
+ * Approves a pending Tier 3 action
+ * POST /api/tenant/agent-actions/:id/approve
+ * Body: { reason } (10–1000 chars trimmed, enforced by server)
+ * Success: flat engine result { status, actionId, decision, actionStatus, ... } — not wrapped in { data }
+ */
+export async function approveAgentAction(id, reason) {
+  return await apiRequest(`/api/tenant/agent-actions/${encodeURIComponent(id)}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  })
+}
+
+/**
+ * Rejects a pending Tier 3 action
+ * POST /api/tenant/agent-actions/:id/reject
+ * Body: { reason } (10–1000 chars trimmed, enforced by server)
+ * Success: flat engine result { status, actionId, decision, actionStatus } — not wrapped in { data }
+ */
+export async function rejectAgentAction(id, reason) {
+  return await apiRequest(`/api/tenant/agent-actions/${encodeURIComponent(id)}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  })
+}
+
+/**
  * Records human override for executed/notified Tier 1 or Tier 2 action
  * POST /api/tenant/agent-actions/:id/override
  */
