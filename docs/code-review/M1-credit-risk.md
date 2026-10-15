@@ -13,9 +13,9 @@ Checked against `internalDocs/PROJECT_BRIEFING.md` and `IMFS_Task_List.md`:
 
 | # | Gap | Evidence |
 |---|---|---|
-| A | **The M1 backend is not on `main`** | `backend/src/routes/risk.ts`, `services/risk-score.ts` and `docs/M1_RISK_API.md` exist only on branch `feature/m1-wire-fe`, which is stale against `main` (it deletes ~19k lines, including some `ml/` files). The briefing treats `/api/risk/assess` as working, but on `main` it does not exist. Port it onto a fresh branch from `main`; do not merge as is |
-| B | **The backend serves the old circular formula** | `risk-score.ts` reports `model_version: "m1-heuristic-v1"` and returns `risk_pct` from arrears, paid % and penalties, the same label this review removed from the ML side |
-| C | **API contract mismatch with the new model** | The route expects arrears and paid fields and returns `risk_pct`. The new model takes loan terms only and returns `overdue_prob`. Pick one contract and update `API_CONTRACT.md`, `M1_RISK_API.md`, Bruno and the frontend together. M3 calls this endpoint at application time, so tell M3 |
+| A | **The M1 backend is now on this branch** (merged with `main`) | Still on `feature/m1-wire-fe`, not yet merged to `main`; open a PR once the frontend is updated |
+| B | **Backend now serves the new model** | `risk-score.ts` is a client for the FastAPI service (`ml/m1_credit_risk/serve/app.py`); the old heuristic is removed. Needs the Python service running; 503 otherwise |
+| C | **Frontend still sends the old features** | `map-api-report.js` / `buildAssessFeatures` send arrears fields (invented defaults) and no `product_type`, so the live report call will get a 400 until the frontend is updated. M3's stub calls `/assess-risk` with borrower demographics, a different contract; tell M3 |
 | D | **Task-list items with no code** | SHAP interaction analysis (only a UI matrix exists), reliance-adaptive logic, GenAI narrative grounded in score + SHAP, `decision_log` endpoint with `user_id` validation |
 | E | **Evaluation is thinner than promised** | Task list asks for accuracy, precision, recall, F1, ROC-AUC and a confusion matrix. Done: AUC, PR-AUC, Brier. Missing: confusion matrix and threshold metrics |
 | F | **Features the task list promises are not in the PAR data** | Household cash flow, income stability, savings behaviour, guarantee strength. State this limitation in the paper |
@@ -25,13 +25,13 @@ Checked against `internalDocs/PROJECT_BRIEFING.md` and `IMFS_Task_List.md`:
 
 | # | Gap | Why it matters | Suggested fix |
 |---|---|---|---|
-| 1 | Meaning of PAR `age` not confirmed | The whole label depends on it | Confirm with the partner's data dictionary, then re-run training |
-| 2 | Single PAR snapshot | The model shows who is overdue now, not who will become overdue | Say so in the paper, or request a second snapshot |
+| 1 | PAR `age` confirmed as arrears age (team) | Label basis settled | Record the partner's exact unit (days vs periods) when known |
+| 2 | Single PAR snapshot (ongoing loans); two more planned | The model shows who is overdue now, not who will become overdue | When the new snapshots arrive, train on one and test on the next for a true future-default result |
 | 3 | Branch dominates the explanations | The model may reflect local conditions, not borrower risk | Report it, and add a per-branch analysis |
 | 4 | Risk bands (0.33 / 0.66) are arbitrary | Not tuned or calibrated | Tune on validation data, add a calibration plot |
 | 5 | Demographic columns (gender, area, income) are expert-prior fills | Independent of repayment, so only noise as predictors | Use for fairness slicing only; document the elicitation method |
 | 6 | Old scripts `generate_synthetic.py` and `merge_par_synthetic.py` still build the circular `risk_pct` | Easy to run by mistake | Mark deprecated or remove after the team agrees |
-| 7 | No HTTP route for the model | Backend and UI can't call it yet | Backend integration per `serve/API_CONTRACT.md` |
+| 7 | HTTP route done (on this branch); UI not updated | See C above | Update the frontend, then PR to `main` |
 | 8 | `ml/requirements.txt` is not pinned and is shared | Results may not reproduce | Pin versions (needs group agreement) |
 | 9 | ML has no CI | Tests only run by hand | Add `ml` tests to a CI workflow |
 

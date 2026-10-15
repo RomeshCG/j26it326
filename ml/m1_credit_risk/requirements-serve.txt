@@ -1,0 +1,4 @@
+# M1 model service only (on top of ml/requirements.txt)
+fastapi
+uvicorn
+httpx

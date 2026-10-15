@@ -78,3 +78,5 @@ CUSTOMER NAME, CUSTOMER NIC, CONTACT NO., raw CUSTOMER CODE / CONTRACT NUMBER (u
 **Validation:** GroupKFold(5) by center vs prior baseline and logistic regression (`artifacts/metrics.json`). Current: AUC ~0.81 (XGB), ~0.82 (LR), PR-AUC ~0.73, baseline AUC 0.50.
 
 The v1 `risk_pct` formula target above is kept only for history; do not report its R2 (the label was computed from its own inputs).
+
+**Confirmed by the team:** `age` = arrears age (how long a payment is overdue). The PAR file is a snapshot of currently ongoing loans at the export date; two further snapshots are planned, which will allow a time-based / future-default validation.
