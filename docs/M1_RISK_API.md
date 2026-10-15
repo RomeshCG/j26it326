@@ -61,7 +61,7 @@ Origination-time loan terms only. Arrears / paid fields are NOT inputs (they def
   "model_version": "m1-overdue-xgb-v2",
   "explanation": {
     "top_factors": [
-      { "feature": "cat__branch_Kandy", "shap_logodds": 1.1675, "direction": "increases_risk" }
+      { "feature": "branch", "value": "Kandy", "shap_logodds": 1.1361, "direction": "increases_risk" }
     ],
     "unseen_categories": []
   },
@@ -72,7 +72,7 @@ Origination-time loan terms only. Arrears / paid fields are NOT inputs (they def
 
 - `overdue_prob` = P(arrears age > 1 period) as seen in the partner PAR snapshot. `risk_pct` is the same value x 100 (kept so existing UI code keeps working).
 - Bands (provisional): `<0.33` low, `<0.66` medium, else high. `recommendation` is a hint: low=approve, medium=review, high=reject.
-- `shap_logodds` is in log-odds. Each one-hot category (e.g. `branch_Kandy`) is its own factor.
+- `shap_logodds` is in log-odds. One factor per input field (branch, product, installment, ...) with the value that was scored; one-hot columns are summed back to their field.
 - `unseen_categories` lists branch/product values the model never saw; they have no effect on the score. Treat the score as weaker when this is non-empty.
 - With `persist=true`, `risk_score` is stored as 0-100 and `shap_explanations.contribution` holds the log-odds value.
 

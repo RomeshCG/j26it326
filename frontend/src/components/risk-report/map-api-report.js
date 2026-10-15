@@ -1,87 +1,101 @@
 /**
  * Map M1 POST /api/risk/assess → Risk Report UI shape.
- * UI riskScore is creditworthiness (higher = safer). API risk_pct is default risk.
+ * UI riskScore is creditworthiness (higher = safer). API overdue_prob is the chance the loan
+ * becomes seriously overdue (arrears age > 1 period in the partner PAR snapshot).
  */
 
 import { RISK_REPORT, buildRiskReport } from "./mock-data"
 
 const FEATURE_LABELS = {
-  arrears_ratio: "Arrears ratio",
-  paid_pct: "Paid %",
-  bal_penalty: "Balance penalty",
-  bal_charges: "Balance charges",
-  arr_cap: "Arrears capital",
-  arr_int: "Arrears interest",
+  branch: "Branch",
+  product: "Loan product",
+  product_category: "Product category",
+  product_type: "Repayment frequency",
+  contract_amount: "Loan amount",
+  interest_amount: "Interest amount",
+  installment: "Instalment size",
+  tenure: "Loan term",
+  installment_ratio: "Instalment vs loan amount",
+  interest_ratio: "Interest vs loan amount",
 }
 
-function humanize(feature) {
-  return FEATURE_LABELS[feature] || feature.replace(/_/g, " ")
+function humanize(f) {
+  const label = FEATURE_LABELS[f.feature] || f.feature.replace(/_/g, " ")
+  return typeof f.value === "string" ? `${label}: ${f.value}` : label
 }
 
-function impactLevel(contribution) {
-  const abs = Math.abs(contribution)
-  if (abs >= 15) return { impact: 4, level: "High" }
-  if (abs >= 8) return { impact: 3, level: "High" }
-  if (abs >= 3) return { impact: 2, level: "Medium" }
+// SHAP values are in log-odds, so the bands are much smaller than the old 0-100 scale.
+function impactLevel(shap) {
+  const abs = Math.abs(shap)
+  if (abs >= 0.5) return { impact: 4, level: "High" }
+  if (abs >= 0.2) return { impact: 3, level: "High" }
+  if (abs >= 0.05) return { impact: 2, level: "Medium" }
   return { impact: 1, level: "Low" }
 }
 
-/** Build assess features from application / navigation state. */
-export function buildAssessFeatures(state = {}) {
-  const amount = Number(state.loanAmount) || Number(state.features?.contract_amount) || 100000
-  const paidPct = Number(state.features?.paid_pct ?? 60)
-  const balanceTotal = Number(state.features?.balance_total ?? amount * 0.45)
-  const arrCap = Number(state.features?.arr_cap ?? amount * 0.03)
-  const arrInt = Number(state.features?.arr_int ?? amount * 0.004)
-  const balPenalty = Number(state.features?.bal_penalty ?? amount * 0.005)
-  const balCharges = Number(state.features?.bal_charges ?? amount * 0.002)
-
-  return {
-    contract_amount: amount,
-    balance_total: balanceTotal,
-    arr_cap: arrCap,
-    arr_int: arrInt,
-    bal_penalty: balPenalty,
-    bal_charges: balCharges,
-    paid_pct: paidPct,
-    interest_amount: Number(state.features?.interest_amount ?? amount * 0.15),
-    installment: Number(state.features?.installment ?? amount / 24),
-    tenure: Number(state.features?.tenure ?? 24),
-    branch: state.features?.branch || state.branch || "Head Office",
-    product_category: state.features?.product_category || "Micro",
-    product: state.product || state.features?.product || "Micro Loan",
-  }
+// Typical values from the partner PAR snapshot (weekly micro loans). Used ONLY for fields
+// the application does not provide; the report tells the officer which ones were assumed.
+const DEMO_DEFAULTS = {
+  interest_ratio: 0.4,
+  tenure: 36,
+  branch: "Kandy",
+  product_category: "Micro Loan",
+  product_type: "Weekly",
+  product: "SASIRI LOAN 01 (sl01)",
 }
 
-export function mapAssessResponseToReport(api, state = {}) {
-  const riskPct = Number(api.risk_pct) || 0
+/** Build the 8 origination-time loan terms the model needs. Returns { features, assumed }. */
+export function buildAssessFeatures(state = {}) {
+  const given = state.features ?? {}
+  const assumed = []
+  const pick = (key, value, fallback) => {
+    if (value !== undefined && value !== null && value !== "") return value
+    assumed.push(key)
+    return fallback
+  }
+
+  const amount = Number(pick("contract_amount", state.loanAmount ?? given.contract_amount, RISK_REPORT.loanAmount))
+  const tenure = Number(pick("tenure", given.tenure, DEMO_DEFAULTS.tenure))
+  const interest = Number(
+    pick("interest_amount", given.interest_amount, Math.round(amount * DEMO_DEFAULTS.interest_ratio))
+  )
+  const installment = Number(
+    pick("installment", given.installment, Math.round((amount + interest) / tenure))
+  )
+
+  const features = {
+    contract_amount: amount,
+    interest_amount: interest,
+    installment,
+    tenure,
+    branch: pick("branch", given.branch ?? state.branch, DEMO_DEFAULTS.branch),
+    product_category: pick("product_category", given.product_category, DEMO_DEFAULTS.product_category),
+    product_type: pick("product_type", given.product_type, DEMO_DEFAULTS.product_type),
+    product: pick("product", state.product ?? given.product, DEMO_DEFAULTS.product),
+  }
+  return { features, assumed }
+}
+
+export function mapAssessResponseToReport(api, state = {}, assumed = []) {
+  const riskPct = Number(api.risk_pct ?? api.overdue_prob * 100) || 0
   const band = String(api.risk_band || "medium").toLowerCase()
-  const classification =
-    band === "low" ? "LOW" : band === "high" ? "HIGH" : "MEDIUM"
+  const classification = band === "low" ? "LOW" : band === "high" ? "HIGH" : "MEDIUM"
 
   const factors = api.explanation?.top_factors || []
-  const shapContributors = factors.map((f) => {
-    const { impact, level } = impactLevel(f.contribution)
-    const increases = f.direction === "increases_risk" || f.direction === "increases"
-    return {
-      feature: humanize(f.feature),
-      direction: increases ? "up" : "down",
-      impact,
-      level,
-    }
-  })
+  const isUp = (f) => f.direction === "increases_risk" || f.direction === "increases"
 
-  const keyFactors = factors.slice(0, 4).map((f) => {
-    const increases = f.direction === "increases_risk" || f.direction === "increases"
-    return {
-      label: humanize(f.feature),
-      tone: increases ? "caution" : "positive",
-    }
+  const shapContributors = factors.map((f) => {
+    const { impact, level } = impactLevel(f.shap_logodds ?? f.contribution ?? 0)
+    return { feature: humanize(f), direction: isUp(f) ? "up" : "down", impact, level }
   })
+  const keyFactors = factors.slice(0, 4).map((f) => ({
+    label: humanize(f),
+    tone: isUp(f) ? "caution" : "positive",
+  }))
 
   const base = buildRiskReport({
     ...state,
-    loanAmount: state.loanAmount ?? api.features?.contract_amount,
+    loanAmount: state.loanAmount,
     riskScore: Math.round(100 - riskPct),
   })
 
@@ -90,18 +104,17 @@ export function mapAssessResponseToReport(api, state = {}) {
     riskScore: Math.round(100 - riskPct),
     defaultProbability: Math.round(riskPct),
     classification,
-    confidence: 80,
     keyFactors: keyFactors.length ? keyFactors : RISK_REPORT.keyFactors,
-    shapContributors: shapContributors.length
-      ? shapContributors
-      : RISK_REPORT.shapContributors,
+    shapContributors: shapContributors.length ? shapContributors : RISK_REPORT.shapContributors,
     recommendation: api.recommendation || null,
     modelVersion: api.model_version || null,
     assessmentId: api.assessmentId || null,
+    assumedFields: assumed,
+    unseenCategories: api.explanation?.unseen_categories ?? [],
     source: "api",
     narrative:
       `Live M1 assessment (${api.model_version || "m1"}). ` +
-      `Estimated default risk ${Math.round(riskPct)}% → ${classification} band` +
+      `Estimated ${Math.round(riskPct)}% chance this loan becomes seriously overdue → ${classification} band` +
       (api.recommendation ? `; system suggests ${api.recommendation}.` : "."),
   }
 }

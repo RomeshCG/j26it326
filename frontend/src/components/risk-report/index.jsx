@@ -75,12 +75,12 @@ export default function RiskReportPage() {
       setError(null)
       setUsedFallback(false)
 
-      const features = buildAssessFeatures(reportContext)
+      const { features, assumed } = buildAssessFeatures(reportContext)
 
       try {
         const api = await assessRisk({ features, persist: false })
         if (cancelled) return
-        setReport(mapAssessResponseToReport(api, reportContext))
+        setReport(mapAssessResponseToReport(api, reportContext, assumed))
       } catch (err) {
         if (cancelled) return
         setError(err?.message || "Risk API unavailable")
@@ -165,7 +165,7 @@ export default function RiskReportPage() {
       {error && usedFallback ? (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
           Live API unavailable ({error}). Showing offline mock report. Log in with a real
-          JWT and keep the backend running on port 4000.
+          JWT, keep the backend on port 4000 and the M1 model service on port 8001.
         </div>
       ) : null}
 
@@ -173,6 +173,20 @@ export default function RiskReportPage() {
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-800 dark:text-emerald-200">
           Live score from POST /api/risk/assess
           {report.recommendation ? ` · recommendation: ${report.recommendation}` : ""}
+        </div>
+      ) : null}
+
+      {!loading && !usedFallback && report.assumedFields?.length ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-800 dark:text-amber-200">
+          Not provided by the application, typical demo values used for:{" "}
+          {report.assumedFields.join(", ").replace(/_/g, " ")}.
+        </div>
+      ) : null}
+
+      {!loading && !usedFallback && report.unseenCategories?.length ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-800 dark:text-amber-200">
+          The model has not seen this {report.unseenCategories.join(", ").replace(/_/g, " ")} before, so
+          the score is less reliable.
         </div>
       ) : null}
 
