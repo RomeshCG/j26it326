@@ -1,0 +1,167 @@
+# Expert-elicited priors for the v3 (expert-enriched) M1 model.
+#
+# !! PLACEHOLDER VALUES !!  Every number below is a stand-in so the pipeline can be built and
+# tested before the resource person answers the questionnaire
+# (internalDocs/M1_RESOURCE_PERSON_QUESTIONNAIRE.md). Replace them with the expert's numbers,
+# then set placeholder = false. Generated data is tagged "expert_prior_placeholder" until then.
+placeholder = true
+
+# Where each section comes from in the questionnaire:
+#   [[occupation]] .......... A1 (shares, income, expenses, other debt) and B6 (rr)
+#   [age], [dependants] ..... A2, A3 and B5
+#   [business_age], [first_time], [assets] .... A4, A5, B4, B5
+#   [debt_burden], [instalment_load], [income_pattern] .... B1, B2, B3
+#
+# "rr" = relative risk: how many times more likely than a typical borrower to fall seriously
+# behind (1.0 = typical). All risk multipliers are combined by multiplication (see B7).
+
+[monthly_factor]            # how many instalments per month, by PAR product_type
+Weekly = 4.333
+Daily = 30.0
+Monthly = 1.0
+
+# ---- Occupation (shares should sum to ~1; incomes are LKR per month) ----
+[[occupation]]
+name = "Small shop / trader"
+share = 0.22
+income_low = 40000
+income_typical = 70000
+income_high = 130000
+expenses = 40000
+p_other_loans = 0.35
+other_debt_typical = 8000
+self_employed = true
+income_pattern = "fairly_regular"
+rr = 1.0
+
+[[occupation]]
+name = "Farmer / agriculture"
+share = 0.22
+income_low = 25000
+income_typical = 55000
+income_high = 120000
+expenses = 30000
+p_other_loans = 0.40
+other_debt_typical = 7000
+self_employed = true
+income_pattern = "irregular"
+rr = 1.2
+
+[[occupation]]
+name = "Livestock / dairy / poultry"
+share = 0.10
+income_low = 30000
+income_typical = 55000
+income_high = 100000
+expenses = 30000
+p_other_loans = 0.30
+other_debt_typical = 6000
+self_employed = true
+income_pattern = "fairly_regular"
+rr = 0.9
+
+[[occupation]]
+name = "Home production"
+share = 0.15
+income_low = 20000
+income_typical = 40000
+income_high = 80000
+expenses = 25000
+p_other_loans = 0.30
+other_debt_typical = 5000
+self_employed = true
+income_pattern = "fairly_regular"
+rr = 1.0
+
+[[occupation]]
+name = "Daily-wage labourer"
+share = 0.15
+income_low = 18000
+income_typical = 35000
+income_high = 60000
+expenses = 24000
+p_other_loans = 0.40
+other_debt_typical = 4000
+self_employed = false
+income_pattern = "irregular"
+rr = 1.4
+
+[[occupation]]
+name = "Low-paid salaried"
+share = 0.08
+income_low = 35000
+income_typical = 55000
+income_high = 90000
+expenses = 35000
+p_other_loans = 0.45
+other_debt_typical = 9000
+self_employed = false
+income_pattern = "regular"
+rr = 0.7
+
+[[occupation]]
+name = "Family member abroad"
+share = 0.08
+income_low = 40000
+income_typical = 80000
+income_high = 150000
+expenses = 45000
+p_other_loans = 0.25
+other_debt_typical = 8000
+self_employed = false
+income_pattern = "regular"
+rr = 0.8
+
+# ---- Income pattern (B3) ----
+[income_pattern]
+regular = 0.8
+fairly_regular = 1.0
+irregular = 1.5
+
+# ---- Debt burden: other-loan payments as a fraction of monthly income (B1) ----
+# bands: none | < e1 | e1-e2 | e2-e3 | > e3
+[debt_burden]
+edges = [0.2, 0.4, 0.6]
+rr = [0.7, 0.9, 1.2, 1.8, 2.8]
+
+# ---- Instalment load: this loan's monthly instalment / monthly income (B2) ----
+# bands: < e1 | e1-e2 | e2-e3 | > e3
+[instalment_load]
+edges = [0.1, 0.2, 0.3]
+rr = [0.8, 1.0, 1.5, 2.4]
+
+# ---- Age (A2, B5): [low, high) bands ----
+[age]
+bands = [[18, 25], [25, 35], [35, 45], [45, 55], [55, 70]]
+shares = [0.07, 0.25, 0.33, 0.25, 0.10]
+rr = [1.4, 1.1, 1.0, 0.9, 1.1]
+
+# ---- Dependants (A3, B5): inclusive integer bands ----
+[dependants]
+bands = [[0, 2], [3, 4], [5, 7]]
+shares = [0.55, 0.35, 0.10]
+rr = [0.9, 1.1, 1.5]
+
+# ---- Business age in years, self-employed only (A4, B4) ----
+[business_age]
+bands = [[0.0, 1.0], [1.0, 3.0], [3.0, 15.0]]
+shares = [0.20, 0.30, 0.50]
+rr = [1.6, 1.1, 0.8]
+
+# ---- Borrowing history (A4, B5) ----
+[first_time]
+share = 0.20
+rr_first = 1.3
+rr_repeat = 0.8
+
+# ---- Assets (A5, B5) ----
+[assets]
+names = ["land_or_house", "vehicle_or_equipment", "none"]
+shares = [0.45, 0.20, 0.35]
+rr = [0.8, 0.9, 1.3]
+
+# ---- Civil status (A3). No risk effect unless the expert says otherwise ----
+[civil_status]
+names = ["married", "single", "widowed_or_separated"]
+shares = [0.78, 0.10, 0.12]
+rr = [1.0, 1.0, 1.0]
