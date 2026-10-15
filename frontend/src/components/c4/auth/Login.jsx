@@ -95,6 +95,11 @@ export default function Login() {
     } catch (err) {
       if (err.isNetworkError) {
         setError(err.message)
+      } else if (err.status === 403 && (err.message === "Account is pending administrator approval" || err.data?.error === "Account is pending administrator approval")) {
+        setError("Your account is waiting for an administrator to approve it")
+      } else if (err.status === 429) {
+        const retrySec = err.retryAfter || 60
+        setError(`Too many failed login attempts. Please wait ${retrySec} seconds before trying again.`)
       } else {
         setError("Invalid email or password")
       }
@@ -161,7 +166,7 @@ export default function Login() {
           {isRegistered && (
             <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2.5 text-xs text-emerald-700 dark:text-emerald-400">
               <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>Registration submitted. Please sign in with your credentials.</span>
+              <span>Institution provisioned successfully! Please sign in with the administrator credentials you created.</span>
             </div>
           )}
 

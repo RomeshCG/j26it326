@@ -19,6 +19,18 @@ export const DISPLAY_NAME_TO_ROLE = {
   "HR Officer": "hr_officer",
   "Branch Manager": "branch_manager",
   "Loan Officer": "loan_officer",
+  "Field Officer": "loan_officer",
+}
+
+export const INSTITUTION_TYPE_MAP = {
+  "Licensed Finance Company": "licensed_finance_company",
+  "Microfinance NGO": "microfinance_ngo",
+  "Rural Development Bank": "rural_development_bank",
+  "Co-operative Society": "cooperative_society",
+}
+
+export function toBackendInstitutionType(displayType) {
+  return INSTITUTION_TYPE_MAP[displayType] || "microfinance_ngo"
 }
 
 /**

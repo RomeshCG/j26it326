@@ -127,10 +127,41 @@ export async function apiRequest(endpoint, options = {}) {
     )
     error.status = response.status
     error.data = data
+    const retryHeader = response.headers.get("retry-after")
+    if (retryHeader) {
+      const parsed = parseInt(retryHeader, 10)
+      error.retryAfter = !isNaN(parsed) ? parsed : retryHeader
+    }
     throw error
   }
 
+  if (data && typeof data === "object") {
+    data._status = response.status
+  }
+
   return data
+}
+
+/**
+ * Register and provision a new tenant institution
+ * POST /auth/register-institution
+ */
+export async function registerInstitution(payload) {
+  return await apiRequest("/auth/register-institution", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
+/**
+ * Verify an institution domain with a one-time token
+ * POST /auth/domains/verify
+ */
+export async function verifyDomainToken(token) {
+  return await apiRequest("/auth/domains/verify", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  })
 }
 
 /**
@@ -211,3 +242,47 @@ export async function verifySessionOnce() {
     throw error
   }
 }
+
+/**
+ * Lists agent actions with optional filters and pagination
+ * GET /api/tenant/agent-actions
+ */
+export async function fetchAgentActions(params = {}) {
+  const query = new URLSearchParams()
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, String(val))
+    }
+  }
+  const queryString = query.toString()
+  const endpoint = `/api/tenant/agent-actions${queryString ? `?${queryString}` : ""}`
+  return await apiRequest(endpoint)
+}
+
+/**
+ * Fetches single agent action detail with full payloads
+ * GET /api/tenant/agent-actions/:id
+ */
+export async function fetchAgentActionById(id) {
+  return await apiRequest(`/api/tenant/agent-actions/${encodeURIComponent(id)}`)
+}
+
+/**
+ * Records human override for executed/notified Tier 1 or Tier 2 action
+ * POST /api/tenant/agent-actions/:id/override
+ */
+export async function overrideAgentAction(id, reason) {
+  return await apiRequest(`/api/tenant/agent-actions/${encodeURIComponent(id)}/override`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  })
+}
+
+/**
+ * Lists all configured agent tier policies
+ * GET /api/tenant/agent-policies
+ */
+export async function fetchAgentPolicies() {
+  return await apiRequest("/api/tenant/agent-policies")
+}
+

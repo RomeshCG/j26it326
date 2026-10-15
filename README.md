@@ -46,11 +46,13 @@ rp-p/
 ├── frontend/     # Main UI prototype (run this for demos)
 ├── backend/      # API / services scaffold
 ├── ml/           # Model experiments
-├── docs/         # Project documentation
+├── docs/         # Project documentation (incl. SHARED_DATASETS.md)
 └── README.md
 ```
 
 **ML for the whole team (humans + AI agents):** [`docs/TEAM_ML_TRAINING_GUIDE.md`](docs/TEAM_ML_TRAINING_GUIDE.md) — how to train, where models are hosted, Colab FAQ, M1–M4 jobs.
+
+**Datasets for all members:** [`docs/SHARED_DATASETS.md`](docs/SHARED_DATASETS.md) · beginner guide + synthetic recipes: [`docs/TEAM_DATA_AND_SYNTHETIC_GUIDE.md`](docs/TEAM_DATA_AND_SYNTHETIC_GUIDE.md).
 
 ---
 

@@ -1,0 +1,32 @@
+meta {
+  name: Disburse Loan
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/m3/loans/{{loanId}}/disburse
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000002
+  x-mock-role: branch_manager
+}
+
+body:json {
+  {
+    "amount": 100000,
+    "method": "bank_transfer",
+    "referenceNumber": "TRX-20261011-8841",
+    "notes": "Direct bank transfer to borrower savings account"
+  }
+}
+
+docs {
+  # Disburse Loan
+  Records loan disbursement, activates loan (`status: active`), creates disbursement record, and emits `loan_disbursed` event to M2.
+}

@@ -1,0 +1,29 @@
+meta {
+  name: 01 Register Institution
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/register-institution
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "institutionName": "test-prov-apex-mfi",
+    "licenseNumber": "SYNTHETIC-TEST",
+    "adminFullName": "Anura Perera",
+    "adminEmail": "admin@apex.lk",
+    "adminPassword": "{{adminPassword}}",
+    "institutionType": "microfinance_ngo",
+    "district": "Colombo",
+    "planName": "Starter",
+    "billingCycle": "monthly"
+  }
+}

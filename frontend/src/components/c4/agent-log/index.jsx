@@ -1,515 +1,42 @@
-import React, { useState, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import { Link } from "react-router-dom"
 import { 
-  Search, Filter, X, ChevronDown, CheckCircle, 
-  AlertTriangle, Info, Clock, Download, ChevronLeft, ChevronRight,
-  ShieldAlert, Activity, FileText, MessageSquare
+  CheckCircle, 
+  AlertTriangle, Clock, ChevronLeft, ChevronRight,
+  ShieldAlert, Activity, Shield, RotateCcw, X, AlertCircle
 } from "lucide-react"
 
-import { APPROVAL_LINKS } from "@/components/c4/graduated-trust/mock-data"
-
-// --- DUMMY DATA ---
-const INITIAL_LOGS = [
-  {
-    id: "LOG-025",
-    agent: "A1",
-    agentName: "Compliance",
-    action: "CBSL monthly report compiled — missing branch data detected in Kandy and Kurunegala (91% completeness)",
-    tier: "Tier 3",
-    tierBadge: "Pending Approval",
-    status: "Awaiting Approval",
-    outcome: "Report queued for approval",
-    override: "No",
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Core banking GL balances, Loan Portfolio snapshot as of Nov 30",
-      confidence: "91%",
-      processingTime: "450ms",
-      tablesAffected: "None (Read-only)",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-024",
-    agent: "A2",
-    agentName: "Workflow",
-    action: "Payroll journal entries posted to Finance: Salaries Expense DR LKR 1,247,500",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "Journal entries posted",
-    override: "No",
-    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Approved Payroll run ID #PR-2024-12",
-      confidence: "100%",
-      processingTime: "120ms",
-      tablesAffected: "finance_journal, finance_ledger",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-023",
-    agent: "A3",
-    agentName: "Anomaly",
-    action: "Unusual disbursement detected: LKR 485,000 to borrower ID #4471, Ampara branch, 11:47 PM — flagged as outside normal operating hours",
-    tier: "Tier 3",
-    tierBadge: "Pending Approval",
-    status: "Awaiting Approval",
-    outcome: "Escalated to Finance Officer",
-    override: "No",
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Transaction stream window: 23:00-00:00",
-      confidence: "87.4%",
-      processingTime: "85ms",
-      tablesAffected: "alerts_log, transaction_queue",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-022",
-    agent: "A4",
-    agentName: "NLQ",
-    action: "NLQ query answered for Finance Officer: \"What is total EPF liability this month?\"",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "Query answered",
-    override: "No",
-    timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Query: 'What is total EPF liability this month?' UserRole: Finance Officer",
-      confidence: "95.1%",
-      processingTime: "1200ms",
-      tablesAffected: "None (Read-only)",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-021",
-    agent: "A3",
-    agentName: "Anomaly",
-    action: "Duplicate repayment pattern detected: borrower #3892 has 3 identical payments of LKR 12,500 within 48 hours",
-    tier: "Tier 2",
-    tierBadge: "Notified",
-    status: "Completed",
-    outcome: "Manager notified",
-    override: "No",
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Rolling 48h repayment log",
-      confidence: "92.3%",
-      processingTime: "110ms",
-      tablesAffected: "notifications_queue",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-020",
-    agent: "A2",
-    agentName: "Workflow",
-    action: "Budget threshold alert: Kandy branch operational expenses exceeded monthly budget by 12% after payroll posting",
-    tier: "Tier 2",
-    tierBadge: "Notified",
-    status: "Completed",
-    outcome: "Branch Manager notified",
-    override: "No",
-    timestamp: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "GL Expense Accounts vs Budget Config",
-      confidence: "100%",
-      processingTime: "45ms",
-      tablesAffected: "notifications_queue",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-019",
-    agent: "A1",
-    agentName: "Compliance",
-    action: "EPF/ETF compliance report auto-generated for Department of Labour submission",
-    tier: "Tier 2",
-    tierBadge: "Notified",
-    status: "Completed",
-    outcome: "HR Officer notified",
-    override: "No",
-    timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Payroll summary Dec 2024",
-      confidence: "99.9%",
-      processingTime: "320ms",
-      tablesAffected: "documents_archive",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-018",
-    agent: "A3",
-    agentName: "Anomaly",
-    action: "Transaction anomaly: 14 micro-loans approved within 2 hours at Galle branch — volume spike 340% above baseline",
-    tier: "Tier 4",
-    tierBadge: "Alert Only",
-    status: "Awaiting Approval",
-    outcome: "Human decision required",
-    override: "No",
-    timestamp: new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Loan origination events stream",
-      confidence: "94.7%",
-      processingTime: "150ms",
-      tablesAffected: "alerts_log",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-017",
-    agent: "A2",
-    agentName: "Workflow",
-    action: "Loan disbursement event from C3: journal entry posted — Disbursements DR LKR 75,000, Loan Portfolio CR LKR 75,000",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "Journal entries posted",
-    override: "No",
-    timestamp: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Disbursement Event #DSB-8839",
-      confidence: "100%",
-      processingTime: "60ms",
-      tablesAffected: "finance_journal, finance_ledger",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-016",
-    agent: "A4",
-    agentName: "NLQ",
-    action: "NLQ query answered for Branch Manager: \"Which loan officers have the highest collection rate this week?\"",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "Query answered",
-    override: "No",
-    timestamp: new Date(Date.now() - 74 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Query: 'Which loan officers have the highest collection rate this week?'",
-      confidence: "96.4%",
-      processingTime: "1450ms",
-      tablesAffected: "None (Read-only)",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-015",
-    agent: "A3",
-    agentName: "Anomaly",
-    action: "Anomaly cleared: Transaction #8821 reviewed by Finance Officer, confirmed legitimate — previously flagged Tier 3 alert resolved",
-    tier: "Tier 3",
-    tierBadge: "Pending Approval",
-    status: "Overridden",
-    outcome: "Alert resolved",
-    override: "Yes",
-    timestamp: new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "User interaction event on Alert #8821",
-      confidence: "N/A",
-      processingTime: "40ms",
-      tablesAffected: "alerts_log, audit_trail",
-      overrideReason: "Overridden by Nimal Perera, Finance Officer — Reason: Verified large loan approved by board"
-    }
-  },
-  {
-    id: "LOG-014",
-    agent: "A1",
-    agentName: "Compliance",
-    action: "KYC profile completeness check: flagged 32 accounts missing updated NIC documents",
-    tier: "Tier 2",
-    tierBadge: "Notified",
-    status: "Completed",
-    outcome: "Compliance Officer notified",
-    override: "No",
-    timestamp: new Date(Date.now() - 100 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Customer database scan",
-      confidence: "100%",
-      processingTime: "2100ms",
-      tablesAffected: "notifications_queue",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-013",
-    agent: "A2",
-    agentName: "Workflow",
-    action: "Automated end-of-day reconciliation for all collection accounts",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "Reconciliation successful",
-    override: "No",
-    timestamp: new Date(Date.now() - 120 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Daily transaction batches",
-      confidence: "100%",
-      processingTime: "4500ms",
-      tablesAffected: "reconciliation_logs",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-012",
-    agent: "A4",
-    agentName: "NLQ",
-    action: "NLQ query answered: \"Show me PAR30 trends for the last 6 months across all branches\"",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "Query answered",
-    override: "No",
-    timestamp: new Date(Date.now() - 122 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Query: 'Show me PAR30 trends...'",
-      confidence: "91.8%",
-      processingTime: "1850ms",
-      tablesAffected: "None (Read-only)",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-011",
-    agent: "A3",
-    agentName: "Anomaly",
-    action: "Rapid consecutive logins detected from IP 112.134.x.x for user 'kamal_m' outside office hours",
-    tier: "Tier 4",
-    tierBadge: "Alert Only",
-    status: "Escalated",
-    outcome: "IT Admin notified",
-    override: "No",
-    timestamp: new Date(Date.now() - 125 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Auth logs stream",
-      confidence: "98.1%",
-      processingTime: "45ms",
-      tablesAffected: "security_alerts",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-010",
-    agent: "A2",
-    agentName: "Workflow",
-    action: "Leave request auto-approved: Sick leave for 1 day (Balance: 12 days)",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "Leave approved",
-    override: "No",
-    timestamp: new Date(Date.now() - 130 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Leave Request #LR-992",
-      confidence: "100%",
-      processingTime: "75ms",
-      tablesAffected: "hr_leave_ledger",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-009",
-    agent: "A1",
-    agentName: "Compliance",
-    action: "Anti-Money Laundering (AML) check on incoming transfer of LKR 2.5M from unknown foreign entity",
-    tier: "Tier 3",
-    tierBadge: "Pending Approval",
-    status: "Overridden",
-    outcome: "Transfer held",
-    override: "Yes",
-    timestamp: new Date(Date.now() - 140 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Inbound SWIFT transfer data",
-      confidence: "82.5%",
-      processingTime: "300ms",
-      tablesAffected: "compliance_holds",
-      overrideReason: "Overridden by S. Fernando, Compliance Head — Reason: Sender verified against approved NGO registry."
-    }
-  },
-  {
-    id: "LOG-008",
-    agent: "A2",
-    agentName: "Workflow",
-    action: "System backup initiated and synced to secondary cloud storage",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "Backup successful",
-    override: "No",
-    timestamp: new Date(Date.now() - 144 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Cron trigger: 02:00 AM",
-      confidence: "100%",
-      processingTime: "145000ms",
-      tablesAffected: "system_logs",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-007",
-    agent: "A4",
-    agentName: "NLQ",
-    action: "NLQ query answered: \"How many new group loans were opened this month?\"",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "Query answered",
-    override: "No",
-    timestamp: new Date(Date.now() - 146 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Query: 'How many new group loans...'",
-      confidence: "97.2%",
-      processingTime: "950ms",
-      tablesAffected: "None (Read-only)",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-006",
-    agent: "A3",
-    agentName: "Anomaly",
-    action: "Unusual expense claim: LKR 120,000 for 'Travel' by Field Officer, 400% above historical average",
-    tier: "Tier 3",
-    tierBadge: "Pending Approval",
-    status: "Awaiting Approval",
-    outcome: "Routed for manual review",
-    override: "No",
-    timestamp: new Date(Date.now() - 150 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Expense Claim #EXP-441",
-      confidence: "89.5%",
-      processingTime: "115ms",
-      tablesAffected: "expense_queue",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-005",
-    agent: "A2",
-    agentName: "Workflow",
-    action: "Generated monthly statements for 1,245 active loan accounts and dispatched via SMS/Email",
-    tier: "Tier 2",
-    tierBadge: "Notified",
-    status: "Completed",
-    outcome: "Statements dispatched",
-    override: "No",
-    timestamp: new Date(Date.now() - 160 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Billing cycle: EOM",
-      confidence: "100%",
-      processingTime: "45000ms",
-      tablesAffected: "communications_log",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-004",
-    agent: "A1",
-    agentName: "Compliance",
-    action: "Audit of interest rate configurations across all products against CBSL mandated caps",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    outcome: "100% compliant",
-    override: "No",
-    timestamp: new Date(Date.now() - 162 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Product config table",
-      confidence: "100%",
-      processingTime: "250ms",
-      tablesAffected: "audit_logs",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-003",
-    agent: "A3",
-    agentName: "Anomaly",
-    action: "High risk correlation detected: 3 borrowers in identical group missed payments simultaneously",
-    tier: "Tier 4",
-    tierBadge: "Alert Only",
-    status: "Escalated",
-    outcome: "Credit Risk Manager notified",
-    override: "No",
-    timestamp: new Date(Date.now() - 165 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Collections stream",
-      confidence: "93.4%",
-      processingTime: "185ms",
-      tablesAffected: "risk_alerts",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-002",
-    agent: "A4",
-    agentName: "NLQ",
-    action: "NLQ query answered: \"Generate a list of all branches with OSS below 100%\"",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Failed",
-    outcome: "System timeout error",
-    override: "No",
-    timestamp: new Date(Date.now() - 166 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Query: 'Generate a list...'",
-      confidence: "45.0%",
-      processingTime: "15000ms",
-      tablesAffected: "error_logs",
-      overrideReason: null
-    }
-  },
-  {
-    id: "LOG-001",
-    agent: "A2",
-    agentName: "Workflow",
-    action: "Provisioning run: Calculated and posted bad debt provisions for >90 days overdue accounts",
-    tier: "Tier 3",
-    tierBadge: "Pending Approval",
-    status: "Overridden",
-    outcome: "Provisions adjusted manually",
-    override: "Yes",
-    timestamp: new Date(Date.now() - 168 * 60 * 60 * 1000).toISOString(),
-    details: {
-      inputData: "Arrears > 90 days dataset",
-      confidence: "99.0%",
-      processingTime: "1200ms",
-      tablesAffected: "finance_journal",
-      overrideReason: "Overridden by Finance Director — Reason: Board decided to write off specific accounts instead of provisioning."
-    }
-  }
-]
-
-// Helpers for styling
-const getAgentColor = (agent) => {
-  switch (agent) {
-    case "A1": return "bg-purple-500"
-    case "A2": return "bg-blue-500"
-    case "A3": return "bg-red-500"
-    case "A4": return "bg-teal-500"
-    default: return "bg-muted-foreground"
-  }
-}
+import { 
+  fetchAgentActions, 
+  fetchAgentActionById, 
+  overrideAgentAction, 
+  fetchAgentPolicies 
+} from "@/lib/api"
+import { useStore } from "@/store"
+import { toBackendRole } from "@/lib/roles"
 
 const getTierStyle = (tier) => {
   switch (tier) {
-    case "Tier 1": return "bg-blue-600 text-white border-blue-500"
-    case "Tier 2": return "bg-green-600 text-white border-green-500"
-    case "Tier 3": return "bg-amber-400 text-slate-900 border-amber-500"
-    case "Tier 4": return "bg-red-600 text-white border-red-500"
+    case 1: return "bg-blue-600 text-white border-blue-500"
+    case 2: return "bg-green-600 text-white border-green-500"
+    case 3: return "bg-amber-500 text-amber-950 border-amber-600"
+    case 4: return "bg-red-600 text-white border-red-500"
     default: return "bg-muted-foreground text-foreground border-border"
   }
 }
 
-const getAgentBorder = (agent) => {
-  switch (agent) {
+const getTierLabel = (tier) => {
+  switch (tier) {
+    case 1: return "Auto-execute"
+    case 2: return "Execute + notify"
+    case 3: return "Human approval"
+    case 4: return "Alert only"
+    default: return "Unknown"
+  }
+}
+
+const getAgentBorder = (agentId) => {
+  switch (agentId) {
     case "A1": return "border-l-purple-500"
     case "A2": return "border-l-blue-500"
     case "A3": return "border-l-red-500"
@@ -518,432 +45,756 @@ const getAgentBorder = (agent) => {
   }
 }
 
-// Format relative time (basic implementation)
+const getAgentColor = (agentId) => {
+  switch (agentId) {
+    case "A1": return "bg-purple-500"
+    case "A2": return "bg-blue-500"
+    case "A3": return "bg-red-500"
+    case "A4": return "bg-teal-500"
+    default: return "bg-slate-500"
+  }
+}
+
 const getRelativeTime = (timestamp) => {
-  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
-  const daysDifference = Math.round((new Date(timestamp) - new Date()) / (1000 * 60 * 60 * 24))
-  const hoursDifference = Math.round((new Date(timestamp) - new Date()) / (1000 * 60 * 60))
-  const minutesDifference = Math.round((new Date(timestamp) - new Date()) / (1000 * 60))
-  
-  if (Math.abs(minutesDifference) < 60) return `${Math.abs(minutesDifference)} mins ago`
-  if (Math.abs(hoursDifference) < 24) return `${Math.abs(hoursDifference)} hours ago`
-  if (Math.abs(daysDifference) === 1) return `yesterday`
-  return `${Math.abs(daysDifference)} days ago`
+  if (!timestamp) return "—"
+  try {
+    const diffMs = new Date(timestamp) - new Date()
+    const diffSec = Math.round(diffMs / 1000)
+    const diffMin = Math.round(diffSec / 60)
+    const diffHours = Math.round(diffMin / 60)
+    const diffDays = Math.round(diffHours / 24)
+
+    if (Math.abs(diffMin) < 60) return `${Math.abs(diffMin)}m ago`
+    if (Math.abs(diffHours) < 24) return `${Math.abs(diffHours)}h ago`
+    if (Math.abs(diffDays) === 1) return "yesterday"
+    return `${Math.abs(diffDays)}d ago`
+  } catch {
+    return String(timestamp)
+  }
 }
 
 export default function AgentLog() {
-  const [logs] = useState(INITIAL_LOGS)
-  const [search, setSearch] = useState("")
-  const [agentFilter, setAgentFilter] = useState("All")
-  const [tierFilter, setTierFilter] = useState("All")
-  const [statusFilter, setStatusFilter] = useState("All")
-  
+  const currentUser = useStore((state) => state.currentUser)
+  const userRole = currentUser?.backendRole || toBackendRole(currentUser?.role)
+  const canOverride = ["admin", "executive", "branch_manager"].includes(userRole)
+  const reqIdRef = useRef(0)
+
+  // Server-side query state
+  const [actions, setActions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [page, setPage] = useState(1)
+  const limit = 25
+
+  // Filter state
+  const [tierFilter, setTierFilter] = useState("")
+  const [agentFilter, setAgentFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState("")
+
+  // Policies cache for "Why this tier" lookup
+  const [policies, setPolicies] = useState([])
+  const [policyWarning, setPolicyWarning] = useState(null)
+
+  // Expanded row details and payloads
   const [expandedRows, setExpandedRows] = useState(new Set())
-  const [isExporting, setIsExporting] = useState(false)
-  const [showToast, setShowToast] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 15
+  const [actionPayloads, setActionPayloads] = useState({}) // { [id]: { loading, data, error } }
 
-  // Stats calculation
-  const stats = useMemo(() => {
-    const today = new Date()
-    const todayLogs = logs.filter(l => new Date(l.timestamp).getDate() === today.getDate())
-    return {
-      totalToday: todayLogs.length,
-      awaiting: logs.filter(l => l.status === "Awaiting Approval").length,
-      autoCompleted: logs.filter(l => l.status === "Completed" && l.tier === "Tier 1").length,
-      overrides: logs.filter(l => l.override === "Yes").length
+  // Human Override modal state
+  const [overrideTarget, setOverrideTarget] = useState(null)
+  const [overrideReason, setOverrideReason] = useState("")
+  const [overrideSubmitting, setOverrideSubmitting] = useState(false)
+  const [overrideError, setOverrideError] = useState(null)
+
+  // 1. Fetch policies once on mount for "Why This Tier" panel
+  useEffect(() => {
+    let isMounted = true
+    fetchAgentPolicies()
+      .then((res) => {
+        if (!isMounted) return
+        setPolicies(res.data || [])
+      })
+      .catch(() => {
+        if (!isMounted) return
+        setPolicyWarning("Policy definitions could not be loaded. Linked policy verification may be limited.")
+      })
+    return () => {
+      isMounted = false
     }
-  }, [logs])
+  }, [])
 
-  // Filtering
-  const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
-      const matchSearch = log.action.toLowerCase().includes(search.toLowerCase()) || 
-                          log.agentName.toLowerCase().includes(search.toLowerCase()) ||
-                          log.agent.toLowerCase().includes(search.toLowerCase())
-      const matchAgent = agentFilter === "All" || log.agent === agentFilter
-      const matchTier = tierFilter === "All" || log.tier === tierFilter
-      const matchStatus = statusFilter === "All" || log.status === statusFilter
-      return matchSearch && matchAgent && matchTier && matchStatus
-    })
-  }, [logs, search, agentFilter, tierFilter, statusFilter])
+  // 2. Fetch actions on page or filter change
+  const loadActions = useCallback(async () => {
+    const currentReqId = ++reqIdRef.current
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetchAgentActions({
+        page,
+        limit,
+        tier: tierFilter,
+        agentId: agentFilter,
+        status: statusFilter,
+      })
+      if (currentReqId !== reqIdRef.current) return
+      setActions(res.data || [])
+    } catch (err) {
+      if (currentReqId !== reqIdRef.current) return
+      setError(err.message || "Failed to load agent activity log")
+    } finally {
+      if (currentReqId === reqIdRef.current) {
+        setLoading(false)
+      }
+    }
+  }, [page, limit, tierFilter, agentFilter, statusFilter])
 
-  // Pagination
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage)
-  const paginatedLogs = filteredLogs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  useEffect(() => {
+    loadActions()
+  }, [loadActions])
 
-  const toggleRow = (id) => {
-    const newSet = new Set(expandedRows)
-    if (newSet.has(id)) newSet.delete(id)
-    else newSet.add(id)
-    setExpandedRows(newSet)
+  // Filter change handlers (resets page to 1)
+  const handleTierChange = (e) => {
+    setTierFilter(e.target.value)
+    setPage(1)
+  }
+
+  const handleAgentChange = (e) => {
+    setAgentFilter(e.target.value)
+    setPage(1)
+  }
+
+  const handleStatusChange = (e) => {
+    setStatusFilter(e.target.value)
+    setPage(1)
   }
 
   const resetFilters = () => {
-    setSearch("")
-    setAgentFilter("All")
-    setTierFilter("All")
-    setStatusFilter("All")
-    setCurrentPage(1)
+    setTierFilter("")
+    setAgentFilter("")
+    setStatusFilter("")
+    setPage(1)
   }
 
-  const handleExport = () => {
-    setIsExporting(true)
-    setShowToast(true)
-    setTimeout(() => {
-      setIsExporting(false)
-      setTimeout(() => setShowToast(false), 3000)
-    }, 1500)
+  // Row expand / payload load handler
+  const toggleRow = (id) => {
+    const willExpand = !expandedRows.has(id)
+    setExpandedRows((prev) => {
+      const next = new Set(prev)
+      if (willExpand) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+      return next
+    })
+    if (willExpand && !actionPayloads[id]) {
+      fetchPayload(id)
+    }
+  }
+
+  const fetchPayload = async (id) => {
+    setActionPayloads((prev) => ({
+      ...prev,
+      [id]: { loading: true, data: null, error: null },
+    }))
+    try {
+      const res = await fetchAgentActionById(id)
+      setActionPayloads((prev) => ({
+        ...prev,
+        [id]: { loading: false, data: res.data || res, error: null },
+      }))
+    } catch (err) {
+      setActionPayloads((prev) => ({
+        ...prev,
+        [id]: { loading: false, data: null, error: err.message || "Failed to load action payloads" },
+      }))
+    }
+  }
+
+  // Human Override handler
+  const openOverrideModal = (action) => {
+    setOverrideTarget(action)
+    setOverrideReason("")
+    setOverrideError(null)
+  }
+
+  const closeOverrideModal = () => {
+    setOverrideTarget(null)
+    setOverrideReason("")
+    setOverrideError(null)
+  }
+
+  const trimmedReason = overrideReason.trim()
+  const isReasonValid = trimmedReason.length >= 10 && trimmedReason.length <= 1000
+
+  const handleConfirmOverride = async () => {
+    if (!isReasonValid || !overrideTarget) return
+    setOverrideSubmitting(true)
+    setOverrideError(null)
+    try {
+      await overrideAgentAction(overrideTarget.id, trimmedReason)
+      setActionPayloads((prev) => {
+        const next = { ...prev }
+        delete next[overrideTarget.id]
+        return next
+      })
+      closeOverrideModal()
+      loadActions()
+    } catch (err) {
+      setOverrideError(err.message || "Failed to record human override")
+    } finally {
+      setOverrideSubmitting(false)
+    }
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background text-foreground p-6 lg:p-8 font-sans custom-scrollbar">
+    <div className="flex-1 overflow-y-auto bg-background text-foreground p-6 lg:p-8 font-sans">
       
-      {/* Toast Notification */}
-      {showToast && (
-        <div className="fixed top-6 right-6 bg-muted border border-blue-500/30 text-foreground px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 z-50 animate-in slide-in-from-top-5">
-          <Download className="text-blue-400 animate-bounce" size={20} />
-          <div className="text-sm font-medium">Exporting Agent Log...</div>
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">
+            Agent Activity Log
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Audited execution log across all autonomous agent tiers and governance policies.
+          </p>
+        </div>
+      </div>
+
+      {/* Policy Warning Banner if policy list failed */}
+      {policyWarning && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-500">
+          <AlertTriangle className="size-4 shrink-0" />
+          <span>{policyWarning}</span>
         </div>
       )}
 
-      {/* Header Area */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight mb-2">Agent Activity Log</h1>
-          <p className="text-muted-foreground text-sm">Complete audit trail of all autonomous agent actions and decisions.</p>
-        </div>
-        
-        <div className="relative group">
-          <button 
-            disabled={isExporting}
-            className="flex items-center gap-2 bg-muted hover:bg-muted disabled:opacity-50 text-foreground text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-border cursor-pointer"
-          >
-            {isExporting ? <Activity className="animate-pulse" size={16} /> : <Download size={16} />}
-            {isExporting ? "Exporting..." : "Export"}
-            <ChevronDown size={14} className="ml-1 text-muted-foreground" />
-          </button>
-          {!isExporting && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-muted border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
-              <button onClick={handleExport} className="w-full text-left px-4 py-2.5 text-sm text-foreground/80 hover:bg-muted hover:text-foreground first:rounded-t-lg transition-colors cursor-pointer">Export as CSV</button>
-              <button onClick={handleExport} className="w-full text-left px-4 py-2.5 text-sm text-foreground/80 hover:bg-muted hover:text-foreground last:rounded-b-lg transition-colors cursor-pointer">Export as PDF</button>
+      {/* Main Filter Toolbar */}
+      <div className="bg-card border border-border rounded-xl p-4 mb-6 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          
+          {/* Tier Filter */}
+          <div className="flex flex-col gap-1 min-w-[130px]">
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              Tier Level
+            </label>
+            <select
+              value={tierFilter}
+              onChange={handleTierChange}
+              className="bg-background border border-border text-foreground text-xs rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            >
+              <option value="">All Tiers</option>
+              <option value="1">Tier 1 (Auto)</option>
+              <option value="2">Tier 2 (Notified)</option>
+              <option value="3">Tier 3 (Pending Approval)</option>
+              <option value="4">Tier 4 (Alert Only)</option>
+            </select>
+          </div>
+
+          {/* Agent Filter */}
+          <div className="flex flex-col gap-1 min-w-[150px]">
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              Agent
+            </label>
+            <select
+              value={agentFilter}
+              onChange={handleAgentChange}
+              className="bg-background border border-border text-foreground text-xs rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            >
+              <option value="">All Agents</option>
+              <option value="A1">A1 · Compliance</option>
+              <option value="A2">A2 · Workflow</option>
+              <option value="A3">A3 · Anomaly</option>
+              <option value="A4">A4 · NLQ</option>
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex flex-col gap-1 min-w-[160px]">
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={handleStatusChange}
+              className="bg-background border border-border text-foreground text-xs rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            >
+              <option value="">All Statuses</option>
+              <option value="running">running</option>
+              <option value="pending_approval">pending_approval</option>
+              <option value="approved">approved</option>
+              <option value="rejected">rejected</option>
+              <option value="executed">executed</option>
+              <option value="notified">notified</option>
+              <option value="alert_only">alert_only</option>
+              <option value="failed">failed</option>
+            </select>
+          </div>
+
+          {/* Reset Filters */}
+          {(tierFilter || agentFilter || statusFilter) && (
+            <div className="flex flex-col justify-end self-end">
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 px-3 py-2 rounded-lg transition-colors cursor-pointer"
+              >
+                <RotateCcw className="size-3" />
+                Reset filters
+              </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
-          <div className="text-muted-foreground text-xs font-medium mb-1">Total Actions Today</div>
-          <div className="text-2xl font-bold text-foreground">{stats.totalToday}</div>
-        </div>
-        <div className={`bg-card border ${stats.awaiting > 0 ? 'border-amber-500/30 ring-1 ring-amber-500/20' : 'border-border'} rounded-xl p-4 shadow-sm flex flex-col transition-all`}>
-          <div className="text-muted-foreground text-xs font-medium mb-1 flex items-center justify-between">
-            Awaiting Approval
-            {stats.awaiting > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>}
+      {/* Main Table Container */}
+      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden mb-6">
+        
+        {/* Loading Indicator */}
+        {loading && (
+          <div className="p-8 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+            <div className="size-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            Loading actions from tenant database...
           </div>
-          <div className={`text-2xl font-bold ${stats.awaiting > 0 ? 'text-amber-400' : 'text-foreground'}`}>{stats.awaiting}</div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
-          <div className="text-muted-foreground text-xs font-medium mb-1">Auto-Completed</div>
-          <div className="text-2xl font-bold text-green-400">{stats.autoCompleted}</div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
-          <div className="text-muted-foreground text-xs font-medium mb-1">Human Overrides</div>
-          <div className="text-2xl font-bold text-foreground">{stats.overrides}</div>
-        </div>
-      </div>
+        )}
 
-      {/* Filter Bar */}
-      <div className="bg-card border border-border rounded-xl p-4 mb-6 shadow-sm flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-4">
-          
-          <div className="flex-1 min-w-[200px] relative">
-            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
-            <input 
-              type="text" 
-              placeholder="Search actions or agents..." 
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-              className="w-full bg-muted border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-blue-500 transition-colors"
-            />
-          </div>
-          
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
-            <div className="text-xs text-muted-foreground uppercase font-bold mr-1 shrink-0">Agent</div>
-            {["All", "A1", "A2", "A3", "A4"].map(agent => (
-              <button 
-                key={agent}
-                onClick={() => { setAgentFilter(agent); setCurrentPage(1); }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
-                  agentFilter === agent 
-                    ? "bg-accent text-foreground" 
-                    : "bg-muted text-muted-foreground hover:bg-muted border border-border"
-                }`}
-              >
-                {agent === "All" ? "All Agents" : agent === "A1" ? "A1 (Compliance)" : agent === "A2" ? "A2 (Workflow)" : agent === "A3" ? "A3 (Anomaly)" : "A4 (NLQ)"}
-              </button>
-            ))}
-          </div>
-
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border/50 pt-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
-            <div className="text-xs text-muted-foreground uppercase font-bold mr-1 shrink-0">Tier</div>
-            {["All", "Tier 1", "Tier 2", "Tier 3", "Tier 4"].map(tier => {
-              const isActive = tierFilter === tier
-              let activeClass = "bg-accent text-foreground"
-              if (isActive && tier !== "All") {
-                if (tier === "Tier 1") activeClass = "bg-blue-600 border-blue-500 text-white"
-                if (tier === "Tier 2") activeClass = "bg-green-600 border-green-500 text-white"
-                if (tier === "Tier 3") activeClass = "bg-amber-500 border-amber-400 text-slate-900"
-                if (tier === "Tier 4") activeClass = "bg-red-600 border-red-500 text-white"
-              }
-              return (
-                <button 
-                  key={tier}
-                  onClick={() => { setTierFilter(tier); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-colors cursor-pointer ${
-                    isActive 
-                      ? activeClass 
-                      : "bg-muted text-muted-foreground border-border hover:bg-muted"
-                  }`}
-                >
-                  {tier}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className="appearance-none bg-muted border border-border text-foreground text-sm rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+        {/* Error Banner */}
+        {!loading && error && (
+          <div className="p-6 text-center text-sm">
+            <div className="flex flex-col items-center gap-2 text-red-500 mb-4">
+              <AlertCircle className="size-6" />
+              <span>{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={loadActions}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg text-xs font-medium cursor-pointer"
             >
-              <option value="All">All Statuses</option>
-              <option value="Completed">Completed</option>
-              <option value="Awaiting Approval">Awaiting Approval</option>
-              <option value="Escalated">Escalated</option>
-              <option value="Overridden">Overridden</option>
-              <option value="Failed">Failed</option>
-            </select>
-
-            <button 
-              onClick={resetFilters}
-              className="text-muted-foreground hover:text-foreground text-sm font-medium flex items-center gap-1 transition-colors cursor-pointer px-2"
-            >
-              <X size={16} /> Reset
+              Retry
             </button>
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Main Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead>
-              <tr className="bg-muted border-b border-border text-muted-foreground font-medium">
-                <th className="p-4 pl-6">Timestamp</th>
-                <th className="p-4">Agent</th>
-                <th className="p-4 min-w-[300px] max-w-[500px]">Action Taken</th>
-                <th className="p-4">Tier Level</th>
-                <th className="p-4">Outcome</th>
-                <th className="p-4 text-center">Override</th>
-                <th className="p-4 text-right pr-6">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/50">
-              {paginatedLogs.length > 0 ? (
-                paginatedLogs.map((log) => {
-                  const isAwaiting = log.status === "Awaiting Approval"
-                  const isExpanded = expandedRows.has(log.id)
-                  
+        {/* Empty State */}
+        {!loading && !error && actions.length === 0 && (
+          <div className="p-12 text-center text-sm text-muted-foreground">
+            <Activity className="size-8 mx-auto mb-2 opacity-40" />
+            No agent actions found matching the selected filters.
+          </div>
+        )}
+
+        {/* Action Table */}
+        {!loading && !error && actions.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-muted border-b border-border text-muted-foreground font-medium">
+                  <th className="p-3 pl-4">Timestamp / ID</th>
+                  <th className="p-3">Agent</th>
+                  <th className="p-3 min-w-[280px]">Action</th>
+                  <th className="p-3">Tier</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-center">Override</th>
+                  <th className="p-3 text-right pr-4">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {actions.map((act) => {
+                  const isAwaiting = act.status === "pending_approval"
+                  const isExpanded = expandedRows.has(act.id)
+                  const payloadState = actionPayloads[act.id]
+
                   return (
-                    <React.Fragment key={log.id}>
+                    <React.Fragment key={act.id}>
                       <tr className={`
-                        transition-colors group
-                        ${isAwaiting ? "bg-amber-500/5" : "bg-background hover:bg-muted/40"}
-                        border-l-4 ${getAgentBorder(log.agent)}
+                        transition-colors
+                        ${isAwaiting ? "bg-amber-500/5 hover:bg-amber-500/10" : "hover:bg-muted/40"}
+                        border-l-4 ${getAgentBorder(act.agentId)}
                       `}>
-                        <td className="p-4 pl-5">
-                          <div className="text-foreground font-medium" title={new Date(log.timestamp).toLocaleString()}>
-                            {getRelativeTime(log.timestamp)}
+                        {/* Timestamp & ID */}
+                        <td className="p-3 pl-4 whitespace-nowrap">
+                          <div 
+                            className="font-medium text-foreground cursor-help"
+                            title={act.createdAt}
+                          >
+                            {getRelativeTime(act.createdAt)}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">{log.id}</div>
+                          <div 
+                            className="font-mono text-[10px] text-muted-foreground mt-0.5 cursor-help"
+                            title={act.id}
+                          >
+                            {act.id.slice(0, 8)}
+                          </div>
                         </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-6 h-6 rounded-full ${getAgentColor(log.agent)} flex items-center justify-center text-[10px] font-bold text-foreground shadow-sm ring-2 ring-card`}>
-                              {log.agent}
+
+                        {/* Agent */}
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`size-5 rounded-full ${getAgentColor(act.agentId)} flex items-center justify-center text-[9px] font-bold text-white shadow-sm`}>
+                              {act.agentId || "—"}
                             </span>
-                            <span className="text-foreground/80 font-medium">{log.agentName}</span>
+                            <span className="font-medium text-foreground/90">
+                              {act.agentName}
+                            </span>
                           </div>
                         </td>
-                        <td className="p-4 text-foreground/80 whitespace-normal min-w-[300px] max-w-[500px] leading-snug">
-                          {log.action}
+
+                        {/* Action Description */}
+                        <td className="p-3 text-foreground/90 leading-snug">
+                          {act.action}
                         </td>
-                        <td className="p-4">
-                          <span className={`inline-block px-3 py-1.5 rounded text-xs font-bold border shadow-sm ${getTierStyle(log.tier)} whitespace-nowrap`}>
-                            {log.tier} — {log.tierBadge}
+
+                        {/* Tier Badge */}
+                        <td className="p-3 whitespace-nowrap">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold border ${getTierStyle(act.tier)}`}>
+                            Tier {act.tier} · {getTierLabel(act.tier)}
                           </span>
                         </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-1.5 text-foreground/80">
-                            {log.status === "Completed" && <CheckCircle size={14} className="text-green-400" />}
-                            {log.status === "Awaiting Approval" && <Clock size={14} className="text-amber-400" />}
-                            {(log.status === "Escalated" || log.status === "Failed") && <AlertTriangle size={14} className="text-red-400" />}
-                            {log.status === "Overridden" && <ShieldAlert size={14} className="text-blue-400" />}
-                            {log.outcome}
+
+                        {/* Status */}
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 font-medium">
+                            {act.status === "executed" && <CheckCircle size={13} className="text-green-500" />}
+                            {act.status === "notified" && <CheckCircle size={13} className="text-blue-500" />}
+                            {act.status === "pending_approval" && <Clock size={13} className="text-amber-500" />}
+                            {act.status === "alert_only" && <AlertTriangle size={13} className="text-red-500" />}
+                            {act.status === "rejected" && <X size={13} className="text-red-500" />}
+                            {act.status === "failed" && <AlertCircle size={13} className="text-red-500" />}
+                            <span className="capitalize">{act.status.replace("_", " ")}</span>
                           </div>
                         </td>
-                        <td className="p-4 text-center">
-                          {log.override === "Yes" ? (
-                            <div className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-xs font-semibold group/tooltip relative cursor-help">
+
+                        {/* Override */}
+                        <td className="p-3 text-center whitespace-nowrap">
+                          {act.isOverride ? (
+                            <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded font-semibold text-[10px]">
                               Yes
-                              <Info size={12} />
-                              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-muted border border-border rounded shadow-xl text-xs text-left text-foreground opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-20 whitespace-normal">
-                                {log.details.overrideReason}
-                              </div>
-                            </div>
+                            </span>
                           ) : (
-                            <span className="text-muted-foreground text-xs font-medium">No</span>
+                            <span className="text-muted-foreground text-[11px]">No</span>
                           )}
                         </td>
-                        <td className="p-4 text-right pr-6">
-                          {isAwaiting ? (
-                            <Link
-                              to={`/tier-approval?action=${APPROVAL_LINKS[log.id] || "cbsl-report"}`}
-                              className="inline-flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-amber-950 text-xs font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer shadow-sm"
+
+                        {/* Actions / Expansion */}
+                        <td className="p-3 text-right pr-4 whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            {isAwaiting && (
+                              <Link
+                                to={`/tier-approval?action=${act.id}`}
+                                className="inline-flex items-center bg-amber-500 hover:bg-amber-400 text-amber-950 font-semibold px-2.5 py-1 rounded text-[11px] transition-colors"
+                              >
+                                Review
+                              </Link>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => toggleRow(act.id)}
+                              className="text-primary hover:text-primary/80 font-medium underline-offset-4 hover:underline text-[11px] cursor-pointer"
                             >
-                              Review & Approve
-                            </Link>
-                          ) : (
-                            <button 
-                              onClick={() => toggleRow(log.id)}
-                              className="text-blue-400 hover:text-blue-300 text-xs font-semibold underline-offset-4 hover:underline transition-all cursor-pointer"
-                            >
-                              {isExpanded ? "Hide Details" : "View Details"}
+                              {isExpanded ? "Hide" : "Details"}
                             </button>
-                          )}
+                          </div>
                         </td>
                       </tr>
-                      
+
                       {/* Expanded Row Detail */}
                       {isExpanded && (
-                        <tr className="bg-muted border-l-4 border-l-slate-800">
-                          <td colSpan="7" className="p-0">
-                            <div className="p-6 text-sm animate-in slide-in-from-top-2">
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="space-y-4">
-                                  <div>
-                                    <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Full Action Detail</div>
-                                    <div className="text-foreground bg-background p-3 rounded-lg border border-border leading-relaxed">{log.action}</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Input Data Evaluated</div>
-                                    <div className="text-foreground/80 font-mono text-xs bg-background p-3 rounded-lg border border-border">{log.details.inputData}</div>
+                        <tr className="bg-muted/30 border-l-4 border-l-slate-700">
+                          <td colSpan="7" className="p-4 sm:p-6">
+                            <div className="space-y-4">
+                              
+                              {/* Metadata Grid */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div className="bg-background p-2.5 rounded-lg border border-border">
+                                  <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Confidence</div>
+                                  <div className="font-semibold text-foreground mt-0.5">
+                                    {act.confidence != null ? `${Number(act.confidence).toFixed(1)}%` : "—"}
                                   </div>
                                 </div>
-                                <div className="space-y-4">
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-background p-3 rounded-lg border border-border">
-                                      <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Confidence Score</div>
-                                      <div className="text-foreground font-bold">{log.details.confidence}</div>
-                                    </div>
-                                    <div className="bg-background p-3 rounded-lg border border-border">
-                                      <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Processing Time</div>
-                                      <div className="text-foreground font-mono">{log.details.processingTime}</div>
-                                    </div>
+                                <div className="bg-background p-2.5 rounded-lg border border-border">
+                                  <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Processing Time</div>
+                                  <div className="font-mono text-foreground mt-0.5">
+                                    {act.processingTimeMs != null ? `${act.processingTimeMs}ms` : "—"}
                                   </div>
-                                  <div>
-                                    <div className="text-muted-foreground font-medium mb-1 text-xs uppercase tracking-wider">Database Tables Affected</div>
-                                    <div className="text-foreground/80 bg-background p-3 rounded-lg border border-border font-mono text-xs">
-                                      {log.details.tablesAffected}
-                                    </div>
+                                </div>
+                                <div className="bg-background p-2.5 rounded-lg border border-border">
+                                  <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Model / Prompt</div>
+                                  <div className="font-mono text-[11px] text-foreground mt-0.5 truncate" title={`Model: ${act.modelVersion || "—"} | Prompt: ${act.promptVersion || "—"}`}>
+                                    {act.modelVersion || "—"} / {act.promptVersion || "—"}
                                   </div>
-                                  {log.details.overrideReason && (
-                                    <div>
-                                      <div className="text-amber-500/80 font-medium mb-1 text-xs uppercase tracking-wider">Human Override Log</div>
-                                      <div className="text-amber-200 bg-amber-500/10 p-3 rounded-lg border border-amber-500/20 leading-relaxed">
-                                        {log.details.overrideReason}
-                                      </div>
-                                    </div>
-                                  )}
+                                </div>
+                                <div className="bg-background p-2.5 rounded-lg border border-border">
+                                  <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Tools Used</div>
+                                  <div className="font-mono text-[11px] text-foreground mt-0.5 truncate" title={act.toolsUsed ? JSON.stringify(act.toolsUsed) : "—"}>
+                                    {act.toolsUsed ? JSON.stringify(act.toolsUsed) : "—"}
+                                  </div>
                                 </div>
                               </div>
+
+                              {/* Justification & Decision Details */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider mb-1">Agent Justification</div>
+                                  <div className="bg-background p-3 rounded-lg border border-border leading-relaxed text-foreground text-xs">
+                                    {act.reason || "No explicit justification recorded."}
+                                  </div>
+                                </div>
+                                {(act.approvedBy || act.decidedAt) && (
+                                  <div>
+                                    <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider mb-1">Decided by (user id)</div>
+                                    <div className="bg-background p-3 rounded-lg border border-border leading-relaxed text-foreground text-xs">
+                                      <div>{act.approvedBy || "—"}</div>
+                                      {act.decidedAt && (
+                                        <div className="text-[10px] text-muted-foreground mt-1" title={act.decidedAt}>
+                                          Decided: {new Date(act.decidedAt).toLocaleString()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {act.decisionReason && (
+                                  <div className={act.approvedBy || act.decidedAt ? "md:col-span-2" : ""}>
+                                    <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider mb-1">Human Decision Reason</div>
+                                    <div className="bg-background p-3 rounded-lg border border-amber-500/20 text-foreground leading-relaxed text-xs">
+                                      {act.decisionReason}
+                                      {act.decidedAt && (
+                                        <div className="text-[10px] text-muted-foreground mt-1" title={act.decidedAt}>
+                                          Decided: {new Date(act.decidedAt).toLocaleString()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* WHY THIS TIER Panel */}
+                              <div className="rounded-lg border border-border bg-card p-3.5 space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <Shield className="size-3.5 text-primary" />
+                                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Why Tier {act.tier}?
+                                  </span>
+                                </div>
+                                {act.policyId === null ? (
+                                  <div className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded leading-relaxed">
+                                    No policy was linked to this action; it was handled as Tier 4 (alert only).
+                                  </div>
+                                ) : (
+                                  (() => {
+                                    const linkedPolicy = policies.find((p) => p.id === act.policyId)
+                                    if (!linkedPolicy) {
+                                      return (
+                                        <div className="text-xs text-muted-foreground">
+                                          Linked Policy ID: <code className="font-mono">{act.policyId}</code> (not found in the policy list).
+                                        </div>
+                                      )
+                                    }
+                                    const isChanged = !linkedPolicy.isActive || linkedPolicy.tier !== act.tier
+                                    return (
+                                      <div className="space-y-1.5 text-xs">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="font-medium text-foreground">Action Type: <code>{linkedPolicy.actionType}</code></span>
+                                          <span className="text-muted-foreground">— {linkedPolicy.description || "No description configured."}</span>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-3 text-muted-foreground">
+                                          <span>Current Policy Tier: <strong className="text-foreground">Tier {linkedPolicy.tier}</strong></span>
+                                          <span>Status: <strong className={linkedPolicy.isActive ? "text-green-500" : "text-red-500"}>{linkedPolicy.isActive ? "Active" : "Inactive"}</strong></span>
+                                        </div>
+                                        {isChanged && (
+                                          <div className="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 p-2 rounded">
+                                            The policy configuration may have changed since this action ran.
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })()
+                                )}
+                              </div>
+
+                              {/* Payloads Section (Plain Pretty-Printed Text) */}
+                              <div className="space-y-2 pt-1">
+                                <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">
+                                  Raw Payloads (Loaded via Inspection API)
+                                </div>
+                                
+                                {payloadState?.loading && (
+                                  <div className="p-4 bg-background border border-border rounded-lg text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                                    <div className="size-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                    Loading payloads...
+                                  </div>
+                                )}
+
+                                {payloadState?.error && (
+                                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-500 flex items-center justify-between">
+                                    <span>{payloadState.error}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => fetchPayload(act.id)}
+                                      className="underline hover:text-red-400"
+                                    >
+                                      Retry
+                                    </button>
+                                  </div>
+                                )}
+
+                                {payloadState?.data && (
+                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                    <div>
+                                      <div className="text-[10px] text-muted-foreground font-mono mb-1">inputPayload</div>
+                                      <pre className="text-xs font-mono bg-background p-3 rounded-lg border border-border overflow-x-auto max-h-48 whitespace-pre-wrap">
+                                        {JSON.stringify(payloadState.data.inputPayload ?? {}, null, 2)}
+                                      </pre>
+                                    </div>
+                                    <div>
+                                      <div className="text-[10px] text-muted-foreground font-mono mb-1">outputPayload</div>
+                                      <pre className="text-xs font-mono bg-background p-3 rounded-lg border border-border overflow-x-auto max-h-48 whitespace-pre-wrap">
+                                        {JSON.stringify(payloadState.data.outputPayload ?? {}, null, 2)}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Human Override Action Button (Tier 1/2, executed/notified, isOverride false) */}
+                              {(act.tier === 1 || act.tier === 2) &&
+                               (act.status === "executed" || act.status === "notified") &&
+                               !act.isOverride &&
+                               canOverride && (
+                                <div className="pt-2 border-t border-border flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => openOverrideModal(act)}
+                                    className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer"
+                                  >
+                                    <ShieldAlert className="size-3.5" />
+                                    Human Override
+                                  </button>
+                                </div>
+                              )}
+
                             </div>
                           </td>
                         </tr>
                       )}
+
                     </React.Fragment>
                   )
-                })
-              ) : (
-                <tr>
-                  <td colSpan="7" className="p-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-muted-foreground">
-                      <Filter size={32} className="mb-3 opacity-50" />
-                      <div className="text-base font-medium text-muted-foreground mb-1">No agent actions match your filters</div>
-                      <div className="text-sm mb-4">Try adjusting your search or removing some filters.</div>
-                      <button 
-                        onClick={resetFilters}
-                        className="bg-muted hover:bg-muted text-foreground border border-border px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                      >
-                        Reset All Filters
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Pagination Controls */}
-        {filteredLogs.length > 0 && (
-          <div className="bg-muted p-4 border-t border-border flex items-center justify-between text-sm">
-            <div className="text-muted-foreground">
-              Showing <span className="text-foreground font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-foreground font-medium">{Math.min(currentPage * itemsPerPage, filteredLogs.length)}</span> of <span className="text-foreground font-medium">{filteredLogs.length}</span> results
-            </div>
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Server Pagination Bar (Previous / Next with Page N, no total count) */}
+        {!loading && !error && (
+          <div className="p-3 bg-muted/40 border-t border-border flex items-center justify-between text-xs">
+            <span className="text-muted-foreground font-medium">
+              Page {page}
+            </span>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1 || loading}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-background text-foreground hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft className="size-3.5" />
+                Previous
               </button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }).map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium transition-colors cursor-pointer ${
-                      currentPage === i + 1 
-                        ? "bg-blue-600 text-white border-blue-500 border" 
-                        : "bg-card border border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-              <button 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:pointer-events-none transition-colors cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={actions.length < limit || loading}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border bg-background text-foreground hover:bg-muted disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
               >
-                <ChevronRight size={16} />
+                Next
+                <ChevronRight className="size-3.5" />
               </button>
             </div>
           </div>
         )}
+
       </div>
+
+      {/* Human Override Modal */}
+      {overrideTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl p-6 space-y-4">
+            
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="size-5 text-amber-500" />
+                <h3 className="font-semibold text-base text-foreground">
+                  Record Human Override
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeOverrideModal}
+                disabled={overrideSubmitting}
+                className="text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="text-xs text-muted-foreground space-y-1">
+              <div>Action: <strong className="text-foreground">{overrideTarget.action}</strong></div>
+              <div>Action ID: <code className="font-mono text-[11px] text-foreground">{overrideTarget.id}</code></div>
+              <div>Tier: <strong className="text-foreground">Tier {overrideTarget.tier}</strong> · Status: <strong className="text-foreground">{overrideTarget.status}</strong></div>
+            </div>
+
+            {/* Override Error Banner */}
+            {overrideError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-500">
+                {overrideError}
+              </div>
+            )}
+
+            {/* Justification Reason Input */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-[11px]">
+                <label className="font-medium text-foreground">
+                  Justification Reason <span className="text-red-500">*</span>
+                </label>
+                <span className={`font-mono text-[10px] ${isReasonValid ? "text-green-500" : "text-muted-foreground"}`}>
+                  {trimmedReason.length} / 10 min (max 1000)
+                </span>
+              </div>
+              <textarea
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder="Enter justification explaining why this autonomous action is being overridden (10-1000 characters)..."
+                rows={4}
+                disabled={overrideSubmitting}
+                className="w-full bg-background border border-border rounded-lg p-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-amber-500 resize-none font-sans"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={closeOverrideModal}
+                disabled={overrideSubmitting}
+                className="px-4 py-2 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmOverride}
+                disabled={!isReasonValid || overrideSubmitting}
+                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                {overrideSubmitting && <div className="size-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                Confirm Override
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   )

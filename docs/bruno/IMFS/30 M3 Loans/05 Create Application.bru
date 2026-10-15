@@ -1,0 +1,39 @@
+meta {
+  name: Create Application
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/m3/applications
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000001
+  x-mock-role: loan_officer
+}
+
+body:json {
+  {
+    "branchId": "10000000-0000-4000-8000-000000000001",
+    "productId": "{{productId}}",
+    "applicationType": "individual",
+    "borrowerId": "{{borrowerId}}",
+    "requestedAmount": 100000,
+    "requestedTermMonths": 12,
+    "purpose": "Working capital for textile raw materials",
+    "collateralType": "personal_guarantee",
+    "guarantorName": "Sunil Perera",
+    "guarantorNic": "197912304567",
+    "guarantorContact": "+94779876543"
+  }
+}
+
+docs {
+  # Create Loan Application
+  Creates a draft loan application. Set {{productId}} and {{borrowerId}} from earlier requests.
+}

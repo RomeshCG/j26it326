@@ -1,0 +1,32 @@
+meta {
+  name: Approve Application
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/m3/applications/{{applicationId}}/approve
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  x-institution-id: {{institutionId}}
+  x-mock-user-id: 20000000-0000-4000-8000-000000000002
+  x-mock-role: branch_manager
+}
+
+body:json {
+  {
+    "approvedAmount": 100000,
+    "approvedTermMonths": 12,
+    "interestRate": 18,
+    "approvalNotes": "Approved based on positive cash-flow verification."
+  }
+}
+
+docs {
+  # Approve Application (Branch Manager)
+  Approves the application, moves it to `approved`, creates a Loan record in `pending_disbursement`, and auto-generates the 12-month repayment schedule.
+}

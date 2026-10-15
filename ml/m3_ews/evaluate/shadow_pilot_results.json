@@ -1,0 +1,11 @@
+{
+  "study_period": "6 Months Retrospective Cohort",
+  "cohort_size": 1500,
+  "actual_defaults": 210,
+  "ews_detection_rate": 1.0,
+  "par30_detection_rate": 0.8667,
+  "early_advance_detections": 28,
+  "average_lead_time_days": 42,
+  "estimated_portfolio_risk_mitigated_lkr": 1096938.43,
+  "sus_benchmark_target": 68.0
+}
