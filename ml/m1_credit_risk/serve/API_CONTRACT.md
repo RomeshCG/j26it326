@@ -49,3 +49,4 @@ cd ml
 python m1_credit_risk/serve/demo_predict.py
 python m1_credit_risk/explain/shap_local.py
 ```
+See docs/M1_RISK_API.md for the live Express route and how to run the model service.

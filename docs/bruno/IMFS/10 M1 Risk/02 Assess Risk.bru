@@ -22,26 +22,22 @@ body:json {
   {
     "persist": false,
     "features": {
-      "contract_amount": 100000,
-      "balance_total": 45000,
-      "arr_cap": 3000,
-      "arr_int": 400,
-      "bal_penalty": 500,
-      "bal_charges": 200,
-      "paid_pct": 60,
-      "interest_amount": 15000,
-      "installment": 4800,
-      "tenure": 24,
-      "branch": "Colombo",
-      "product_category": "Micro",
-      "product": "Group Enterprise"
+      "contract_amount": 50000,
+      "interest_amount": 20000,
+      "installment": 1950,
+      "tenure": 36,
+      "branch": "Kandy",
+      "product_category": "Micro Loan",
+      "product_type": "Weekly",
+      "product": "SASIRI LOAN 01 (sl01)"
     }
   }
 }
 
 docs {
   # Assess Risk
-  Scores loan features → risk_pct, risk_band, recommendation, top_factors.
+  Scores origination-time loan terms -> overdue_prob, risk_band, recommendation, top_factors (SHAP log-odds).
+  Requires the FastAPI model service (M1_MODEL_URL, default http://127.0.0.1:8001); returns 503 if it is down.
   Roles: loan_officer, branch_manager, executive, admin.
   Set persist=true and loanApplicationId (UUID) to write risk_assessments + shap_explanations.
 }

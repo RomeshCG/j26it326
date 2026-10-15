@@ -1588,8 +1588,8 @@
     },
     "/api/risk/assess": {
       "post": {
-        "summary": "Assess credit risk for loan features",
-        "description": "M1 scoring endpoint. Returns risk_pct (0-100), band, recommendation, and explanatory factors. Optional persist writes tenant risk_assessments + shap_explanations. Roles: loan_officer, branch_manager, executive, admin.",
+        "summary": "Assess overdue risk for loan terms",
+        "description": "M1 scoring endpoint. Takes origination-time loan terms, calls the internal FastAPI model service, returns overdue_prob (0-1), risk_pct (0-100), band, recommendation and SHAP log-odds factors. Returns 503 if the model service is down. Optional persist writes tenant risk_assessments + shap_explanations. Roles: loan_officer, branch_manager, executive, admin.",
         "security": [
           {
             "bearerAuth": []
@@ -1617,30 +1617,38 @@
                     "type": "object",
                     "required": [
                       "contract_amount",
-                      "balance_total",
-                      "paid_pct"
+                      "interest_amount",
+                      "installment",
+                      "tenure",
+                      "branch",
+                      "product_category",
+                      "product_type",
+                      "product"
                     ],
                     "properties": {
                       "contract_amount": {
                         "type": "number"
                       },
-                      "balance_total": {
+                      "interest_amount": {
                         "type": "number"
                       },
-                      "arr_cap": {
+                      "installment": {
                         "type": "number"
                       },
-                      "arr_int": {
-                        "type": "number"
+                      "tenure": {
+                        "type": "integer"
                       },
-                      "bal_penalty": {
-                        "type": "number"
+                      "branch": {
+                        "type": "string"
                       },
-                      "bal_charges": {
-                        "type": "number"
+                      "product_category": {
+                        "type": "string"
                       },
-                      "paid_pct": {
-                        "type": "number"
+                      "product_type": {
+                        "type": "string"
+                      },
+                      "product": {
+                        "type": "string"
                       }
                     }
                   }
@@ -1682,6 +1690,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Risk model service unavailable"
           }
         }
       }
