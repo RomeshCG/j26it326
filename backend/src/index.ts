@@ -4,6 +4,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 import cors from "cors"
 import express from "express"
+import helmet from "helmet"
 import swaggerUi from "swagger-ui-express"
 import { centralPrisma } from "./lib/prisma-central.js"
 import { defaultTenantPrisma, disconnectAllTenantClients } from "./lib/prisma-tenant.js"
@@ -45,6 +46,17 @@ if (process.env.NODE_ENV === "production" && process.env.ENABLE_RATE_LIMITING ==
   console.warn("[security-audit] WARNING: ENABLE_RATE_LIMITING=false is ignored in production. Rate limiting is active.")
 }
 
+// OpenAPI / Swagger: available in development by default; in production only if ENABLE_SWAGGER_DOCS === "true"
+const isDev = process.env.NODE_ENV !== "production"
+const enableSwagger = isDev || process.env.ENABLE_SWAGGER_DOCS === "true"
+
+// Security headers (Helmet). CSP disabled while Swagger UI is mounted — it needs inline script/style.
+app.use(
+  helmet({
+    contentSecurityPolicy: enableSwagger ? false : undefined,
+  })
+)
+
 app.use(cors())
 app.use(express.json())
 
@@ -53,11 +65,6 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 // backend/src -> docs/openapi.json is at ../../docs/openapi.json
 const openApiPath = path.resolve(__dirname, "../../docs/openapi.json")
-
-// OpenAPI and Swagger UI configuration
-// Available in development by default; in production only if ENABLE_SWAGGER_DOCS === "true"
-const isDev = process.env.NODE_ENV !== "production"
-const enableSwagger = isDev || process.env.ENABLE_SWAGGER_DOCS === "true"
 
 let openApiSpec: any = null
 function getOpenApiSpec() {
