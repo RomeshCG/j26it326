@@ -77,5 +77,13 @@ python -m ml.test_phase_a_stdlib
 - `artifacts/a3-iforest-v2.joblib`
 - `artifacts/a3-iforest-v2.meta.json`
 - `artifacts/a3-iforest-v2.evaluation.json`
+- `artifacts/a3-iforest-v2.run.json` (local provenance; machine paths)
 
 Do **not** commit CSVs or `.joblib` binaries.
+
+## Research-ready metrics (tracked)
+
+Sanitized held-out summary (no weights, no absolute paths):  
+[`docs/M4_A3_IFOREST_V2_EVAL_SUMMARY.json`](../../docs/M4_A3_IFOREST_V2_EVAL_SUMMARY.json)
+
+Regenerate locally with the commands above, then compare against that summary if citing results.
