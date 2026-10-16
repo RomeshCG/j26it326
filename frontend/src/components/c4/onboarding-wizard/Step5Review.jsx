@@ -1,4 +1,3 @@
-import React from "react"
 import { Check, Sparkles } from "lucide-react"
 
 export default function Step5Review({ formData, setupDurationText }) {
