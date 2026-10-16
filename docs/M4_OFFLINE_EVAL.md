@@ -36,6 +36,7 @@ Exit code is **nonzero** if any required suite fails.
 | A2 fixture guards | `verify:a2-fixture-guards` |
 | A4 NLQ (offline) | `verify:a4-nlq` |
 | A4 intent gold corpus (structure) | `verify:a4-intent-corpus` |
+| A4 lexical-gate diagnostic (offline) | `verify:a4-gate-diagnostic` |
 | ZZ seed safety | `verify:zz-seed-safety` |
 | Safe API errors | `verify:safe-api-errors` |
 | Graduated Trust | `verify:graduated-trust` |
@@ -62,4 +63,5 @@ JSON does **not** embed raw suite console logs (avoids accidental secret capture
 A1 fixture oracle: `backend/eval-fixtures/a1/SPEC.md`.  
 A2 fixture oracle: `backend/eval-fixtures/a2/SPEC.md`.  
 GT fixture oracle: `backend/eval-fixtures/gt/SPEC.md` (includes A1 SoD/hash approve-gate scenarios as pure governance checks).  
-A4 intent gold / capability oracle: `backend/eval-fixtures/a4/SPEC.md` (corpus validation ≠ model accuracy).
+A4 intent gold / capability oracle: `backend/eval-fixtures/a4/SPEC.md` (corpus validation ≠ model accuracy).  
+A4 gate diagnostic JSON (gitignored): `backend/eval-results/a4-gate-diagnostic-latest.json` — lexical eligibility only, not Ollama accuracy.

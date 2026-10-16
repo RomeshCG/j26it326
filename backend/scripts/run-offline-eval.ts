@@ -28,6 +28,7 @@ type SuiteId =
   | "a2-fixture-guards"
   | "a4-nlq"
   | "a4-intent-corpus"
+  | "a4-gate-diagnostic"
   | "zz-seed-safety"
   | "safe-api-errors"
   | "graduated-trust"
@@ -127,6 +128,12 @@ const SUITES: SuiteSpec[] = [
     id: "a4-intent-corpus",
     label: "A4 intent gold corpus (structure/SPEC; not live accuracy)",
     npmScript: "verify:a4-intent-corpus",
+    kind: "rule_fixture_agreement",
+  },
+  {
+    id: "a4-gate-diagnostic",
+    label: "A4 lexical-gate diagnostic on gold (offline; not LLM accuracy)",
+    npmScript: "verify:a4-gate-diagnostic",
     kind: "rule_fixture_agreement",
   },
   {
