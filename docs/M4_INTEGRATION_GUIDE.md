@@ -185,7 +185,14 @@ const response = await fetch("http://localhost:4000/api/tenant/info", {
 
 ### Mock Auth for Early Frontend Work
 If you want to test frontend screens before connecting the real login screen:
-- Run `backend/scripts/seed-test-users.ts` (with user approval) to generate test accounts.
+- **Apex demo:** Run `backend/scripts/seed-test-users.ts` (with user approval) for `*@apex.lk` accounts.
+- **ZZ Test Org 1 (preferred for M4 E2E / A1 SoD):**  
+  `ALLOW_ZZ_TEST_USER_SEED=1` and `npm run seed:zz-test-users` from `backend/`.  
+  Creates `executive` / `branch_manager` / `finance_officer` / `hr_officer` / `loan_officer` on institution `33b6545d-…` only.  
+  Does **not** modify `admin@zz-test-org1.lk`. Requires `NODE_ENV !== production`.  
+  Credentials → local gitignored `backend/.zz-test-credentials.local` (never commit; script does not print passwords).  
+  Idempotent skip if accounts already valid; mismatches abort without writes.  
+  Disable later: set that user’s `status` to `disabled` in central.
 - Or acquire a valid token once via `POST /auth/login` in Bruno, copy it, and store it in your frontend dev state:
   ```typescript
   // In development helper:
@@ -419,6 +426,19 @@ Component 4 provides the Graduated Trust engine and governance APIs for AI agent
 - **Soft dedupe**: within ~24h, same `dedupeKey` may return `duplicate: true` without a new row. Race possible under concurrency (no unique DB index; migration deferred). Pass `?allowDuplicate=true` to force a new dispatch for tests.
 - **Offline check**: `npx tsx scripts/verify-a2-budget-threshold.ts` from `backend/`.
 
+### A4 NLQ — natural language (v1)
+- **Endpoint**: `POST /api/tenant/agent-actions/nlq/query`
+- **Auth**: JWT + tenant context. Endpoint gate: `agents:query_nlq` (all six roles).
+- **Body**: `{ "question": string }` (3–500 chars after trim).
+- **Flow**: private Ollama (`OLLAMA_BASE_URL` / `OLLAMA_MODEL`) classifies intent as JSON only → Node enforces **per-tool RBAC** → Prisma `count` on `agent_actions` → `dispatchAgentAction(nlq_query)` → Tier 1 `executed`. **Counts never come from the model.**
+- **Timeout**: `OLLAMA_TIMEOUT_MS` (optional; default **30000**). First chat after idle may be slow (cold load); warm calls are typically a few seconds. Still fail-closed on timeout → `503`.
+- **Supported intents**:
+  - `count_pending_tier3` — requires `agents:decide_tier3` (admin, executive, branch_manager). Mirrors `GET …/pending`.
+  - `count_actions_window` — requires `agents:view_actions`; optional `agentId` A1–A4; `days` default **7**, allowed **1–30** only (out of range → `supported: false`, **no silent clamp**).
+- **Fail-closed**: Ollama unset/timeout/error → `503` (no dispatch). Invalid model JSON → `422`. Unsupported intent / days → `200` `{ supported: false, dispatched: false }`. Tool capability missing → `403`.
+- **Handler**: real `nlqQueryHandler` (`stubExecuted: false`); formats grounded `inputPayload` only.
+- **Offline check**: `npm run verify:a4-nlq` from `backend/`.
+
 ### The 4 Tiers & Action Statuses
 Actions are categorized into four trust tiers:
 - **Tier 1 (Auto-Execute)**: Action executes immediately without human intervention. Final status: `executed` (or `failed` if execution encounters an error).
@@ -444,6 +464,7 @@ Actions are categorized into four trust tiers:
 - `GET /api/tenant/agent-actions`: Lists agent actions with filters (`tier`, `status`, `agentId`, `from`, `to`, `page`, `limit`). Protected by `agents:view_actions` (roles: `admin`, `executive`, `finance_officer`, `hr_officer`, `branch_manager`, `loan_officer`). Strictly omits `input_payload` and `output_payload`.
 - `GET /api/tenant/agent-actions/pending`: Lists pending Tier 3 actions awaiting decision. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`). Strictly omits payloads. Hard capped at 500 rows (`MAX_PENDING_TAKE`).
 - `GET /api/tenant/agent-actions/metrics/override-rates`: Returns override rate metrics and tier statistics. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`). Hard capped at 500 rows (`MAX_METRICS_ROW_CAP`); returns `capped: true` when exceeded.
+- `POST /api/tenant/agent-actions/nlq/query`: A4 NLQ v1 — Ollama intent + grounded M4 counts + Tier 1 `nlq_query`. Protected by `agents:query_nlq`; pending-count tool additionally requires `agents:decide_tier3`.
 - `POST /api/tenant/agent-actions/test-dispatch`: Simulates dispatch across tiers in non-production environments. Admin-only (`agents:manage_policies`, role: `admin`).
 - `GET /api/tenant/agent-actions/:id`: Fetches complete single action details, including full `inputPayload` and `outputPayload`. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`).
 - `POST /api/tenant/agent-actions/:id/approve`: Approves a pending Tier 3 action and executes its handler. Requires `{ "reason": "..." }`. Protected by `agents:decide_tier3` (roles: `admin`, `executive`, `branch_manager`).

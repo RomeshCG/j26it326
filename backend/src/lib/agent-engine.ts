@@ -40,7 +40,7 @@ export interface TenantTransactionClient {
     TenantPrismaClient["agentAction"],
     "create" | "updateMany" | "findUnique" | "findMany"
   >
-  auditLog: Pick<TenantPrismaClient["auditLog"], "create">
+  auditLog: Pick<TenantPrismaClient["auditLog"], "create" | "findFirst">
 }
 
 export interface TenantPrismaOps extends TenantTransactionClient {

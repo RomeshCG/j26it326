@@ -111,6 +111,61 @@ function extractMlEvidence(outputPayload) {
   return Object.keys(picked).length > 0 ? picked : null
 }
 
+/** A1 readiness package detection (cbsl_readiness_v1). */
+function getA1ReadinessView(inputPayload) {
+  if (!inputPayload || typeof inputPayload !== "object" || Array.isArray(inputPayload)) {
+    return null
+  }
+  if (
+    inputPayload.actionType !== "generate_cbsl_report" ||
+    inputPayload.reportKind !== "cbsl_readiness_v1"
+  ) {
+    return null
+  }
+  const report =
+    inputPayload.report && typeof inputPayload.report === "object" && !Array.isArray(inputPayload.report)
+      ? inputPayload.report
+      : null
+  const gaps = Array.isArray(report?.dataGaps) ? report.dataGaps : []
+  const blocking = gaps.filter((g) => g?.severity === "blocking")
+  const warnings = gaps.filter((g) => g?.severity === "warning")
+  const recommendations = Array.isArray(report?.recommendations)
+    ? report.recommendations
+    : []
+  return {
+    overallStatus: report?.overallStatus || "unknown",
+    period: report?.period || null,
+    disclaimer:
+      typeof inputPayload.disclaimer === "string"
+        ? inputPayload.disclaimer
+        : typeof report?.disclaimer === "string"
+          ? report.disclaimer
+          : "Internal readiness assessment — not an official CBSL submission.",
+    preparedByUserId:
+      typeof inputPayload.preparedByUserId === "string"
+        ? inputPayload.preparedByUserId
+        : null,
+    proposalHash:
+      typeof inputPayload.proposalHash === "string" ? inputPayload.proposalHash : null,
+    blockingGaps: blocking,
+    warningGaps: warnings,
+    recommendations,
+  }
+}
+
+function overallStatusLabel(status) {
+  switch (status) {
+    case "not_ready":
+      return "Not ready"
+    case "ready_with_warnings":
+      return "Ready with warnings"
+    case "evidence_complete_for_scoped_checks":
+      return "Evidence complete (scoped checks only)"
+    default:
+      return String(status || "Unknown")
+  }
+}
+
 function notifySidebarPendingRefresh() {
   window.dispatchEvent(new Event("mf:tier3-pending-refresh"))
 }
@@ -673,14 +728,122 @@ export default function TierApproval() {
                     </div>
                   </div>
 
+                  {(() => {
+                    const a1 = getA1ReadinessView(detail.inputPayload)
+                    if (!a1) return null
+                    return (
+                      <div className="space-y-4 rounded-xl border border-purple-500/30 bg-purple-500/5 p-6">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge className="bg-purple-600 text-white">A1 readiness</Badge>
+                          <Badge variant="outline" className="capitalize">
+                            {overallStatusLabel(a1.overallStatus)}
+                          </Badge>
+                        </div>
+                        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-foreground">
+                          {a1.disclaimer}
+                        </p>
+                        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                          <div className="rounded-lg border bg-card/80 p-3">
+                            <dt className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                              Reporting period
+                            </dt>
+                            <dd className="mt-1 font-mono text-xs">
+                              {a1.period?.startIso
+                                ? `${new Date(a1.period.startIso).toLocaleString()} → ${new Date(a1.period.endIso).toLocaleString()}`
+                                : "—"}
+                            </dd>
+                          </div>
+                          <div className="rounded-lg border bg-card/80 p-3">
+                            <dt className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                              Human preparer
+                            </dt>
+                            <dd className="mt-1 font-mono text-xs break-all">
+                              {a1.preparedByUserId ||
+                                "Not recorded (legacy package — approval should be denied server-side)"}
+                            </dd>
+                          </div>
+                        </dl>
+                        <div>
+                          <h4 className="mb-2 text-sm font-semibold text-foreground">
+                            Blocking gaps ({a1.blockingGaps.length})
+                          </h4>
+                          {a1.blockingGaps.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No blocking gaps.</p>
+                          ) : (
+                            <ul className="space-y-2 text-sm">
+                              {a1.blockingGaps.map((g) => (
+                                <li
+                                  key={g.code || g.message}
+                                  className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2"
+                                >
+                                  <div className="font-medium text-foreground">
+                                    {g.code || "GAP"}
+                                  </div>
+                                  <div className="text-muted-foreground">{g.message}</div>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        {a1.warningGaps.length > 0 && (
+                          <div>
+                            <h4 className="mb-2 text-sm font-semibold text-foreground">
+                              Warnings ({a1.warningGaps.length})
+                            </h4>
+                            <ul className="space-y-2 text-sm">
+                              {a1.warningGaps.map((g) => (
+                                <li
+                                  key={g.code || g.message}
+                                  className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2"
+                                >
+                                  <div className="font-medium">{g.code || "WARN"}</div>
+                                  <div className="text-muted-foreground">{g.message}</div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {a1.recommendations.length > 0 && (
+                          <div>
+                            <h4 className="mb-2 text-sm font-semibold text-foreground">
+                              Recommended next actions
+                            </h4>
+                            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                              {a1.recommendations.map((r) => (
+                                <li key={r}>{r}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {a1.proposalHash && (
+                          <p className="font-mono text-[10px] text-muted-foreground break-all">
+                            proposalHash: {a1.proposalHash}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
+
                   <div>
                     <h3 className="mb-4 text-lg font-bold text-foreground">Prepared inputs</h3>
                     <p className="mb-2 text-xs text-muted-foreground">
-                      Raw input payload from the agent (not model evidence).
+                      {getA1ReadinessView(detail.inputPayload)
+                        ? "Full raw readiness package (expandable evidence)."
+                        : "Raw input payload from the agent (not model evidence)."}
                     </p>
-                    <pre className="max-h-80 overflow-auto rounded-xl border border-border bg-muted/20 p-4 font-mono text-[11px] text-foreground">
-                      {JSON.stringify(detail.inputPayload ?? {}, null, 2)}
-                    </pre>
+                    <details
+                      className="rounded-xl border border-border bg-muted/20"
+                      open={!getA1ReadinessView(detail.inputPayload)}
+                    >
+                      <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
+                        {getA1ReadinessView(detail.inputPayload)
+                          ? "Show full report JSON"
+                          : "Input payload"}
+                      </summary>
+                      <pre className="max-h-80 overflow-auto border-t border-border p-4 font-mono text-[11px] text-foreground">
+                        {JSON.stringify(detail.inputPayload ?? {}, null, 2)}
+                      </pre>
+                    </details>
                   </div>
 
                   <div>

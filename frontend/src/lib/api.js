@@ -232,6 +232,20 @@ export async function verifySessionOnce() {
 }
 
 /**
+ * A4 NLQ v1 — classify question via Node (Ollama on server) + grounded tenant tools.
+ * POST /api/tenant/agent-actions/nlq/query
+ * Body: { question: string }
+ * Success shapes include supported/dispatched answers or supported:false.
+ * Errors throw with .status (403, 422, 503, 401, …) via apiRequest.
+ */
+export async function queryNlq(question) {
+  return await apiRequest("/api/tenant/agent-actions/nlq/query", {
+    method: "POST",
+    body: JSON.stringify({ question }),
+  })
+}
+
+/**
  * Lists agent actions with optional filters and pagination
  * GET /api/tenant/agent-actions
  */

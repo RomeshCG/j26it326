@@ -7,7 +7,12 @@
 
 import { Router, type Request, type Response } from "express"
 import { requireRole } from "../middleware/auth.js"
-import { ROLES, hasCapability, type RoleName } from "../lib/permissions.js"
+import {
+  ROLES,
+  hasCapability,
+  isValidRole,
+  type RoleName,
+} from "../lib/permissions.js"
 import { logSafeError } from "../lib/auth.js"
 import {
   isValidUuid,
@@ -18,6 +23,25 @@ import {
 } from "../lib/agent-engine.js"
 import { computeOverrideRates } from "../lib/agent-engine-core.js"
 import {
+  A1_CBSL_ACTION_TYPE,
+  A1_MODEL_VERSION,
+  A1_PREPARE_AUDIT_ACTION,
+  A1_REPORT_KIND,
+  A1_RULESET_VERSION,
+  buildA1ActionText,
+  buildA1InputPayload,
+  buildA1PrepareAuditDetails,
+  buildA1ToolsUsed,
+  computeA1ProposalHash,
+  evaluateA1ApproveGate,
+  isA1ReadinessInputPayload,
+  prepareA1ReadinessReport,
+  roleMayPrepareA1,
+  validateA1PrepareBody,
+  type A1TenantPrisma,
+} from "../lib/agent-a1-compliance.js"
+import { capDetails } from "../lib/agent-engine-core.js"
+import {
   A2_BUDGET_ACTION_TYPE,
   A2_BUDGET_DEDUPE_WINDOW_MS,
   A2_BUDGET_MODEL_VERSION,
@@ -27,6 +51,25 @@ import {
   findRecentBudgetDedupeMatch,
   validateBudgetThresholdInput,
 } from "../lib/agent-a2-budget.js"
+import {
+  A4_NLQ_ACTION_TYPE,
+  A4_NLQ_MODEL_VERSION,
+  A4_NLQ_PROMPT_VERSION,
+  buildNlqActionText,
+  buildNlqAnswer,
+  buildNlqInputPayload,
+  buildNlqIntentSystemPrompt,
+  buildNlqToolsUsed,
+  resolveNlqIntentFromModel,
+  roleMayRunNlqIntent,
+  runNlqTool,
+  validateNlqQuestion,
+  type NlqTenantPrisma,
+} from "../lib/agent-a4-nlq.js"
+import {
+  OllamaUnavailableError,
+  ollamaChatJson,
+} from "../lib/ollama-client.js"
 import type { Prisma } from "../../node_modules/.prisma/tenant-client/index.js"
 
 export const agentGovernanceRouter = Router()
@@ -54,6 +97,22 @@ export const BUDGET_THRESHOLD_EVAL_ROLES: RoleName[] = ROLES.filter(
   (r) =>
     hasCapability(r, "agents:decide_tier3") ||
     hasCapability(r, "finance:manage_ledger")
+)
+
+/**
+ * Who may call A4 NLQ (endpoint gate). Per-intent tools still require
+ * agents:decide_tier3 (pending) or agents:view_actions (action window).
+ */
+export const NLQ_QUERY_ROLES: RoleName[] = ROLES.filter((r) =>
+  hasCapability(r, "agents:query_nlq")
+)
+
+/**
+ * Who may prepare A1 CBSL readiness packages (Tier 3 pending).
+ * Approve/reject remain DECIDE_TIER3_ROLES only (SoD: finance may prepare).
+ */
+export const A1_PREPARE_ROLES: RoleName[] = ROLES.filter((r) =>
+  roleMayPrepareA1(r)
 )
 
 export const KNOWN_STATUSES = new Set([
@@ -366,6 +425,7 @@ export async function handleGetActionById(
 /**
  * POST /agent-actions/:id/approve
  * Approves a pending Tier 3 action and executes its handler.
+ * A1 readiness packages get an extra SoD + prepare-audit hash gate (A1-only).
  */
 export async function handleApproveAction(
   req: Request,
@@ -382,6 +442,45 @@ export async function handleApproveAction(
 
     const { reason } = req.body ?? {}
     const userId = req.user!.userId
+
+    const existing = await tenantPrisma.agentAction.findUnique({
+      where: { id: actionId },
+      select: {
+        id: true,
+        status: true,
+        tier: true,
+        inputPayload: true,
+      },
+    })
+
+    if (
+      existing &&
+      existing.tier === 3 &&
+      existing.status === "pending_approval" &&
+      isA1ReadinessInputPayload(existing.inputPayload)
+    ) {
+      const prepareAudit = await tenantPrisma.auditLog.findFirst({
+        where: {
+          action: A1_PREPARE_AUDIT_ACTION,
+          details: {
+            path: ["actionId"],
+            equals: actionId,
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { details: true },
+      })
+
+      const gate = evaluateA1ApproveGate({
+        inputPayload: existing.inputPayload,
+        approverUserId: userId,
+        prepareAuditDetails: prepareAudit?.details ?? null,
+      })
+      if (!gate.ok) {
+        res.status(gate.httpStatus).json({ error: gate.error })
+        return
+      }
+    }
 
     const result = await decideTier3Action(tenantPrisma, {
       actionId,
@@ -485,6 +584,104 @@ export async function handleOverrideAction(
   } catch (err: unknown) {
     logSafeError("[agent-governance] Override action error", err)
     res.status(500).json({ error: "Failed to override action" })
+  }
+}
+
+/**
+ * POST /agent-actions/cbsl-report/prepare
+ *
+ * A1 v1: collect tenant evidence → deterministic readiness rules →
+ * dispatch `generate_cbsl_report` as Tier 3 pending_approval.
+ * Report kind `cbsl_readiness_v1` — not an official CBSL submission.
+ */
+export async function handlePrepareCbslReadiness(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const roleRaw = req.user?.role
+    if (!roleRaw || !isValidRole(roleRaw)) {
+      res.status(403).json({ error: "Authenticated role is missing or invalid" })
+      return
+    }
+    if (!roleMayPrepareA1(roleRaw)) {
+      res.status(403).json({ error: "Insufficient permissions to prepare A1 readiness package" })
+      return
+    }
+
+    const validated = validateA1PrepareBody(req.body ?? {})
+    if (!validated.ok) {
+      res.status(400).json({ error: validated.error })
+      return
+    }
+
+    const tenantPrisma = req.tenantPrisma as TenantPrisma
+    const preparedByUserId = req.user!.userId
+    const report = await prepareA1ReadinessReport(
+      tenantPrisma as unknown as A1TenantPrisma,
+      validated.period
+    )
+    const proposalHash = computeA1ProposalHash(report)
+    const inputPayload = buildA1InputPayload(report, { preparedByUserId })
+
+    const result = await dispatchAgentAction(tenantPrisma, {
+      actionType: A1_CBSL_ACTION_TYPE,
+      action: buildA1ActionText(report),
+      reason:
+        `A1 rules v1: prepared ${A1_REPORT_KIND} package ` +
+        `(overallStatus=${report.overallStatus}). Awaiting Tier 3 human review. ` +
+        `Not an official CBSL submission.`,
+      modelVersion: A1_MODEL_VERSION,
+      promptVersion: A1_RULESET_VERSION,
+      toolsUsed: buildA1ToolsUsed(report, { proposalHash, preparedByUserId }),
+      inputPayload,
+      ip: req.ip ?? null,
+      userAgent: (req.headers["user-agent"] as string) ?? null,
+    })
+
+    if (result.status === "ok") {
+      // Independent prepare binding (no schema change). Not DB-admin-proof.
+      await tenantPrisma.auditLog.create({
+        data: {
+          actorType: "user",
+          actorId: preparedByUserId,
+          action: A1_PREPARE_AUDIT_ACTION,
+          resource: "agent_actions",
+          ipAddress: req.ip ?? null,
+          userAgent: (req.headers["user-agent"] as string) ?? null,
+          details: capDetails(
+            buildA1PrepareAuditDetails({
+              actionId: result.actionId,
+              proposalHash,
+              preparedByUserId,
+              overallStatus: report.overallStatus,
+            })
+          ) as Prisma.InputJsonValue,
+        },
+      })
+
+      res.status(200).json({
+        prepared: true,
+        reportKind: A1_REPORT_KIND,
+        overallStatus: report.overallStatus,
+        proposalHash,
+        preparedByUserId,
+        report,
+        dispatch: result,
+        note:
+          "Package is pending Tier 3 approval. A different authorized user must approve. " +
+          "Not an official CBSL submission.",
+      })
+      return
+    }
+    if (result.status === "conflict") {
+      res.status(409).json({ error: result.error })
+      return
+    }
+    res.status(400).json({ error: result.error })
+  } catch (err: unknown) {
+    logSafeError("[agent-governance] A1 CBSL readiness prepare error", err)
+    res.status(500).json({ error: "Failed to prepare CBSL readiness package" })
   }
 }
 
@@ -605,6 +802,120 @@ export async function handleEvaluateBudgetThreshold(
 }
 
 /**
+ * POST /agent-actions/nlq/query
+ *
+ * A4 v1: Ollama intent classification → per-tool RBAC → grounded Prisma count
+ * → dispatch nlq_query (Tier 1). Numbers never come from the model.
+ */
+export async function handleNlqQuery(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const validated = validateNlqQuestion(req.body ?? {})
+    if (!validated.ok) {
+      res.status(400).json({ error: validated.error })
+      return
+    }
+
+    const roleRaw = req.user?.role
+    if (!roleRaw || !isValidRole(roleRaw)) {
+      res.status(403).json({ error: "Authenticated role is missing or invalid" })
+      return
+    }
+    const role = roleRaw
+
+    let ollamaModel: string
+    let rawContent: string
+    try {
+      const chat = await ollamaChatJson({
+        messages: [
+          { role: "system", content: buildNlqIntentSystemPrompt() },
+          { role: "user", content: validated.question },
+        ],
+      })
+      ollamaModel = chat.model
+      rawContent = chat.content
+    } catch (err: unknown) {
+      if (err instanceof OllamaUnavailableError) {
+        res.status(503).json({ error: "NLQ model unavailable" })
+        return
+      }
+      throw err
+    }
+
+    const parsed = resolveNlqIntentFromModel(validated.question, rawContent)
+    if (parsed.status === "invalid") {
+      res.status(422).json({ error: parsed.reason })
+      return
+    }
+    if (parsed.status === "unsupported") {
+      res.status(200).json({
+        supported: false,
+        dispatched: false,
+        reason: parsed.reason,
+      })
+      return
+    }
+
+    if (!roleMayRunNlqIntent(role, parsed.value.intent)) {
+      const message =
+        parsed.value.intent === "count_pending_tier3"
+          ? "Not authorized for pending Tier 3 metrics"
+          : "Not authorized for agent action metrics"
+      res.status(403).json({ error: message })
+      return
+    }
+
+    const tenantPrisma = req.tenantPrisma as TenantPrisma
+    const facts = await runNlqTool(
+      tenantPrisma as unknown as NlqTenantPrisma,
+      parsed.value
+    )
+    const answer = buildNlqAnswer(facts)
+    const inputPayload = buildNlqInputPayload({
+      question: validated.question,
+      facts,
+      answer,
+      ollamaModel,
+    })
+
+    const result = await dispatchAgentAction(tenantPrisma, {
+      actionType: A4_NLQ_ACTION_TYPE,
+      action: buildNlqActionText(validated.question, facts),
+      reason:
+        "A4 NLQ v1: grounded tenant agent_actions count; answer from template only.",
+      modelVersion: A4_NLQ_MODEL_VERSION,
+      promptVersion: A4_NLQ_PROMPT_VERSION,
+      toolsUsed: buildNlqToolsUsed(facts),
+      inputPayload,
+      ip: req.ip ?? null,
+      userAgent: (req.headers["user-agent"] as string) ?? null,
+    })
+
+    if (result.status === "ok") {
+      res.status(200).json({
+        supported: true,
+        dispatched: true,
+        intent: facts.intent,
+        answer,
+        facts,
+        dispatch: result,
+      })
+      return
+    }
+    if (result.status === "conflict") {
+      res.status(409).json({ error: result.error })
+      return
+    }
+    res.status(400).json({ error: result.error })
+  } catch (err: unknown) {
+    logSafeError("[agent-governance] NLQ query error", err)
+    res.status(500).json({ error: "Failed to process NLQ query" })
+  }
+}
+
+/**
  * POST /agent-actions/test-dispatch
  * Manually dispatches an agent action through the governance engine.
  * Admin only. Strictly disabled in production.
@@ -670,11 +981,25 @@ agentGovernanceRouter.get(
   handleGetOverrideRates
 )
 
+// A1 CBSL readiness prepare — registered strictly BEFORE /:id
+agentGovernanceRouter.post(
+  "/cbsl-report/prepare",
+  requireRole(...A1_PREPARE_ROLES),
+  handlePrepareCbslReadiness
+)
+
 // A2 budget threshold evaluate — registered strictly BEFORE /:id
 agentGovernanceRouter.post(
   "/budget-threshold/evaluate",
   requireRole(...BUDGET_THRESHOLD_EVAL_ROLES),
   handleEvaluateBudgetThreshold
+)
+
+// A4 NLQ query — registered strictly BEFORE /:id
+agentGovernanceRouter.post(
+  "/nlq/query",
+  requireRole(...NLQ_QUERY_ROLES),
+  handleNlqQuery
 )
 
 // Test dispatch (admin only, non-production) - registered strictly BEFORE /:id

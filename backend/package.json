@@ -19,7 +19,11 @@
     "prisma:studio:tenant": "prisma studio --schema prisma/tenant/schema.prisma",
     "db:seed:central": "tsx prisma/central/seed.ts",
     "db:seed:tenant": "tsx prisma/tenant/seed.ts",
-    "verify:a2-budget": "tsx scripts/verify-a2-budget-threshold.ts"
+    "seed:zz-test-users": "tsx scripts/seed-zz-test-users.ts",
+    "verify:a1-compliance": "tsx scripts/verify-a1-compliance.ts",
+    "verify:a2-budget": "tsx scripts/verify-a2-budget-threshold.ts",
+    "verify:a4-nlq": "tsx scripts/verify-a4-nlq.ts",
+    "verify:zz-seed-safety": "tsx scripts/verify-zz-seed-safety.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
