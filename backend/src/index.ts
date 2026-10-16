@@ -21,6 +21,10 @@ import { exampleRouter } from "./routes/_example.js"
 import { internalAgentDispatchRouter } from "./routes/internal-agent-dispatch.js"
 import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
 import { configureTrustProxy } from "./middleware/rate-limit.js"
+import { registerDefaultAgentHandlers } from "./lib/agent-handlers.js"
+
+// Register Graduated Trust action handlers (A2 budget threshold, …)
+registerDefaultAgentHandlers()
 
 // Strict JWT_SECRET startup guard: server must fail fast if secret is missing or insecure
 try {

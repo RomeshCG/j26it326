@@ -17,6 +17,16 @@ import {
   type TenantPrisma,
 } from "../lib/agent-engine.js"
 import { computeOverrideRates } from "../lib/agent-engine-core.js"
+import {
+  A2_BUDGET_ACTION_TYPE,
+  A2_BUDGET_DEDUPE_WINDOW_MS,
+  A2_BUDGET_MODEL_VERSION,
+  buildBudgetBreachActionText,
+  buildBudgetBreachInputPayload,
+  evaluateBudgetThreshold,
+  findRecentBudgetDedupeMatch,
+  validateBudgetThresholdInput,
+} from "../lib/agent-a2-budget.js"
 import type { Prisma } from "../../node_modules/.prisma/tenant-client/index.js"
 
 export const agentGovernanceRouter = Router()
@@ -30,6 +40,20 @@ export const DECIDE_TIER3_ROLES: RoleName[] = ROLES.filter((r) =>
 )
 export const ADMIN_ROLES: RoleName[] = ROLES.filter((r) =>
   hasCapability(r, "agents:manage_policies")
+)
+
+/**
+ * Who may trigger A2 budget-threshold evaluation (creates agent actions).
+ *
+ * Not `agents:view_actions` alone (read-only log access).
+ * Uses existing capabilities:
+ * - `agents:decide_tier3` — governance write path (admin, executive, branch_manager)
+ * - `finance:manage_ledger` — budget domain (finance_officer)
+ */
+export const BUDGET_THRESHOLD_EVAL_ROLES: RoleName[] = ROLES.filter(
+  (r) =>
+    hasCapability(r, "agents:decide_tier3") ||
+    hasCapability(r, "finance:manage_ledger")
 )
 
 export const KNOWN_STATUSES = new Set([
@@ -465,6 +489,122 @@ export async function handleOverrideAction(
 }
 
 /**
+ * POST /agent-actions/budget-threshold/evaluate
+ *
+ * A2 v1: evaluate caller-supplied metric vs threshold; dispatch
+ * `budget_threshold_alert` only on breach. Tier comes from active policy only.
+ *
+ * Query: allowDuplicate=true skips soft dedupe (for explicit re-tests).
+ */
+export async function handleEvaluateBudgetThreshold(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const tenantPrisma = req.tenantPrisma as TenantPrisma
+    const validated = validateBudgetThresholdInput(req.body ?? {})
+    if (!validated.ok) {
+      res.status(400).json({ error: validated.error })
+      return
+    }
+
+    const evaluation = evaluateBudgetThreshold(validated.value)
+    if (!evaluation.breached) {
+      res.status(200).json({
+        breached: false,
+        dispatched: false,
+        evaluation,
+        notification: {
+          channel: "agent_log",
+          note: "No dispatch — metric below threshold. notified status unused.",
+        },
+      })
+      return
+    }
+
+    const allowDuplicate =
+      String(req.query.allowDuplicate ?? "").toLowerCase() === "true"
+
+    if (!allowDuplicate) {
+      // Soft dedupe: recent A2 notified rows in this tenant only (tenantPrisma).
+      // TOCTOU: concurrent requests may still double-insert — no unique index in v1.
+      const recent = await tenantPrisma.agentAction.findMany({
+        where: {
+          agentId: "A2",
+          status: "notified",
+          createdAt: {
+            gte: new Date(Date.now() - A2_BUDGET_DEDUPE_WINDOW_MS),
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          inputPayload: true,
+          createdAt: true,
+          status: true,
+        },
+      })
+      const match = findRecentBudgetDedupeMatch(recent, evaluation.dedupeKey)
+      if (match) {
+        res.status(200).json({
+          breached: true,
+          dispatched: false,
+          duplicate: true,
+          existingActionId: match.id,
+          evaluation,
+          notification: {
+            channel: "agent_log",
+            note: "Soft dedupe: recent matching notified action exists (24h window).",
+          },
+        })
+        return
+      }
+    }
+
+    const inputPayload = buildBudgetBreachInputPayload(evaluation)
+    const result = await dispatchAgentAction(tenantPrisma, {
+      actionType: A2_BUDGET_ACTION_TYPE,
+      action: buildBudgetBreachActionText(evaluation),
+      reason:
+        `A2 rules v1: ${evaluation.metricName} reached or exceeded threshold ` +
+        `(Agent Log notification only; no email/SMS/push).`,
+      modelVersion: A2_BUDGET_MODEL_VERSION,
+      inputPayload,
+      // Never accept tier/agentId from the client — policy resolves them.
+      ip: req.ip ?? null,
+      userAgent: (req.headers["user-agent"] as string) ?? null,
+    })
+
+    if (result.status === "ok") {
+      res.status(200).json({
+        breached: true,
+        dispatched: true,
+        duplicate: false,
+        evaluation,
+        dispatch: result,
+        notification: {
+          channel: "agent_log",
+          email: false,
+          sms: false,
+          push: false,
+          note: "Tier 2 notified = Agent Log / audit evidence only (A2 v1).",
+        },
+      })
+      return
+    }
+    if (result.status === "conflict") {
+      res.status(409).json({ error: result.error })
+      return
+    }
+    res.status(400).json({ error: result.error })
+  } catch (err: unknown) {
+    logSafeError("[agent-governance] Budget threshold evaluate error", err)
+    res.status(500).json({ error: "Failed to evaluate budget threshold" })
+  }
+}
+
+/**
  * POST /agent-actions/test-dispatch
  * Manually dispatches an agent action through the governance engine.
  * Admin only. Strictly disabled in production.
@@ -528,6 +668,13 @@ agentGovernanceRouter.get(
   "/metrics/override-rates",
   requireRole(...DECIDE_TIER3_ROLES),
   handleGetOverrideRates
+)
+
+// A2 budget threshold evaluate — registered strictly BEFORE /:id
+agentGovernanceRouter.post(
+  "/budget-threshold/evaluate",
+  requireRole(...BUDGET_THRESHOLD_EVAL_ROLES),
+  handleEvaluateBudgetThreshold
 )
 
 // Test dispatch (admin only, non-production) - registered strictly BEFORE /:id
