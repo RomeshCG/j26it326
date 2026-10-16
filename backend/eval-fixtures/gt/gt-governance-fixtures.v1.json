@@ -1,0 +1,120 @@
+{
+  "specId": "gt-governance-oracle-v1",
+  "specPath": "eval-fixtures/gt/SPEC.md",
+  "rulesetVersion": "gt-governance-rules-v1",
+  "fixturePackVersion": "1.0.0",
+  "disclaimer": "Rule-agreement fixtures for Graduated Trust pure governance helpers. Not live HTTP auth, not production-wide security, not CBSL regulatory compliance.",
+  "fixtures": [
+    {
+      "id": "GT-F01",
+      "category": "tier_routing",
+      "description": "Default policy — A4 nlq_query Tier 1",
+      "oracleRef": "SPEC.md G1",
+      "duplicateOfVerify": true,
+      "input": { "kind": "default_policy", "actionType": "nlq_query" },
+      "expect": { "agentId": "A4", "tier": 1, "isActive": true }
+    },
+    {
+      "id": "GT-F02",
+      "category": "tier_routing",
+      "description": "Default policy — A2 budget_threshold_alert Tier 2",
+      "oracleRef": "SPEC.md G1",
+      "duplicateOfVerify": true,
+      "input": { "kind": "default_policy", "actionType": "budget_threshold_alert" },
+      "expect": { "agentId": "A2", "tier": 2, "isActive": true }
+    },
+    {
+      "id": "GT-F03",
+      "category": "tier_routing",
+      "description": "Default policy — A1 generate_cbsl_report Tier 3",
+      "oracleRef": "SPEC.md G1",
+      "duplicateOfVerify": true,
+      "input": { "kind": "default_policy", "actionType": "generate_cbsl_report" },
+      "expect": { "agentId": "A1", "tier": 3, "isActive": true }
+    },
+    {
+      "id": "GT-F04",
+      "category": "tier_routing",
+      "description": "Default policy — A3 volume_spike_alert Tier 4",
+      "oracleRef": "SPEC.md G1",
+      "duplicateOfVerify": true,
+      "input": { "kind": "default_policy", "actionType": "volume_spike_alert" },
+      "expect": { "agentId": "A3", "tier": 4, "isActive": true }
+    },
+    {
+      "id": "GT-F05",
+      "category": "tier_routing",
+      "description": "Inactive policy resolves to Tier 4 fallback",
+      "oracleRef": "SPEC.md G2",
+      "duplicateOfVerify": true,
+      "input": {
+        "kind": "resolve_tier",
+        "policy": { "tier": 2, "isActive": false, "agentId": "A2", "agentName": "Workflow" }
+      },
+      "expect": { "tier": 4, "isFallback": true }
+    },
+    {
+      "id": "GT-F06",
+      "category": "status_transition",
+      "description": "Valid — pending_approval → approved",
+      "oracleRef": "SPEC.md G3",
+      "duplicateOfVerify": true,
+      "input": { "from": "pending_approval", "to": "approved" },
+      "expect": { "allowed": true }
+    },
+    {
+      "id": "GT-F07",
+      "category": "status_transition",
+      "description": "Invalid — pending_approval → executed (skip approve)",
+      "oracleRef": "SPEC.md G3",
+      "duplicateOfVerify": true,
+      "input": { "from": "pending_approval", "to": "executed" },
+      "expect": { "allowed": false }
+    },
+    {
+      "id": "GT-F08",
+      "category": "post_handler_status",
+      "description": "Tier 2 success → notified",
+      "oracleRef": "SPEC.md G4",
+      "duplicateOfVerify": true,
+      "input": { "tier": 2, "handlerSucceeded": true },
+      "expect": { "status": "notified" }
+    },
+    {
+      "id": "GT-F09",
+      "category": "post_handler_status",
+      "description": "Tier 3 success → executed (contrast with Tier 2)",
+      "oracleRef": "SPEC.md G4",
+      "duplicateOfVerify": true,
+      "input": { "tier": 3, "handlerSucceeded": true },
+      "expect": { "status": "executed" }
+    },
+    {
+      "id": "GT-F10",
+      "category": "a1_approve_gate",
+      "description": "Self-approval denied (SoD) — preparer cannot approve",
+      "oracleRef": "SPEC.md G5",
+      "duplicateOfVerify": true,
+      "input": { "scenario": "self_approval" },
+      "expect": { "ok": false, "httpStatus": 403 }
+    },
+    {
+      "id": "GT-F11",
+      "category": "a1_approve_gate",
+      "description": "Prepare-audit proposalHash mismatch denied",
+      "oracleRef": "SPEC.md G5",
+      "duplicateOfVerify": true,
+      "input": { "scenario": "audit_hash_mismatch" },
+      "expect": { "ok": false, "httpStatus": 409 }
+    },
+    {
+      "id": "GT-F12",
+      "category": "a1_approve_gate",
+      "description": "Valid approval — separate preparer and approver",
+      "oracleRef": "SPEC.md G5",
+      "duplicateOfVerify": true,
+      "input": { "scenario": "valid_separate_users" },
+      "expect": { "ok": true }
+    }
+  ]
+}

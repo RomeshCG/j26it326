@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "reportKind": "a4_intent_ollama_baseline_summary",
+  "disclaimer": "Single live baseline of A4 NLQ intent classification (Ollama JSON → parseNlqIntent → lexical gate) on the frozen 34-question gold corpus. Not general conversational AI accuracy, not chatbot quality, not RBAC/DB answer correctness. Raw model intent and full-pipeline disposition are reported separately. Invalid-parameter items (paramsValid=false) are excluded from the three-class pipeline confusion matrix and counted under operational rejection instead.",
+  "sourceArtifact": {
+    "path": "backend/eval-results/a4-intent-ollama-2026-10-16T16-42-27-284Z.json",
+    "gitIgnored": true,
+    "reportSchemaVersion": 1,
+    "generatedAtUtc": "2026-10-16T16:42:27.284Z",
+    "note": "This summary copies headline metrics from that timestamped file. It does not re-score under later evaluator reporting schemas."
+  },
+  "git": {
+    "sha": "f71c788308720bda71a91c398ea92e114e90a4f6",
+    "shaShort": "f71c788",
+    "branch": "research/m4-eval-stage1"
+  },
+  "versions": {
+    "promptVersion": "a4-intent-v2",
+    "modelVersionConstant": "a4-nlq-ollama-v1",
+    "modelConfigured": "qwen2.5:1.5b",
+    "modelReported": "qwen2.5:1.5b",
+    "temperature": 0,
+    "timeoutMs": 30000,
+    "concurrency": 1,
+    "retries": 0,
+    "goldSpecId": "a4-intent-oracle-v1",
+    "goldFixturePackVersion": "1.0.0",
+    "goldOracleDoc": "backend/eval-fixtures/a4/SPEC.md"
+  },
+  "sampleCounts": {
+    "nGold": 34,
+    "nAttempted": 34,
+    "nScoredWithoutTransportError": 33,
+    "nTransportError": 1,
+    "transportErrorIds": ["A4-G01"],
+    "traversalComplete": true,
+    "aborted": false,
+    "allQuestionsScored": false,
+    "note": "Original artifact sets complete=true meaning corpus traversal finished without abort. One question timed out; accuracy denominators use 33 (raw/ops) or 30 (confusion), not 34."
+  },
+  "metrics": {
+    "rawSemanticIntentAgreement": {
+      "numerator": 28,
+      "denominator": 33,
+      "rate": 0.8484848484848485,
+      "definition": "Model JSON intent string equals gold semantic intent; excludes transport_error rows."
+    },
+    "operationalSuccess": {
+      "numerator": 29,
+      "denominator": 33,
+      "rate": 0.8787878787878788,
+      "definition": "For paramsValid=false: pipeline unsupported. Else: pipeline disposition matches gold intent class. Excludes transport_error."
+    },
+    "pipelineConfusion3Class": {
+      "definition": "Gold intent vs pipeline predicted class after parse+gate. Excludes paramsValid=false (G25–G27). Excludes transport_error (G01).",
+      "n": 30,
+      "correct": 26,
+      "accuracy": 0.8666666666666667,
+      "totalsMatch": true,
+      "matrix": {
+        "count_pending_tier3": {
+          "count_pending_tier3": 5,
+          "count_actions_window": 0,
+          "unsupported": 2
+        },
+        "count_actions_window": {
+          "count_pending_tier3": 0,
+          "count_actions_window": 8,
+          "unsupported": 1
+        },
+        "unsupported": {
+          "count_pending_tier3": 1,
+          "count_actions_window": 0,
+          "unsupported": 13
+        }
+      },
+      "perClass": {
+        "note": "Precision/recall/F1 derived from the recorded confusion matrix (not a separate field in the original artifact).",
+        "derivedFrom": "metrics.pipelineConfusion3Class.matrix",
+        "count_pending_tier3": {
+          "tp": 5,
+          "fp": 1,
+          "fn": 2,
+          "precision": 0.8333333333333334,
+          "recall": 0.7142857142857143,
+          "f1": 0.7692307692307692
+        },
+        "count_actions_window": {
+          "tp": 8,
+          "fp": 0,
+          "fn": 1,
+          "precision": 1,
+          "recall": 0.8888888888888888,
+          "f1": 0.9411764705882353
+        },
+        "unsupported": {
+          "tp": 13,
+          "fp": 3,
+          "fn": 1,
+          "precision": 0.8125,
+          "recall": 0.9285714285714286,
+          "f1": 0.8666666666666666
+        }
+      }
+    },
+    "unsupportedRejection": {
+      "goldN": 14,
+      "rejectedAsUnsupported": 13,
+      "falseAcceptOk": 1,
+      "falseAcceptIds": ["A4-G29"],
+      "falseAcceptIdsSource": "Per-question rows in the original artifact (metrics block records count only)."
+    },
+    "invalidParamRejection": {
+      "goldN": 3,
+      "correctlyUnsupported": 3,
+      "fixtureIds": ["A4-G25", "A4-G26", "A4-G27"],
+      "excludedFromPipelineConfusion": true
+    },
+    "paramAccuracyGivenAcceptedWindow": {
+      "numerator": 8,
+      "denominator": 8,
+      "definition": "Among valid window questions accepted as count_actions_window, parsed days/agentId match gold."
+    },
+    "lexicalGateFalseNegatives": {
+      "probeN": 3,
+      "ids": ["A4-G32", "A4-G33", "A4-G34"],
+      "observation": "Raw model intent matched gold supported intent; pipeline disposition was unsupported (gate FN probes).",
+      "note": "These rows reduce full-pipeline accuracy; they are not raw-intent failures."
+    }
+  },
+  "latencyMs": {
+    "allAttempts": {
+      "n": 34,
+      "mean": 5337.441176470588,
+      "min": 2467,
+      "max": 30003,
+      "source": "metrics.latencyMs in original artifact (includes timeouts)."
+    },
+    "nonTransport": {
+      "n": 33,
+      "mean": 4590,
+      "min": 2467,
+      "max": 7198,
+      "source": "Derived: mean of questions[].latencyMs where pipelineStatus !== transport_error.",
+      "sumMs": 151470
+    }
+  },
+  "notableEvents": {
+    "A4-G01": {
+      "pipelineStatus": "transport_error",
+      "errorKind": "infra",
+      "latencyMs": 30003,
+      "timeoutMsConfigured": 30000,
+      "interpretation": "First-item timeout. Cold start / model load is a plausible explanation but was not instrumented or confirmed in this run."
+    },
+    "A4-G29": {
+      "role": "unsupported_false_accept",
+      "pipelineStatus": "ok",
+      "predictedClass": "count_pending_tier3"
+    }
+  },
+  "limitations": [
+    "Single live trial (n=1 run); no multi-seed or multi-model replication.",
+    "Small frozen benchmark (34 questions); not a general NLP or chatbot benchmark.",
+    "Full-pipeline metrics include lexical-gate effects; gate probes G32–G34 are intentional FN cases.",
+    "G01 transport miss excludes one gold pending item from confusion and from raw/ops denominators.",
+    "Does not measure grounded answer correctness, RBAC, or Graduated Trust dispatch.",
+    "Homelab Ollama endpoint details are intentionally omitted from this summary."
+  ],
+  "reproduction": {
+    "command": "cd backend; npm run eval:a4-intent-ollama",
+    "requires": "Configured Ollama endpoint env + model qwen2.5:1.5b available; no DB required for this intent-only eval.",
+    "caution": "A new run produces a new timestamped artifact. Do not overwrite or replace the baseline stamp cited in sourceArtifact.path when citing these numbers."
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 1,
+  "reportKind": "a3_iforest_v2_eval_summary",
+  "disclaimer": "Synthetic labelled evaluation of Isolation Forest v2 only. Scores are a monotonic transform of decision_function and are NOT calibrated probabilities or fraud likelihoods. Not official CBSL compliance accuracy and not validated on live MFI traffic.",
+  "git": {
+    "sha": "4e8c1f5c8d57c156603118d40f3c6bdac5eb7744",
+    "branch": "research/m4-eval-stage1"
+  },
+  "versions": {
+    "modelVersion": "a3-iforest-v2",
+    "dataVersion": "synthetic-volume-v2"
+  },
+  "environment": {
+    "python": "3.12.10",
+    "numpy": "2.5.4",
+    "pandas": "2.3.3",
+    "scikit-learn": "1.9.1",
+    "joblib": "1.6.0"
+  },
+  "seeds": {
+    "generator_base": 20261016,
+    "anomaly_inject": 71002,
+    "iforest": 71003,
+    "threshold_bootstrap": 71005
+  },
+  "hyperparameters": {
+    "algorithm": "RobustScaler + sklearn.ensemble.IsolationForest",
+    "n_estimators": 300,
+    "contamination": "auto",
+    "max_samples": 256,
+    "random_state": 71003,
+    "scaler": "RobustScaler"
+  },
+  "threshold": {
+    "value": 0.5137412782898763,
+    "selectedOn": "validation_only",
+    "testSetUsed": false,
+    "source": "validation_meta_bootstrap_median",
+    "rule": "Bootstrap median of thresholds that maximize F1 under precision>=0.4 and recall>=0.3 when possible",
+    "bootstrapSamples": 40,
+    "stability": {
+      "threshold_std": 0.0018902903711982277,
+      "threshold_p10": 0.5117809964920084,
+      "threshold_p90": 0.5165171256983572
+    }
+  },
+  "datasetCounts": {
+    "train": 2076,
+    "val": 360,
+    "test": 760,
+    "val_anomalies": 40,
+    "test_anomalies": 40
+  },
+  "scoreSemantics": {
+    "decision_function": "pipeline decision; lower => more anomalous",
+    "score": "1/(1+exp(decision_function)); higher => more anomalous; NOT a probability",
+    "confidence": "score*100 clipped to [0,100]; display mapping only"
+  },
+  "validation": {
+    "role": "threshold_selection_set_not_primary_claim",
+    "splitNotes": "Threshold frozen from validation bootstrap median. Test metrics are one-shot on independent v2 test data (not the inspected v1 test set). Holdout branches never in train.",
+    "overall": {
+      "n": 360,
+      "n_positive": 40,
+      "n_negative": 320,
+      "precision": 0.9333333333333333,
+      "recall": 0.7,
+      "f1": 0.8,
+      "false_positive_rate": 0.00625,
+      "pr_auc": 0.8502364348710921,
+      "roc_auc": 0.9592968749999999,
+      "tp": 28,
+      "fp": 2,
+      "tn": 318,
+      "fn": 12
+    },
+    "byAnomalyTypeRecall": {
+      "after_hours_burst": {
+        "n": 8,
+        "recall": 0.875
+      },
+      "amount_spike": {
+        "n": 8,
+        "recall": 0.0
+      },
+      "combined_burst": {
+        "n": 8,
+        "recall": 1.0
+      },
+      "new_payee_flood": {
+        "n": 8,
+        "recall": 1.0
+      },
+      "volume_spike": {
+        "n": 8,
+        "recall": 0.625
+      }
+    },
+    "byDifficultyRecall": {
+      "easy": {
+        "n": 20,
+        "recall": 0.8
+      },
+      "subtle": {
+        "n": 20,
+        "recall": 0.6
+      }
+    }
+  },
+  "test": {
+    "role": "primary_held_out_claim",
+    "overall": {
+      "n": 760,
+      "n_positive": 40,
+      "n_negative": 720,
+      "precision": 0.7027027027027027,
+      "recall": 0.65,
+      "f1": 0.6753246753246753,
+      "false_positive_rate": 0.015277777777777777,
+      "pr_auc": 0.7767328317750506,
+      "roc_auc": 0.9538194444444443,
+      "tp": 26,
+      "fp": 11,
+      "tn": 709,
+      "fn": 14
+    },
+    "byAnomalyTypeRecall": {
+      "after_hours_burst": {
+        "n": 8,
+        "recall": 0.875
+      },
+      "amount_spike": {
+        "n": 8,
+        "recall": 0.0
+      },
+      "combined_burst": {
+        "n": 8,
+        "recall": 1.0
+      },
+      "new_payee_flood": {
+        "n": 8,
+        "recall": 0.875
+      },
+      "volume_spike": {
+        "n": 8,
+        "recall": 0.5
+      }
+    },
+    "byDifficultyRecall": {
+      "easy": {
+        "n": 20,
+        "recall": 0.8
+      },
+      "subtle": {
+        "n": 20,
+        "recall": 0.5
+      }
+    }
+  },
+  "testHoldoutBranches": {
+    "role": "unseen_branches_never_in_train",
+    "limitation": "Small positive count; subtype rates are unstable.",
+    "overall": {
+      "n": 280,
+      "n_positive": 11,
+      "n_negative": 269,
+      "precision": 0.6666666666666666,
+      "recall": 0.5454545454545454,
+      "f1": 0.6,
+      "false_positive_rate": 0.011152416356877323,
+      "pr_auc": 0.7172013756993995,
+      "roc_auc": 0.9313957418046638,
+      "tp": 6,
+      "fp": 3,
+      "tn": 266,
+      "fn": 5
+    },
+    "byAnomalyTypeRecall": {
+      "after_hours_burst": {
+        "n": 1,
+        "recall": 1.0
+      },
+      "amount_spike": {
+        "n": 3,
+        "recall": 0.0
+      },
+      "combined_burst": {
+        "n": 1,
+        "recall": 1.0
+      },
+      "new_payee_flood": {
+        "n": 2,
+        "recall": 1.0
+      },
+      "volume_spike": {
+        "n": 4,
+        "recall": 0.5
+      }
+    },
+    "byDifficultyRecall": {
+      "easy": {
+        "n": 4,
+        "recall": 0.75
+      },
+      "subtle": {
+        "n": 7,
+        "recall": 0.42857142857142855
+      }
+    }
+  },
+  "localReproducibility": {
+    "regeneratedAtGitSha": "4e8c1f5c8d57c156603118d40f3c6bdac5eb7744",
+    "identicalToVerifiedBackupTestMetrics": true,
+    "backupId": "pre-regen-20261016-211935",
+    "note": "Regenerated generate/train/evaluate on this SHA produced bit-identical test overall metrics vs the verified local backup. Backup lives outside Git."
+  },
+  "limitations": [
+    "Trained on controlled synthetic data only \u2014 not real MFI production traffic.",
+    "Isolation Forest scores are not calibrated probabilities or fraud likelihoods.",
+    "Does not reliably detect amount-only spikes (amount_spike); A3 must not be claimed to detect all financial anomalies.",
+    "Validation threshold may not generalise to real deployments.",
+    "v2 test set is independent of the inspected v1 test set.",
+    "Per-anomaly-type and per-difficulty figures are recall among labelled positives only; type-level precision is not computed by the evaluator.",
+    "Holdout-branch test positives n=11 \u2014 interpret subtype recalls cautiously.",
+    "amount_spike recall is 0.0 on the primary test split in this run.",
+    "Raw CSVs, joblib weights, and full run/meta/evaluation dumps remain gitignored under agents/."
+  ],
+  "reproduce": {
+    "cwd": "agents",
+    "commands": [
+      "python -m ml.generate_synthetic_volume",
+      "python -m ml.train_iforest",
+      "python -m ml.evaluate_iforest"
+    ],
+    "stdlibSanity": "python -m ml.test_phase_a_stdlib",
+    "sourceModules": [
+      "agents/ml/features.py",
+      "agents/ml/generate_synthetic_volume.py",
+      "agents/ml/train_iforest.py",
+      "agents/ml/evaluate_iforest.py",
+      "agents/ml/scoring_utils.py"
+    ]
+  }
+}

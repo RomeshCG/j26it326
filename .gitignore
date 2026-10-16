@@ -60,6 +60,10 @@ Thumbs.db
 .idea/
 .vscode/
 
+# M4 offline eval artifacts (generated locally; review before committing)
+backend/eval-results/**
+!backend/eval-results/.keep
+
 # Optional local-only docs (uncomment if you do not want them on GitHub)
 internalDocs/
 .cursor/
