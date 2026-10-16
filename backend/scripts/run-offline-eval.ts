@@ -27,6 +27,7 @@ type SuiteId =
   | "a2-fixtures"
   | "a2-fixture-guards"
   | "a4-nlq"
+  | "a4-intent-corpus"
   | "zz-seed-safety"
   | "safe-api-errors"
   | "graduated-trust"
@@ -121,6 +122,12 @@ const SUITES: SuiteSpec[] = [
     label: "A4 NLQ unit/offline (no live Ollama)",
     npmScript: "verify:a4-nlq",
     kind: "functional_regression",
+  },
+  {
+    id: "a4-intent-corpus",
+    label: "A4 intent gold corpus (structure/SPEC; not live accuracy)",
+    npmScript: "verify:a4-intent-corpus",
+    kind: "rule_fixture_agreement",
   },
   {
     id: "zz-seed-safety",
@@ -336,7 +343,7 @@ function main(): void {
       "A3 Isolation Forest train/eval metrics (Python; reproduce separately)",
       "A2 dedupe fixtures (later extension)",
       "Live ZZ E2E governance scenarios",
-      "Live Ollama A4 intent accuracy / confusion matrix",
+      "Live Ollama A4 gold-set intent accuracy / confusion matrix (later)",
       "DB-backed verifies (auth-rbac, tenant provisioning, stub-api, etc.)",
     ],
   }

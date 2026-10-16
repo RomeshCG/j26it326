@@ -35,6 +35,7 @@ Exit code is **nonzero** if any required suite fails.
 | A2 fixtures (rule agreement) | `verify:a2-fixtures` |
 | A2 fixture guards | `verify:a2-fixture-guards` |
 | A4 NLQ (offline) | `verify:a4-nlq` |
+| A4 intent gold corpus (structure) | `verify:a4-intent-corpus` |
 | ZZ seed safety | `verify:zz-seed-safety` |
 | Safe API errors | `verify:safe-api-errors` |
 | Graduated Trust | `verify:graduated-trust` |
@@ -55,9 +56,10 @@ JSON does **not** embed raw suite console logs (avoids accidental secret capture
 - A3 Isolation Forest train/eval metrics
 - A2 dedupe fixtures (later extension)
 - Live ZZ E2E
-- Live Ollama A4 gold-set evaluation
+- Live Ollama A4 gold-set intent accuracy (corpus exists; live runner later)
 - DB-backed verifies (auth-rbac, provisioning, stub-api, …)
 
 A1 fixture oracle: `backend/eval-fixtures/a1/SPEC.md`.  
 A2 fixture oracle: `backend/eval-fixtures/a2/SPEC.md`.  
-GT fixture oracle: `backend/eval-fixtures/gt/SPEC.md` (includes A1 SoD/hash approve-gate scenarios as pure governance checks).
+GT fixture oracle: `backend/eval-fixtures/gt/SPEC.md` (includes A1 SoD/hash approve-gate scenarios as pure governance checks).  
+A4 intent gold / capability oracle: `backend/eval-fixtures/a4/SPEC.md` (corpus validation ≠ model accuracy).
