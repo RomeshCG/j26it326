@@ -10,8 +10,11 @@ import {
   A4_NLQ_PROMPT_VERSION,
   buildNlqAnswer,
   buildNlqInputPayload,
+  buildNlqIntentSystemPrompt,
   capabilityForNlqIntent,
   parseNlqIntent,
+  questionSupportsIntent,
+  resolveNlqIntentFromModel,
   roleMayRunNlqIntent,
   runNlqTool,
   validateNlqQuestion,
@@ -133,6 +136,98 @@ assert(
 assert(
   parseNlqIntent('{"intent":"invent_money"}').status === "unsupported",
   "rejects unknown intent"
+)
+
+section("intent evidence gate (small-model over-fire)")
+assert(
+  !questionSupportsIntent("Hello", "count_pending_tier3"),
+  "Hello lacks pending evidence"
+)
+assert(
+  !questionSupportsIntent("Hi there!", "count_actions_window"),
+  "greeting lacks window evidence"
+)
+assert(
+  !questionSupportsIntent("What is PAR30?", "count_pending_tier3"),
+  "PAR30 lacks pending evidence"
+)
+assert(
+  !questionSupportsIntent("thanks", "count_actions_window"),
+  "thanks lacks window evidence"
+)
+assert(
+  questionSupportsIntent(
+    "How many Tier 3 actions are awaiting approval?",
+    "count_pending_tier3"
+  ),
+  "valid pending question has evidence"
+)
+assert(
+  questionSupportsIntent(
+    "How many A3 actions were recorded in the last 7 days?",
+    "count_actions_window"
+  ),
+  "valid window question has evidence"
+)
+assert(
+  resolveNlqIntentFromModel(
+    "Hello",
+    '{"intent":"count_pending_tier3"}'
+  ).status === "unsupported",
+  "Hello + model pending → unsupported (regression)"
+)
+assert(
+  resolveNlqIntentFromModel("hey", '{"intent":"count_actions_window","days":7}')
+    .status === "unsupported",
+  "hey + model window → unsupported"
+)
+assert(
+  resolveNlqIntentFromModel(
+    "Tell me a joke",
+    '{"intent":"count_pending_tier3"}'
+  ).status === "unsupported",
+  "unrelated + model pending → unsupported"
+)
+assert(
+  resolveNlqIntentFromModel(
+    "maybe something about agents?",
+    '{"intent":"count_actions_window"}'
+  ).status === "unsupported",
+  "ambiguous without count cue → unsupported"
+)
+{
+  const ok = resolveNlqIntentFromModel(
+    "How many Tier 3 actions are awaiting approval?",
+    '{"intent":"count_pending_tier3"}'
+  )
+  assert(ok.status === "ok", "valid pending passes gate")
+  if (ok.status === "ok") {
+    assert(ok.value.intent === "count_pending_tier3", "pending intent kept")
+  }
+}
+{
+  const ok = resolveNlqIntentFromModel(
+    "How many A3 actions were recorded in the last 7 days?",
+    '{"intent":"count_actions_window","days":7,"agentId":"A3"}'
+  )
+  assert(ok.status === "ok", "valid window passes gate")
+  if (ok.status === "ok" && ok.value.intent === "count_actions_window") {
+    assert(ok.value.agentId === "A3" && ok.value.days === 7, "window params kept")
+  }
+}
+assert(
+  resolveNlqIntentFromModel("Hello", '{"intent":"unsupported"}').status ===
+    "unsupported",
+  "Hello + model unsupported stays unsupported"
+)
+assert(
+  A4_NLQ_PROMPT_VERSION === "a4-intent-v2",
+  "prompt version bumped for evidence gate"
+)
+assert(
+  buildNlqIntentSystemPrompt().includes("Hello") &&
+    buildNlqIntentSystemPrompt().toLowerCase().includes("unsupported"),
+  "system prompt includes greeting → unsupported example"
 )
 
 section("answer templates (facts only)")

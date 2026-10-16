@@ -106,6 +106,8 @@ export async function ollamaChatJson(
         messages: options.messages,
         stream: false,
         format: "json",
+        // Deterministic classification — reduces small-model intent drift.
+        options: { temperature: 0 },
       }),
       signal: controller.signal,
     })

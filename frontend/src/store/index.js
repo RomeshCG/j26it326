@@ -99,20 +99,26 @@ export const useStore = create(
     (set) => ({
       ...DEFAULT_DEMO_DATA,
       
-      // Agent Panel NLQ
+      // Agent Panel NLQ (schema v2 = live A4 backend; pre-v2 history is mock)
       agentPanelOpen: false,
       nlqChatHistory: [],
       nlqChatArchive: [],
       unreadAgentResponses: false,
+      nlqHistorySchemaVersion: 2,
 
       toggleAgentPanel: () => set((state) => ({ 
         agentPanelOpen: !state.agentPanelOpen,
         unreadAgentResponses: state.agentPanelOpen ? state.unreadAgentResponses : false
       })),
+      openAgentPanel: () => set({ agentPanelOpen: true, unreadAgentResponses: false }),
       addNlqMessage: (message) => set((state) => {
         const isAgent = message.type === "agent"
+        const tagged = {
+          ...message,
+          source: message.source || "live_a4",
+        }
         return {
-          nlqChatHistory: [...state.nlqChatHistory, message],
+          nlqChatHistory: [...state.nlqChatHistory, tagged],
           unreadAgentResponses: isAgent && !state.agentPanelOpen ? true : state.unreadAgentResponses
         }
       }),
@@ -121,6 +127,7 @@ export const useStore = create(
         const session = {
           sessionId: Date.now(),
           archivedAt: new Date().toISOString(),
+          source: "live_a4",
           messages: state.nlqChatHistory
         }
         return {
@@ -235,6 +242,38 @@ export const useStore = create(
     }),
     {
       name: "microflow-storage", // name of item in localStorage
+      version: 2,
+      /**
+       * Pre-v2 NLQ history used fabricated keyword answers. Archive it with
+       * legacyMock so it never appears as live A4 replies in the active thread.
+       */
+      migrate: (persistedState, fromVersion) => {
+        const state =
+          persistedState && typeof persistedState === "object"
+            ? { ...persistedState }
+            : {}
+        if (fromVersion < 2) {
+          const oldHistory = Array.isArray(state.nlqChatHistory)
+            ? state.nlqChatHistory
+            : []
+          const archive = Array.isArray(state.nlqChatArchive)
+            ? [...state.nlqChatArchive]
+            : []
+          if (oldHistory.length > 0) {
+            archive.push({
+              sessionId: Date.now(),
+              archivedAt: new Date().toISOString(),
+              legacyMock: true,
+              source: "pre_a4_live_ui",
+              messages: oldHistory,
+            })
+          }
+          state.nlqChatArchive = archive
+          state.nlqChatHistory = []
+          state.nlqHistorySchemaVersion = 2
+        }
+        return state
+      },
     }
   )
 )

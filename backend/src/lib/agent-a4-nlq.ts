@@ -14,7 +14,8 @@ import { hasCapability } from "./permissions.js"
 
 export const A4_NLQ_ACTION_TYPE = "nlq_query" as const
 export const A4_NLQ_MODEL_VERSION = "a4-nlq-ollama-v1" as const
-export const A4_NLQ_PROMPT_VERSION = "a4-intent-v1" as const
+/** Prompt + post-parse evidence gate (v2). */
+export const A4_NLQ_PROMPT_VERSION = "a4-intent-v2" as const
 
 export const A4_NLQ_DAYS_MIN = 1
 export const A4_NLQ_DAYS_MAX = 30
@@ -68,18 +69,25 @@ export type NlqTenantPrisma = {
 
 /**
  * System prompt for intent classification. Instructs JSON-only output with
- * no numeric answers.
+ * no numeric answers. Small models must default to unsupported when unsure.
  */
 export function buildNlqIntentSystemPrompt(): string {
   return [
     "You classify IMFS M4 agent-governance questions into a fixed intent schema.",
     "Respond with a single JSON object only. Do not invent counts or financial values.",
+    "Default to unsupported whenever the user is not clearly asking for one of the two count questions.",
     "Allowed intents:",
-    '- {"intent":"count_pending_tier3"} — how many Tier 3 actions await human approval',
-    '- {"intent":"count_actions_window","days":<1-30 optional>,"agentId":"A1"|"A2"|"A3"|"A4"|null optional} — how many agent actions in a recent day window',
-    '- {"intent":"unsupported"} — anything else (PAR, payroll, loans, budgets, free chat)',
+    '- {"intent":"count_pending_tier3"} — ONLY if they ask how many Tier 3 / approval / pending-approval agent actions are waiting',
+    '- {"intent":"count_actions_window","days":<1-30 optional>,"agentId":"A1"|"A2"|"A3"|"A4"|null optional} — ONLY if they ask how many agent actions (optionally for A1–A4) in a recent day window',
+    '- {"intent":"unsupported"} — greetings, chit-chat, thanks, unclear text, PAR, payroll, loans, EPF, budgets, staff, branches, or anything else',
+    "Examples:",
+    'User: Hello → {"intent":"unsupported"}',
+    'User: Hi there → {"intent":"unsupported"}',
+    'User: What is PAR30? → {"intent":"unsupported"}',
+    'User: How many Tier 3 actions are awaiting approval? → {"intent":"count_pending_tier3"}',
+    'User: How many A3 actions were recorded in the last 7 days? → {"intent":"count_actions_window","days":7,"agentId":"A3"}',
     "If the user asks for a window longer than 30 days, still return count_actions_window with their requested days; the server will reject out-of-range days.",
-    "Omit days to mean the default window. Never include a count field.",
+    "Omit days to mean the default window. Never include a count field. When uncertain, choose unsupported.",
   ].join("\n")
 }
 
@@ -195,6 +203,68 @@ export function parseNlqIntent(rawText: string): NlqParseResult {
     status: "unsupported",
     reason: "Unrecognized or missing intent",
   }
+}
+
+/**
+ * Lexical evidence that the user question actually asks for a supported count.
+ * Not a greeting blacklist and not a substitute for the LLM — a fail-closed
+ * check after the model returns a supported intent (1.5B models over-fire).
+ */
+export function questionSupportsIntent(
+  question: string,
+  intent: NlqSupportedIntent["intent"]
+): boolean {
+  const q = question.toLowerCase()
+
+  if (intent === "count_pending_tier3") {
+    const pendingCue =
+      /\bpending\b/.test(q) ||
+      /\bawaiting\b/.test(q) ||
+      /\bwaiting\b/.test(q)
+    const approvalCue =
+      /\bapproval\b/.test(q) ||
+      /\bapprovals\b/.test(q) ||
+      /\bapprove\b/.test(q) ||
+      /\btier\s*3\b/.test(q) ||
+      /\btier3\b/.test(q)
+    return pendingCue && approvalCue
+  }
+
+  // count_actions_window
+  const actionCue =
+    /\bactions?\b/.test(q) ||
+    /\bagents?\b/.test(q) ||
+    /\ba[1-4]\b/.test(q)
+  const countCue =
+    /\bhow many\b/.test(q) ||
+    /\bcount\b/.test(q) ||
+    /\bnumber of\b/.test(q) ||
+    /\brecorded\b/.test(q) ||
+    /\bin the last\b/.test(q) ||
+    /\bpast\s+\d+\b/.test(q) ||
+    /\blast\s+\d+\s*days?\b/.test(q) ||
+    /\bthis week\b/.test(q)
+  return actionCue && countCue
+}
+
+/**
+ * Parse model JSON, then downgrade supported intents that lack question evidence.
+ */
+export function resolveNlqIntentFromModel(
+  question: string,
+  rawModelText: string
+): NlqParseResult {
+  const parsed = parseNlqIntent(rawModelText)
+  if (parsed.status !== "ok") return parsed
+
+  if (!questionSupportsIntent(question, parsed.value.intent)) {
+    return {
+      status: "unsupported",
+      reason:
+        "Question does not match a supported A4 v1 count request (model intent rejected)",
+    }
+  }
+  return parsed
 }
 
 /** Capability required to run a supported tool (beyond agents:query_nlq). */

@@ -1,7 +1,7 @@
 # M4 Technical Walkthrough (study / viva)
 
 > Companion to [`M4_AGENT_HANDOVER.md`](./M4_AGENT_HANDOVER.md).  
-> **Code and Git beat this document.** Last aligned: 2026-10-16 (A4 ZZ E2E verified).
+> **Code and Git beat this document.** Last aligned: 2026-10-16 (A4 UI live-verified; prompt `a4-intent-v2`).
 
 This note explains how Component 4 (M4) runs Graduated Trust and agents A1–A4 in the IMFS / MicroFlow repo, with enough detail for a viva without pasting whole modules.
 
@@ -61,7 +61,25 @@ List/detail APIs expose agent/tier/status; full payloads only on `GET …/agent-
 
 Answer **1–2 grounded M4 questions** with a real LLM for **understanding**, while **Node** owns auth, RBAC, tools, and GT. The model must **never invent counts**.
 
-### 3.2 HTTP entry
+### 3.2 Frontend → backend flow
+
+UI entry is the shared Ask Agent 4 surface — not a separate chatbot:
+
+| Piece | Role |
+|-------|------|
+| [`AgentPanel.jsx`](../frontend/src/components/c4/AgentPanel.jsx) | Sidebar “Ask Agent 4” + FAB; session gate via `verifySessionOnce`; submit lock; GT meta only on success |
+| [`api.js`](../frontend/src/lib/api.js) `queryNlq(question)` | `POST /api/tenant/agent-actions/nlq/query` with JWT |
+| Store nlq history **v2** | Local UI thread only (`source: live_a4`); archives pre-live mock as `legacyMock` |
+| Exec dashboard | CTA opens the same panel — no fabricated PAR/EPF answers |
+
+**Per turn:** user text → `queryNlq` → JSON `{ supported, answer?, dispatch?, … }`.  
+- `supported: false` → polite scope message (*outside my current scope…*); **no** Agent Log row.  
+- `supported: true` + `dispatched` → show grounded `answer` + optional tier / `actionId` / status.  
+- HTTP **503** → “Currently unavailable” (Ollama down).
+
+Browser never talks to Ollama. History in localStorage is **display only** — each request is a fresh question string with **no** prior turns sent to the model (**conversational memory deferred to A4 v2**).
+
+### 3.3 HTTP entry
 
 `POST /api/tenant/agent-actions/nlq/query`  
 JWT + `resolveTenantContext` + `agents:query_nlq`  
@@ -69,44 +87,46 @@ Body: `{ "question": string }` (3–500 chars).
 
 Implementation: `handleNlqQuery` in [`agent-governance.ts`](../backend/src/routes/agent-governance.ts).
 
-### 3.3 Execution flow
+### 3.4 Execution flow
 
 ```mermaid
 sequenceDiagram
-  participant Client
+  participant UI as AgentPanel
   participant Route as handleNlqQuery
   participant Ollama
+  participant Gate as resolveNlqIntentFromModel
   participant Tool as runNlqTool
   participant GT as dispatchAgentAction
   participant DB as TenantDB
 
-  Client->>Route: POST /nlq/query JWT
+  UI->>Route: POST /nlq/query JWT
   Route->>Route: validate question; query_nlq gate
-  Route->>Ollama: intent JSON only
+  Route->>Ollama: intent JSON only (temp 0)
   alt unavailable
-    Route-->>Client: 503 no dispatch
-  else unsupported or days out of range
-    Route-->>Client: 200 supported false
+    Route-->>UI: 503 no dispatch
+  else parse / evidence / days reject
+    Route-->>UI: 200 supported false
   else tool RBAC deny
-    Route-->>Client: 403 no dispatch
+    Route-->>UI: 403 no dispatch
   else ok
+    Route->>Gate: question + model JSON (evidence check)
     Route->>Tool: Prisma count on agent_actions
     Tool->>DB: aggregate only
     Route->>GT: nlq_query + grounded inputPayload
     GT->>DB: running then executed + audits
-    Route-->>Client: answer + actionId
+    Route-->>UI: answer + actionId + promptVersion
   end
 ```
 
 **Why tools run before GT dispatch:** `ActionHandlerContext` has no `tenantPrisma`. Same pattern as A2 (evaluate, then dispatch). GT audits the **answer action**, not each read. Failures (Ollama, unsupported, 403) **do not** create rows.
 
-### 3.4 Ollama role
+### 3.5 Ollama role + prompt v2 evidence gate
 
-[`ollama-client.ts`](../backend/src/lib/ollama-client.ts): `POST {OLLAMA_BASE_URL}/api/chat` with `format: "json"`.
+[`ollama-client.ts`](../backend/src/lib/ollama-client.ts): `POST {OLLAMA_BASE_URL}/api/chat` with `format: "json"`, `options.temperature: 0`.
 
 - Env: `OLLAMA_BASE_URL` (required), `OLLAMA_MODEL` (default `qwen2.5:1.5b`), `OLLAMA_TIMEOUT_MS` (default **30000** — cold load exceeded 15s in lab).  
 - Fail-closed → `OllamaUnavailableError` → HTTP **503**.  
-- System prompt asks for intent JSON only; **no numeric answers**.
+- System prompt (`A4_NLQ_PROMPT_VERSION = "a4-intent-v2"`) asks for intent JSON only; **default to `unsupported`**; few-shots include greetings → unsupported; **no numeric answers**.
 
 Intent schema ([`agent-a4-nlq.ts`](../backend/src/lib/agent-a4-nlq.ts)):
 
@@ -114,9 +134,24 @@ Intent schema ([`agent-a4-nlq.ts`](../backend/src/lib/agent-a4-nlq.ts)):
 - `count_actions_window` (+ optional `days` 1–30, `agentId` A1–A4)  
 - `unsupported`  
 
+**Post-parse evidence gate** (`resolveNlqIntentFromModel` → `questionSupportsIntent`): if the model returns a *supported* intent but the user text lacks the expected cues (pending/awaiting + approval/tier‑3, or action/agent + how‑many/count/window cues), Node **downgrades to unsupported** and does **not** dispatch. This is fail-closed validation after the LLM — **not** a greeting blacklist and **not** replacing the model with hardcoded intent matching.
+
 Out-of-range `days` (e.g. 90) → **unsupported response**, **no clamp**.
 
-### 3.5 Tool-level RBAC
+### 3.6 Tier 1 execution vs model intent correctness
+
+These are **different claims** — do not conflate them in a viva:
+
+| Claim | Meaning |
+|-------|---------|
+| Tier 1 `executed` | GT policy for `nlq_query` auto-ran the registered handler; audits show `running` → `executed`. Counts in the answer came from Node Prisma + templates. |
+| Intent correctness | Ollama (plus the evidence gate) classified the *question* appropriately before tools ran. |
+
+A wrong classification that still passes validation would produce a grounded answer to the **wrong** question type — still Tier 1 `executed`, still no invented numbers. Conversely, a greeting that the 1.5B model labels `count_pending_tier3` is rejected by the evidence gate → `supported: false`, **no** action (live UI verified). The gate **reduces false positives**; it may also **reject unusual but valid phrasings** that lack the expected lexical cues.
+
+Payload / Agent Activity Log fields: `modelVersion: a4-nlq-ollama-v1`, `promptVersion: a4-intent-v2`.
+
+### 3.7 Tool-level RBAC
 
 Endpoint gate ≠ tool gate:
 
@@ -127,11 +162,13 @@ Endpoint gate ≠ tool gate:
 
 Finance / HR / loan officers have `query_nlq` but **not** `decide_tier3` → **403** on pending-count questions (confirmed in E2E with Apex finance officer).
 
-### 3.6 Handler
+### 3.8 Handler
 
 `nlqQueryHandler` echoes grounded `answer` / `facts` from `inputPayload`. Missing facts → handler error → status `failed`. Success output includes `handler: "nlqQueryHandler"`, `stubExecuted: false`.
 
-### 3.7 Live E2E evidence (ZZ)
+### 3.9 Live evidence
+
+**Backend ZZ E2E (window count):**
 
 | Check | Result |
 |-------|--------|
@@ -143,15 +180,17 @@ Finance / HR / loan officers have `query_nlq` but **not** `decide_tier3` → **4
 | Audits | one `agent_action.running`, one `agent_action.executed` |
 | Negative paths | unsupported + days out of range → no new action |
 
-**Git status at doc time:** A4 source is in the **working tree**, not yet on `origin/main` — treat as “E2E proven, pending commit/PR”.
+**Frontend UI (Agent1 screenshot review):** real AgentPanel → backend; grounded answers + Tier 1 Agent Log; live log shows `a4-intent-v2`; greetings rejected with no action; unsupported uses the employee-friendly scope message; sidebar/FAB preserved; follow-ups / memory **explicitly out of v1**.
 
-### 3.8 Why not LangChain (yet)
+**Git at doc time:** backend A4 base on branch `m4/phase10-ai-agents` (`dba226c`); UI + intent-v2 + docs may still be uncommitted — confirm with `git status`. **Not** on `origin/main` until merge.
 
-Leader task list mentioned LangChain for A1–A4. **Current design defers it:** GT already orchestrates tiers; A4 needs a **fixed** intent schema and Node-owned tools; a thin Ollama client is enough for v1. Revisit if multi-step tool chains or retrieval become requirements.
+### 3.10 Why not LangChain / chat memory (yet)
 
-### 3.9 Small Qwen limitations
+Leader task list mentioned LangChain for A1–A4. **Current design defers it:** GT already orchestrates tiers; A4 needs a **fixed** intent schema and Node-owned tools; a thin Ollama client is enough for v1. **Conversational memory and follow-up resolution** (e.g. “and for A2?”) are **A4 v2** — v1 sends only the current question string. Revisit LangChain if multi-step tool chains or retrieval become requirements.
 
-`qwen2.5:1.5b` is fast on homelab but can mis-intent or return non-JSON (→ 422). Cold start can be slow (timeout raised to 30s). **Safety net:** schema validation + grounded tools + no model numbers in answers.
+### 3.11 Small Qwen limitations
+
+`qwen2.5:1.5b` is fast on homelab but can mis-intent or return non-JSON (→ 422). Cold start can be slow (timeout raised to 30s). Prompt-only correction was **insufficient** for greeting over-fire; evidence gate + `temperature: 0` are the reliable v1 net. Remaining limits: odd valid phrasings may be rejected; no multi-turn context; aggregates only. **Safety net:** schema validation + evidence gate + grounded tools + no model numbers in answers.
 
 ---
 
@@ -195,7 +234,8 @@ Policy `generate_cbsl_report` → A1 Tier **3** exists in defaults/seed. **No re
 | GT engine / Agent Log | yes | yes | yes | yes | real c4 screens |
 | A3 IF + dispatch | yes | yes | yes | yes | Agent Log |
 | A2 budget evaluate | yes | yes | yes | yes | Agent Log |
-| A4 NLQ | yes | yes (`verify:a4-nlq`) | yes (ZZ) | **not yet** | exec NLQ still **mock** |
+| A4 NLQ (+ intent-v2 gate) | yes | yes (`verify:a4-nlq`) | yes (ZZ + UI) | **not yet** | **live AgentPanel** |
+| A4 conversational memory | no | — | — | — | deferred **A4 v2** |
 | A1 CBSL | policy only | n/a | no | policy defaults | n/a |
 | LangChain | no | — | — | — | deferred |
 
@@ -217,8 +257,17 @@ A: Only the active `agent_tier_policies` row for that `actionType`. Clients cann
 **Q: Why can A4 call Ollama but still not invent a “4”?**  
 A: Ollama returns intent JSON. Node runs `agentAction.count` and fills a template. Model `count` fields are ignored by the parser.
 
+**Q: Does Tier 1 `executed` prove the model understood the question?**  
+A: No. It proves GT auto-ran the grounded `nlq_query` handler after Node accepted an intent and computed facts. Intent quality is a separate concern (prompt v2 + evidence gate).
+
+**Q: What is the A4 evidence gate?**  
+A: After Ollama returns a supported intent, `questionSupportsIntent` checks the user text for pending/approval or action/count cues. Missing evidence → `unsupported`, no dispatch. Cuts 1.5B false positives (e.g. “Hello”); may reject odd valid phrasings.
+
+**Q: Does Ask Agent 4 remember prior turns?**  
+A: Not in v1. The panel may show a local chat thread, but each API call sends only the current question. Multi-turn / follow-ups are A4 v2.
+
 **Q: Where is `nlq_query` stored on the action row?**  
-A: Not as a column. See `inputPayload.actionType` and `policyId` → policy.actionType.
+A: Not as a column. See `inputPayload.actionType` and `policyId` → policy.actionType. Also look for `promptVersion: a4-intent-v2` in the payload / activity log.
 
 **Q: Why did Apex finance get 403 on “pending approvals” but can ask Agent Log counts?**  
 A: Pending tool needs `agents:decide_tier3`; window count needs `agents:view_actions`. `agents:query_nlq` alone opens the endpoint, not every tool.

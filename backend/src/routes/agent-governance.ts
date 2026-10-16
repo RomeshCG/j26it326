@@ -41,7 +41,7 @@ import {
   buildNlqInputPayload,
   buildNlqIntentSystemPrompt,
   buildNlqToolsUsed,
-  parseNlqIntent,
+  resolveNlqIntentFromModel,
   roleMayRunNlqIntent,
   runNlqTool,
   validateNlqQuestion,
@@ -679,7 +679,7 @@ export async function handleNlqQuery(
       throw err
     }
 
-    const parsed = parseNlqIntent(rawContent)
+    const parsed = resolveNlqIntentFromModel(validated.question, rawContent)
     if (parsed.status === "invalid") {
       res.status(422).json({ error: parsed.reason })
       return
