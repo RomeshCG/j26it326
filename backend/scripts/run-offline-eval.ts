@@ -22,24 +22,28 @@ const outDir = path.join(backendRoot, "eval-results")
 type SuiteId =
   | "a1-compliance"
   | "a2-budget"
+  | "a2-fixtures"
+  | "a2-fixture-guards"
   | "a4-nlq"
   | "zz-seed-safety"
   | "safe-api-errors"
   | "graduated-trust"
+
+type SuiteKind = "functional_regression" | "rule_fixture_agreement"
 
 interface SuiteSpec {
   id: SuiteId
   label: string
   /** Existing package.json script (preferred over ad-hoc tsx paths). */
   npmScript: string
-  /** Functional regression — not research accuracy / ML metrics. */
-  kind: "functional_regression"
+  /** Functional regression or labelled rule-fixture agreement — not ML accuracy. */
+  kind: SuiteKind
 }
 
 interface SuiteResult {
   id: SuiteId
   label: string
-  kind: "functional_regression"
+  kind: SuiteKind
   passed: boolean
   exitCode: number | null
   durationMs: number
@@ -66,10 +70,10 @@ interface EvalReport {
 }
 
 const DISCLAIMER =
-  "These results are FUNCTIONAL REGRESSION checks (assert pass/fail on existing " +
-  "offline verify scripts). They are NOT AI research accuracy metrics (no intent " +
-  "confusion matrices, no A3 P/R/F1, no live ZZ governance rates). Do not cite " +
-  "suite pass rates as model accuracy."
+  "These results are FUNCTIONAL REGRESSION and/or deterministic RULE-FIXTURE " +
+  "AGREEMENT checks. They are NOT AI/ML accuracy metrics (no intent confusion " +
+  "matrices, no A3 P/R/F1, no live ZZ governance rates, no real M2 alert " +
+  "effectiveness). Do not cite suite pass rates as model accuracy."
 
 const SUITES: SuiteSpec[] = [
   {
@@ -82,6 +86,18 @@ const SUITES: SuiteSpec[] = [
     id: "a2-budget",
     label: "A2 budget threshold (offline)",
     npmScript: "verify:a2-budget",
+    kind: "functional_regression",
+  },
+  {
+    id: "a2-fixtures",
+    label: "A2 labelled threshold/validation fixtures (rule agreement)",
+    npmScript: "verify:a2-fixtures",
+    kind: "rule_fixture_agreement",
+  },
+  {
+    id: "a2-fixture-guards",
+    label: "A2 fixture fail-closed guards (overrides/category)",
+    npmScript: "verify:a2-fixture-guards",
     kind: "functional_regression",
   },
   {
@@ -290,6 +306,8 @@ function main(): void {
     },
     excluded: [
       "A3 Isolation Forest train/eval metrics (Python; reproduce separately)",
+      "A1 / GT labelled fixture packs (later slices)",
+      "A2 dedupe fixtures (later extension)",
       "Live ZZ E2E governance scenarios",
       "Live Ollama A4 intent accuracy / confusion matrix",
       "DB-backed verifies (auth-rbac, tenant provisioning, stub-api, etc.)",

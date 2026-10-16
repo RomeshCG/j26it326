@@ -30,6 +30,7 @@ Exit code is **nonzero** if any required suite fails.
 |-------|------------|
 | A1 compliance | `verify:a1-compliance` |
 | A2 budget | `verify:a2-budget` |
+| A2 fixtures (rule agreement) | `verify:a2-fixtures` |
 | A4 NLQ (offline) | `verify:a4-nlq` |
 | ZZ seed safety | `verify:zz-seed-safety` |
 | Safe API errors | `verify:safe-api-errors` |
@@ -47,6 +48,10 @@ JSON does **not** embed raw suite console logs (avoids accidental secret capture
 ## Excluded (later milestones)
 
 - A3 Isolation Forest train/eval metrics
+- A1 / GT labelled fixture packs (later slices)
+- A2 dedupe fixtures (later extension)
 - Live ZZ E2E
 - Live Ollama A4 gold-set evaluation
 - DB-backed verifies (auth-rbac, provisioning, stub-api, …)
+
+A2 fixture oracle: `backend/eval-fixtures/a2/SPEC.md`.
