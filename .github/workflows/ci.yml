@@ -1,0 +1,85 @@
+# IMFS CI - offline build / typecheck / safe verifies only.
+# No databases, secrets, Ollama, seeds, or live agent dispatches.
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (tsc + offline verifies)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Offline agent & security verifies
+        run: |
+          npm run verify:a1-compliance
+          npm run verify:a2-budget
+          npm run verify:a4-nlq
+          npm run verify:zz-seed-safety
+          npm run verify:safe-api-errors
+
+  frontend:
+    name: Frontend (build + targeted lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      # Full-repo eslint currently fails on pre-existing c2/c3/app debt - do not block CI.
+      # Lint only M4 files already known clean on fix/onboarding-route-hooks.
+      - name: Targeted ESLint (known-clean M4 paths)
+        run: |
+          npx eslint \
+            src/App.jsx \
+            src/components/c4/Placeholders.jsx \
+            src/components/c4/payroll/index.jsx \
+            src/components/c4/settings/index.jsx \
+            src/components/c4/onboarding-wizard/Step2Branches.jsx \
+            src/components/c4/onboarding-wizard/Step5Review.jsx

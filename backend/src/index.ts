@@ -4,6 +4,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 import cors from "cors"
 import express from "express"
+import helmet from "helmet"
 import swaggerUi from "swagger-ui-express"
 import { centralPrisma } from "./lib/prisma-central.js"
 import { defaultTenantPrisma, disconnectAllTenantClients } from "./lib/prisma-tenant.js"
@@ -12,7 +13,7 @@ import {
   resolveTenantByInstitutionId,
 } from "./lib/tenant-context.js"
 import { m3Router } from "./routes/m3/index.js"
-import { getJwtSecret } from "./lib/auth.js"
+import { getJwtSecret, logSafeError } from "./lib/auth.js"
 import { authRouter } from "./routes/auth.js"
 import { publicDomainRouter, tenantDomainRouter } from "./routes/domains.js"
 import { registrationRouter } from "./routes/registration.js"
@@ -45,6 +46,17 @@ if (process.env.NODE_ENV === "production" && process.env.ENABLE_RATE_LIMITING ==
   console.warn("[security-audit] WARNING: ENABLE_RATE_LIMITING=false is ignored in production. Rate limiting is active.")
 }
 
+// OpenAPI / Swagger: available in development by default; in production only if ENABLE_SWAGGER_DOCS === "true"
+const isDev = process.env.NODE_ENV !== "production"
+const enableSwagger = isDev || process.env.ENABLE_SWAGGER_DOCS === "true"
+
+// Security headers (Helmet). CSP disabled while Swagger UI is mounted — it needs inline script/style.
+app.use(
+  helmet({
+    contentSecurityPolicy: enableSwagger ? false : undefined,
+  })
+)
+
 app.use(cors())
 app.use(express.json())
 
@@ -53,11 +65,6 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 // backend/src -> docs/openapi.json is at ../../docs/openapi.json
 const openApiPath = path.resolve(__dirname, "../../docs/openapi.json")
-
-// OpenAPI and Swagger UI configuration
-// Available in development by default; in production only if ENABLE_SWAGGER_DOCS === "true"
-const isDev = process.env.NODE_ENV !== "production"
-const enableSwagger = isDev || process.env.ENABLE_SWAGGER_DOCS === "true"
 
 let openApiSpec: any = null
 function getOpenApiSpec() {
@@ -117,8 +124,8 @@ app.get("/health/db", async (_req, res) => {
       tenantDefault: "connected",
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Database check failed"
-    res.status(503).json({ ok: false, error: message })
+    logSafeError("[health/db] Database check failed", error)
+    res.status(503).json({ ok: false, error: "Database check failed" })
   }
 })
 
@@ -160,8 +167,8 @@ app.get("/api/institutions", authenticate, resolveTenantContext, requireRole("ad
     })
     res.json({ data: institutions })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to list institutions"
-    res.status(500).json({ error: message })
+    logSafeError("[api/institutions] Failed to list institutions", error)
+    res.status(500).json({ error: "Failed to list institutions" })
   }
 })
 
@@ -194,8 +201,8 @@ app.get("/api/tenants/:dbIdentifier/info", authenticate, resolveTenantContext, r
       counts: { branches: branchCount, borrowers: borrowerCount },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load tenant info"
-    res.status(500).json({ error: message })
+    logSafeError("[api/tenants/:dbIdentifier/info] Failed to load tenant info", error)
+    res.status(500).json({ error: "Failed to load tenant info" })
   }
 })
 
@@ -224,8 +231,8 @@ app.get("/api/institutions/:institutionId/tenant-health", authenticate, resolveT
       dbIdentifier: resolved.dbIdentifier,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Tenant DB unreachable"
-    res.status(503).json({ ok: false, error: message })
+    logSafeError("[api/institutions/:id/tenant-health] Tenant DB unreachable", error)
+    res.status(503).json({ ok: false, error: "Tenant DB unreachable" })
   }
 })
 

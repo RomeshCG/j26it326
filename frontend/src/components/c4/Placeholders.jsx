@@ -1,5 +1,3 @@
-import React from "react"
-
 export function Dashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center flex-col">

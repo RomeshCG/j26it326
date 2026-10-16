@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Check, ArrowRight, ArrowLeft, Building2, Landmark, Coins, Users, Play, CheckCircle2, ShieldCheck, FileSpreadsheet, Calendar, AlertCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
@@ -97,7 +97,7 @@ export default function OnboardingWizard() {
           if (!parsed.customProduct) parsed.customProduct = { name: "", sizeRange: "", repaymentCycle: "" }
           if (!parsed.users || !Array.isArray(parsed.users)) parsed.users = []
           setFormData(parsed)
-        } catch (e) {
+        } catch {
           console.error("Failed to parse onboarding data from localStorage")
         }
 
@@ -175,7 +175,9 @@ export default function OnboardingWizard() {
   // Save state helper
   const saveState = (updatedData, updatedStep) => {
     // SECURITY: Strictly exclude any password fields from localStorage persistence
-    const { adminPassword: _ap, password: _p, ...persistedData } = updatedData
+    const persistedData = { ...updatedData }
+    delete persistedData.adminPassword
+    delete persistedData.password
     localStorage.setItem("microflow-onboarding-data", JSON.stringify(persistedData))
     localStorage.setItem("microflow-onboarding-step", updatedStep.toString())
     if (!isReRun) {
@@ -228,7 +230,7 @@ export default function OnboardingWizard() {
 
   // Loan Products Helpers
   const toggleProductSelection = (productId) => {
-    let updatedSelected = []
+    let updatedSelected
     if (formData.selectedProducts.includes(productId)) {
       updatedSelected = formData.selectedProducts.filter(id => id !== productId)
     } else {

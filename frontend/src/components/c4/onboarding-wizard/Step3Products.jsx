@@ -1,4 +1,3 @@
-import React from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CheckSquare, Square, Coins } from "lucide-react"

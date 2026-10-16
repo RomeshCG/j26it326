@@ -166,6 +166,8 @@ function OnboardingRoute() {
   const isMockAuth = import.meta.env.VITE_USE_MOCK_AUTH === "true"
   const token = localStorage.getItem("mf_auth_token")
   const cached = getCachedSession()
+  // Hook must run unconditionally (before any early return)
+  const onboardingComplete = useStore((state) => state.onboardingComplete)
 
   // Real auth mode: if an active session exists, redirect to dashboard so logged-in admins cannot register another institution
   if (!isMockAuth && (token || cached)) {
@@ -173,7 +175,6 @@ function OnboardingRoute() {
   }
 
   // In mock auth mode: allow mock admin to view/re-run onboarding in layout if complete
-  const onboardingComplete = useStore((state) => state.onboardingComplete)
   if (isMockAuth && onboardingComplete && cached) {
     return (
       <DashboardLayout>
