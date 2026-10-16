@@ -38,6 +38,8 @@ Exit code is **nonzero** if any required suite fails.
 | ZZ seed safety | `verify:zz-seed-safety` |
 | Safe API errors | `verify:safe-api-errors` |
 | Graduated Trust | `verify:graduated-trust` |
+| GT fixtures (rule agreement) | `verify:gt-fixtures` |
+| GT fixture guards | `verify:gt-fixture-guards` |
 
 ## Outputs
 
@@ -51,12 +53,11 @@ JSON does **not** embed raw suite console logs (avoids accidental secret capture
 ## Excluded (later milestones)
 
 - A3 Isolation Forest train/eval metrics
-- A1 SoD/hash-gate fixtures (later)
-- GT labelled fixture pack (later)
 - A2 dedupe fixtures (later extension)
 - Live ZZ E2E
 - Live Ollama A4 gold-set evaluation
 - DB-backed verifies (auth-rbac, provisioning, stub-api, …)
 
 A1 fixture oracle: `backend/eval-fixtures/a1/SPEC.md`.  
-A2 fixture oracle: `backend/eval-fixtures/a2/SPEC.md`.
+A2 fixture oracle: `backend/eval-fixtures/a2/SPEC.md`.  
+GT fixture oracle: `backend/eval-fixtures/gt/SPEC.md` (includes A1 SoD/hash approve-gate scenarios as pure governance checks).

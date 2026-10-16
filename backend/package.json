@@ -30,6 +30,8 @@
     "verify:zz-seed-safety": "tsx scripts/verify-zz-seed-safety.ts",
     "verify:safe-api-errors": "tsx scripts/verify-safe-api-errors.ts",
     "verify:graduated-trust": "tsx scripts/verify-graduated-trust.ts",
+    "verify:gt-fixtures": "tsx scripts/verify-gt-fixtures.ts",
+    "verify:gt-fixture-guards": "tsx scripts/verify-gt-fixture-guards.ts",
     "verify:offline-eval-runner": "tsx scripts/verify-offline-eval-runner.ts",
     "eval:offline": "tsx scripts/run-offline-eval.ts"
   },

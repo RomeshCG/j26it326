@@ -30,6 +30,8 @@ type SuiteId =
   | "zz-seed-safety"
   | "safe-api-errors"
   | "graduated-trust"
+  | "gt-fixtures"
+  | "gt-fixture-guards"
 
 type SuiteKind = "functional_regression" | "rule_fixture_agreement"
 
@@ -136,6 +138,18 @@ const SUITES: SuiteSpec[] = [
     id: "graduated-trust",
     label: "Graduated Trust engine (offline fake Prisma)",
     npmScript: "verify:graduated-trust",
+    kind: "functional_regression",
+  },
+  {
+    id: "gt-fixtures",
+    label: "GT labelled governance fixtures (rule agreement)",
+    npmScript: "verify:gt-fixtures",
+    kind: "rule_fixture_agreement",
+  },
+  {
+    id: "gt-fixture-guards",
+    label: "GT fixture fail-closed guards (category/scenario)",
+    npmScript: "verify:gt-fixture-guards",
     kind: "functional_regression",
   },
 ]
@@ -320,8 +334,6 @@ function main(): void {
     },
     excluded: [
       "A3 Isolation Forest train/eval metrics (Python; reproduce separately)",
-      "A1 SoD/hash-gate labelled fixtures (later slice)",
-      "GT labelled fixture pack (later slice)",
       "A2 dedupe fixtures (later extension)",
       "Live ZZ E2E governance scenarios",
       "Live Ollama A4 intent accuracy / confusion matrix",
