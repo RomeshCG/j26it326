@@ -105,6 +105,8 @@ const WORKSPACE_NAV = [
     url: "/onboarding",
     icon: <WrenchIcon />,
     roles: ["Institution Admin"],
+    // Real auth: /onboarding is public registration only (logged-in users are redirected).
+    mockAuthOnly: true,
   },
   {
     title: "A/B Experiment",
@@ -170,6 +172,7 @@ export function AppSidebar({ ...props }) {
   const isLoanOfficerArea = location.pathname.startsWith("/loan-officer")
   const role = currentUser?.role || "Institution Admin"
   const canFetchPending = TIER3_DECIDER_ROLES.includes(role)
+  const isMockAuth = import.meta.env.VITE_USE_MOCK_AUTH === "true"
 
   React.useEffect(() => {
     if (!canFetchPending) {
@@ -219,9 +222,10 @@ export function AppSidebar({ ...props }) {
     ? LOAN_OFFICER_NAV
     : WORKSPACE_NAV.filter(
         (item) =>
-          !item.roles ||
-          item.roles.includes("all") ||
-          item.roles.includes(role)
+          (!item.mockAuthOnly || isMockAuth) &&
+          (!item.roles ||
+            item.roles.includes("all") ||
+            item.roles.includes(role))
       ).map((item) =>
         item.title === "Tier Approvals"
           ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
