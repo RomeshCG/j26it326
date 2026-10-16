@@ -8,6 +8,12 @@ import {
   A2_BUDGET_ACTION_TYPE,
   A2_BUDGET_MODEL_VERSION,
 } from "./agent-a2-budget.js"
+import {
+  A4_NLQ_ACTION_TYPE,
+  A4_NLQ_MODEL_VERSION,
+  A4_NLQ_PROMPT_VERSION,
+  extractNlqHandlerGrounding,
+} from "./agent-a4-nlq.js"
 
 export interface ActionHandlerContext {
   actionId: string
@@ -88,6 +94,33 @@ export const budgetThresholdAlertHandler: ActionHandler = (ctx) => {
   }
 }
 
+/**
+ * A4 NLQ handler — records grounded answer from inputPayload only.
+ * Does not call Ollama or Prisma; refuses to invent counts.
+ */
+export const nlqQueryHandler: ActionHandler = (ctx) => {
+  const grounded = extractNlqHandlerGrounding(ctx.inputPayload)
+  if (!grounded.ok) {
+    return { error: grounded.error }
+  }
+
+  return {
+    outputPayload: {
+      stubExecuted: false,
+      handler: "nlqQueryHandler",
+      modelVersion: A4_NLQ_MODEL_VERSION,
+      promptVersion: A4_NLQ_PROMPT_VERSION,
+      intent: grounded.intent,
+      question: grounded.question,
+      answer: grounded.answer,
+      facts: grounded.facts,
+      ollamaModel: grounded.ollamaModel,
+      actionId: ctx.actionId,
+      recordedAt: new Date().toISOString(),
+    },
+  }
+}
+
 const handlerRegistry: Map<string, ActionHandler> = new Map()
 
 /**
@@ -119,6 +152,7 @@ export function clearActionHandlers(): void {
  */
 export function registerDefaultAgentHandlers(): void {
   registerActionHandler(A2_BUDGET_ACTION_TYPE, budgetThresholdAlertHandler)
+  registerActionHandler(A4_NLQ_ACTION_TYPE, nlqQueryHandler)
 }
 
 /**
