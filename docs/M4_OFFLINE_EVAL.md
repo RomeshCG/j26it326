@@ -52,12 +52,12 @@ Written under `backend/eval-results/` (gitignored except `.keep`):
 
 JSON does **not** embed raw suite console logs (avoids accidental secret capture).
 
-## Excluded (later milestones)
+## Excluded from `eval:offline` (separate tracks)
 
-- A3 Isolation Forest train/eval metrics
+- A3 Isolation Forest train/eval metrics (sanitized summary tracked separately)
 - A2 dedupe fixtures (later extension)
 - Live ZZ E2E
-- Live Ollama A4 gold-set intent accuracy (corpus exists; live runner later)
+- Live Ollama A4 gold-set intent accuracy (not part of offline suites; see research summary below)
 - DB-backed verifies (auth-rbac, provisioning, stub-api, …)
 
 A1 fixture oracle: `backend/eval-fixtures/a1/SPEC.md`.  
@@ -65,3 +65,12 @@ A2 fixture oracle: `backend/eval-fixtures/a2/SPEC.md`.
 GT fixture oracle: `backend/eval-fixtures/gt/SPEC.md` (includes A1 SoD/hash approve-gate scenarios as pure governance checks).  
 A4 intent gold / capability oracle: `backend/eval-fixtures/a4/SPEC.md` (corpus validation ≠ model accuracy).  
 A4 gate diagnostic JSON (gitignored): `backend/eval-results/a4-gate-diagnostic-latest.json` — lexical eligibility only, not Ollama accuracy.
+
+## A4 live Ollama baseline (research summary)
+
+Sanitized headline metrics from the authorized single live baseline (no question text, no endpoints):  
+[`docs/M4_A4_INTENT_OLLAMA_BASELINE_SUMMARY.json`](./M4_A4_INTENT_OLLAMA_BASELINE_SUMMARY.json)
+
+Full per-question artifact remains gitignored:  
+`backend/eval-results/a4-intent-ollama-2026-10-16T16-42-27-284Z.json`  
+Runner: `npm run eval:a4-intent-ollama` (homelab Ollama; not invoked by `eval:offline`).

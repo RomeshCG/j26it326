@@ -29,6 +29,7 @@
     "verify:a4-nlq": "tsx scripts/verify-a4-nlq.ts",
     "verify:a4-intent-corpus": "tsx scripts/verify-a4-intent-corpus.ts",
     "verify:a4-gate-diagnostic": "tsx scripts/verify-a4-gate-diagnostic.ts",
+    "eval:a4-intent-ollama": "tsx scripts/eval-a4-intent-ollama.ts",
     "verify:zz-seed-safety": "tsx scripts/verify-zz-seed-safety.ts",
     "verify:safe-api-errors": "tsx scripts/verify-safe-api-errors.ts",
     "verify:graduated-trust": "tsx scripts/verify-graduated-trust.ts",
