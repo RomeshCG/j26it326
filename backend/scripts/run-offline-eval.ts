@@ -21,6 +21,8 @@ const outDir = path.join(backendRoot, "eval-results")
 
 type SuiteId =
   | "a1-compliance"
+  | "a1-fixtures"
+  | "a1-fixture-guards"
   | "a2-budget"
   | "a2-fixtures"
   | "a2-fixture-guards"
@@ -80,6 +82,18 @@ const SUITES: SuiteSpec[] = [
     id: "a1-compliance",
     label: "A1 compliance readiness (offline)",
     npmScript: "verify:a1-compliance",
+    kind: "functional_regression",
+  },
+  {
+    id: "a1-fixtures",
+    label: "A1 labelled readiness fixtures (rule agreement)",
+    npmScript: "verify:a1-fixtures",
+    kind: "rule_fixture_agreement",
+  },
+  {
+    id: "a1-fixture-guards",
+    label: "A1 fixture fail-closed guards (category/S0)",
+    npmScript: "verify:a1-fixture-guards",
     kind: "functional_regression",
   },
   {
@@ -306,7 +320,8 @@ function main(): void {
     },
     excluded: [
       "A3 Isolation Forest train/eval metrics (Python; reproduce separately)",
-      "A1 / GT labelled fixture packs (later slices)",
+      "A1 SoD/hash-gate labelled fixtures (later slice)",
+      "GT labelled fixture pack (later slice)",
       "A2 dedupe fixtures (later extension)",
       "Live ZZ E2E governance scenarios",
       "Live Ollama A4 intent accuracy / confusion matrix",

@@ -21,6 +21,8 @@
     "db:seed:tenant": "tsx prisma/tenant/seed.ts",
     "seed:zz-test-users": "tsx scripts/seed-zz-test-users.ts",
     "verify:a1-compliance": "tsx scripts/verify-a1-compliance.ts",
+    "verify:a1-fixtures": "tsx scripts/verify-a1-fixtures.ts",
+    "verify:a1-fixture-guards": "tsx scripts/verify-a1-fixture-guards.ts",
     "verify:a2-budget": "tsx scripts/verify-a2-budget-threshold.ts",
     "verify:a2-fixtures": "tsx scripts/verify-a2-fixtures.ts",
     "verify:a2-fixture-guards": "tsx scripts/verify-a2-fixture-guards.ts",
