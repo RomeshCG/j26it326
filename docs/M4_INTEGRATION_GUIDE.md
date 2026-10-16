@@ -185,7 +185,14 @@ const response = await fetch("http://localhost:4000/api/tenant/info", {
 
 ### Mock Auth for Early Frontend Work
 If you want to test frontend screens before connecting the real login screen:
-- Run `backend/scripts/seed-test-users.ts` (with user approval) to generate test accounts.
+- **Apex demo:** Run `backend/scripts/seed-test-users.ts` (with user approval) for `*@apex.lk` accounts.
+- **ZZ Test Org 1 (preferred for M4 E2E / A1 SoD):**  
+  `ALLOW_ZZ_TEST_USER_SEED=1` and `npm run seed:zz-test-users` from `backend/`.  
+  Creates `executive` / `branch_manager` / `finance_officer` / `hr_officer` / `loan_officer` on institution `33b6545d-…` only.  
+  Does **not** modify `admin@zz-test-org1.lk`. Requires `NODE_ENV !== production`.  
+  Credentials → local gitignored `backend/.zz-test-credentials.local` (never commit; script does not print passwords).  
+  Idempotent skip if accounts already valid; mismatches abort without writes.  
+  Disable later: set that user’s `status` to `disabled` in central.
 - Or acquire a valid token once via `POST /auth/login` in Bruno, copy it, and store it in your frontend dev state:
   ```typescript
   // In development helper:

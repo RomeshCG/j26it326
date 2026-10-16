@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+backend/.zz-test-credentials.local
+**/.zz-test-credentials.local
 
 # Dependencies / build
 node_modules/

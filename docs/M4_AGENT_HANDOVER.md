@@ -3,14 +3,14 @@
 > **Last updated:** 2026-10-16  
 > **Source of truth:** repository code and Git state **override** this file.  
 > Deep dive / viva: [`M4_TECHNICAL_WALKTHROUGH.md`](./M4_TECHNICAL_WALKTHROUGH.md).  
-> Do not treat [`IMFS_Task_List.md`](../IMFS_Task_List.md) as current scope.
+> Do not treat [`IMFS_Task_List.md`](../IMFS_Task_List.md) as current scope (checkboxes stale vs code).
 
 ---
 
 ## 0. New Agent Startup Checklist
 
 1. Read this file (§1–5, §7) and skim the [walkthrough](./M4_TECHNICAL_WALKTHROUGH.md) if needed.
-2. `git fetch`; compare `origin/main` vs branch; `git status` (A4 UI + intent-v2 may still be **uncommitted**).
+2. `git fetch`; compare `origin/main` vs `m4/phase10-ai-agents`; `git status`.
 3. Link out: [`M4_INTEGRATION_GUIDE.md`](./M4_INTEGRATION_GUIDE.md), [`agents/README.md`](../agents/README.md).
 4. Ask chinookz before DB writes, migrations, live dispatch, commits/pushes, or M1–M3 edits.
 5. After a milestone, update §5 and §9 (rewrite current work — don’t append forever).
@@ -27,9 +27,12 @@
 | Auth, tenant routing, provisioning | **M4** |
 | `agents/` FastAPI (A3 IF) | **M4** |
 | `frontend/src/components/c4/` (incl. live Ask Agent 4 panel) | **M4** |
+| Tenant `employees` / `payroll_records` + HR/payroll APIs | **M4** (schema + `hr:*` RBAC; **product routes not built**) |
 | M1 risk / M2 ledger / M3 loans+EWS | **Other modules** — impact review on shared code |
 
-**Runtime:** Node = GT + A2/A4 + Prisma tools · Python `agents/` = A3 score (+ optional service-key dispatch) · Ollama = A4 **intent only** · DBs = central + per-tenant via `req.tenantPrisma`.
+**Runtime:** Node = GT + A1/A2/A4 + Prisma tools · Python `agents/` = A3 score (+ optional service-key dispatch) · Ollama = A4 **intent only** · DBs = central + per-tenant via `req.tenantPrisma`.
+
+**Research focus:** AI agents + Graduated Trust. HR/payroll is supporting ERP (next after A1 live E2E).
 
 ---
 
@@ -41,10 +44,11 @@
 | Engine | [`agent-engine.ts`](../backend/src/lib/agent-engine.ts), [`agent-engine-core.ts`](../backend/src/lib/agent-engine-core.ts) |
 | Handlers | [`agent-handlers.ts`](../backend/src/lib/agent-handlers.ts) |
 | Routes | [`agent-governance.ts`](../backend/src/routes/agent-governance.ts) |
+| A1 | [`agent-a1-compliance.ts`](../backend/src/lib/agent-a1-compliance.ts) · `POST …/cbsl-report/prepare` · `npm run verify:a1-compliance` |
 | A2 | [`agent-a2-budget.ts`](../backend/src/lib/agent-a2-budget.ts) · `npm run verify:a2-budget` |
 | A3 | [`agents/`](../agents/) · allowlist `volume_spike_alert` only |
 | A4 | [`agent-a4-nlq.ts`](../backend/src/lib/agent-a4-nlq.ts), [`ollama-client.ts`](../backend/src/lib/ollama-client.ts) · `npm run verify:a4-nlq` |
-| A4 UI | [`AgentPanel.jsx`](../frontend/src/components/c4/AgentPanel.jsx), [`api.js`](../frontend/src/lib/api.js) `queryNlq`, store nlq history v2 |
+| A4 UI | [`AgentPanel.jsx`](../frontend/src/components/c4/AgentPanel.jsx), [`api.js`](../frontend/src/lib/api.js) `queryNlq` |
 | RBAC | [`permissions.ts`](../backend/src/lib/permissions.ts) |
 
 **Schema note:** `agent_actions` has **no** `actionType` column. Type lives in `inputPayload.actionType` and the linked `agent_tier_policies` row.
@@ -63,10 +67,15 @@
 | A4: Ollama intent → tools → then dispatch | Handler has no Prisma; no invented counts | Tools inside handler |
 | A4 tool RBAC (`decide_tier3` / `view_actions`) | Mirrors pending vs Agent Log | `query_nlq` alone for all metrics |
 | A4 days 1–30; no silent clamp | Explicit unsupported | Clamp 90→30 |
-| Ollama timeout default **30s** (`OLLAMA_TIMEOUT_MS`) | Cold load >15s observed | Unbounded wait |
-| A4 prompt **`a4-intent-v2`** + post-parse evidence gate | 1.5B over-fires (e.g. “Hello” → pending) | Prompt-only; greeting keyword blacklist; hardcoded intent matching |
-| Reuse shared AgentPanel (sidebar + FAB) | One Ask Agent 4 surface | New chatbot widget |
-| Conversational memory / follow-ups | Out of v1 scope | **A4 v2** |
+| Ollama timeout default **30s** | Cold load >15s | Unbounded wait |
+| A4 prompt **`a4-intent-v2`** + evidence gate | 1.5B over-fire | Prompt-only / greeting blacklist |
+| A1 v1 = **`cbsl_readiness_v1`** via `generate_cbsl_report` | Grounded tenant aggregates + rules; Tier 3 | Official CBSL filing; LLM inventing figures; external PAR/MIX/Findex in ops |
+| A1 deterministic rules (no LLM in v1) | Explainable readiness | LLM “to look intelligent” |
+| A1 prepare: `decide_tier3` **or** `finance:manage_ledger` | Finance can prepare; approve stays Tier-3 roles | Giving finance `decide_tier3` |
+| A1 SoD: `preparedByUserId` + deny self-approve | Server-side; legacy missing preparer → fail closed | UI-only SoD; shared GT engine rewrite |
+| A1 prepare audit `a1_readiness.prepared` | Binds `proposalHash` outside mutable payload alone | Claiming crypto immutability vs DB admin |
+| Conversational memory | Out of A4 v1 | **A4 v2** |
+| Payroll → M2 journal | Needs event schema | Direct M2 table writes |
 
 ---
 
@@ -74,14 +83,13 @@
 
 | Item | Status | Evidence |
 |------|--------|----------|
-| GT engine / Agent Log / policies | **Merged** | Phase 9a on `main` |
-| Phase 10 service dispatch | **Merged** | `fe18f60` / PR #19 lineage |
-| A3 IF + FastAPI | **Merged + E2E** | `4390886`; **PR #20** → `origin/main` |
-| A2 budget threshold v1 | **Merged + E2E** | `83e293d`; **PR #21** → `origin/main` (`73923d3`) |
-| A4 NLQ v1 backend | **On branch** `m4/phase10-ai-agents` (`dba226c`) + intent-v2 in working tree | ZZ action `9f5f715b-…`; prompt `a4-intent-v2` |
-| A4 Ask Agent 4 UI | **Live UI verified** (Agent1 screenshots) | [`AgentPanel.jsx`](../frontend/src/components/c4/AgentPanel.jsx) → `queryNlq` |
-| A1 CBSL | **Planned** | Policy Tier 3 only; stub handler |
-| LangChain / A4 chat memory | **Deferred (A4 v2)** | Per-turn questions only |
+| GT / Agent Log / Tier 3 / overrides / policies | **Merged** | Phase 9 on `main` |
+| A3 IF + FastAPI | **Merged + E2E** | PR #20 → `origin/main` |
+| A2 budget threshold v1 | **Merged + E2E** | PR #21 → `origin/main` |
+| A4 NLQ + UI + intent-v2 | **On branch** (merge **on hold**) | `dba226c`, `e844e6f` |
+| A1 CBSL readiness v1 | **Live E2E verified (ZZ)** | Approve `241418c5-…`; reject `83efcab0-…`; SoD 403 `805a063d-…`; offline **62/62** |
+| HR / payroll product | **Incomplete** | Schema + `hr:*`; no tenant HR routes; FE mock |
+| AI evaluation harness | **Not started** | After A1 live E2E |
 
 **Defaults:** `nlq_query` A4 T1 · `budget_threshold_alert` A2 T2 · `generate_cbsl_report` A1 T3 · `volume_spike_alert` A3 T4.
 
@@ -89,13 +97,15 @@
 
 ## 5. CURRENT WORK
 
-**Milestone:** A4 Ask Agent 4 UI — **frontend finalize** (docs + pending commit).
+**Milestone:** A1 Compliance Readiness v1 — **live ZZ E2E complete** (approve + reject + SoD denial).
 
-**UI status (Agent1 live review):** Shared sidebar + FAB [`AgentPanel.jsx`](../frontend/src/components/c4/AgentPanel.jsx) calls real `POST …/nlq/query`. Supported questions return grounded template answers and create Tier 1 Agent Log rows. Live Agent Activity Log shows `promptVersion: a4-intent-v2`. Greetings → unsupported, **no** action. Unsupported copy is employee-friendly (outside current scope). Exec dashboard opens the same panel (no fabricated PAR/EPF box). Chat history is local UI persistence only — **not** model conversational memory (deferred to A4 v2).
+**Live evidence (ZZ):** Finance→Admin **approve/execute** `241418c5-a85a-46b6-acdb-0212daadd390`. Finance→Executive **reject** `83efcab0-5561-4954-aca9-66d8faa3c1ec` (no handler). BM self-approve → **403**, then Executive reject `805a063d-fca4-4572-b475-271a9b72a8f1`. Prefer seeded ZZ roles for automation (avoid putting admin password in agent env).
 
-**Completed testing:** Backend ZZ E2E (`9f5f715b-…`); offline `verify:a4-nlq` (incl. evidence-gate regressions); live UI smoke (supported + greeting + unsupported + GT meta).
+**API:** prepare → `preparedByUserId` + `a1_readiness.prepared` + Tier 3 pending; A1 approve gate (SoD/hash); reject skips handler; Tier UI A1 summary.
 
-**Next (chinookz):** Commit/PR remaining A4 UI + intent-v2 + docs when ready; merge to `main`. Exclude `m4-lint-baseline.txt`. No further A4 scope in this milestone.
+**Limits:** Readiness ≠ official CBSL; typical tenant often `not_ready`; hash binding not DB-admin-proof; legacy packages without preparer cannot approve.
+
+**Next (chinookz):** Commit when ready; A4 merge still on hold; then HR/payroll → AI eval. Exclude `m4-lint-baseline.txt`.
 
 ---
 
@@ -103,10 +113,15 @@
 
 ```powershell
 cd backend
+npm run verify:a1-compliance
 npm run verify:a2-budget
 npm run verify:a4-nlq
+npm run verify:zz-seed-safety
 npx tsc --noEmit -p tsconfig.json
 ```
+
+**ZZ reusable test users (dev only, never production):**  
+`ALLOW_ZZ_TEST_USER_SEED=1` then `npm run seed:zz-test-users`. Creates five non-admin roles on ZZ only; **never** touches `admin@zz-test-org1.lk`. Passwords go to gitignored `backend/.zz-test-credentials.local` (not printed). Disable later: set `central.users.status='disabled'`. See integration guide §7.
 
 **Env names (never commit values):** `JWT_SECRET`, `CENTRAL_DATABASE_URL`, `TENANT_DATABASE_URL`, `AGENT_SERVICE_KEY`, `AGENTS_LOCAL_TOKEN`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT_MS`, `ENABLE_DISPATCH_STUB`.
 
@@ -122,10 +137,13 @@ chinookz owns Git and approvals. Agents stay in approved scope. Challenge Agent1
 
 ## 8. Known limitations
 
-- A3: weak `amount_spike`; scores ≠ probabilities.  
-- A2: soft dedupe TOCTOU; `allowDuplicate=true`.  
-- A4: Tier 1 `executed` means GT ran the grounded handler — **not** that Ollama intent was correct; evidence gate cuts false positives but may reject unusual valid phrasings; cold start; aggregates only; **no** multi-turn memory (A4 v2).  
-- Engine: crash can leave `running` (documented).
+- A3: weak `amount_spike`; scores ≠ probabilities; real txn feed pending.  
+- A2: soft dedupe TOCTOU; no automatic M2 monitoring.  
+- A4: intent ≠ Tier 1 correctness; evidence gate may reject odd phrasings; no multi-turn memory.  
+- A1: readiness ≠ official CBSL; typical tenant `not_ready`; self-approve **403** (live); use two distinct ZZ users; hash/audit binding not DB-admin-proof.  
+- HR/payroll: mock UI; payroll rows usually empty.  
+- Engine: crash can leave `running`.  
+- M3 still on `mock-auth` / `x-institution-id` (coordination).
 
 ---
 
@@ -134,6 +152,6 @@ chinookz owns Git and approvals. Agents stay in approved scope. Challenge Agent1
 | Date | Note |
 |------|------|
 | 2026-10-16 | Handover v1; A2/A3 on `origin/main`; A4 local only. |
-| 2026-10-16 | A4 ZZ live E2E PASS (`9f5f715b-…`); walkthrough doc added. |
-| 2026-10-16 | Ask Agent 4 UI wired to live NLQ API; exec-dashboard mock → panel CTA; history schema v2. |
-| 2026-10-16 | Intent `a4-intent-v2` + evidence gate; Agent1 live UI review PASS; A4 frontend milestone docs finalized. |
+| 2026-10-16 | A4 ZZ live E2E; walkthrough; Ask Agent 4 UI; intent-v2; docs. |
+| 2026-10-16 | A4 pushed (`dba226c`, `e844e6f`); merge hold; priorities → A1 first. |
+| 2026-10-16 | A1 readiness v1 + hardening; ZZ live E2E: approve, reject, SoD 403 (seeded roles). |

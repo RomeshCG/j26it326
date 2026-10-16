@@ -1,7 +1,7 @@
 # M4 Technical Walkthrough (study / viva)
 
 > Companion to [`M4_AGENT_HANDOVER.md`](./M4_AGENT_HANDOVER.md).  
-> **Code and Git beat this document.** Last aligned: 2026-10-16 (A4 UI live-verified; prompt `a4-intent-v2`).
+> **Code and Git beat this document.** Last aligned: 2026-10-16 (A1 ZZ live E2E: approve + reject + SoD; A4 UI live-verified).
 
 This note explains how Component 4 (M4) runs Graduated Trust and agents A1–A4 in the IMFS / MicroFlow repo, with enough detail for a viva without pasting whole modules.
 
@@ -14,7 +14,7 @@ IMFS is split into research components. **M4 (C4)** provides:
 - Multi-tenant auth (JWT), RBAC capabilities, institution provisioning  
 - Tenant DB routing (`req.tenantPrisma`)  
 - Graduated Trust: policies, `dispatchAgentAction`, Agent Log, Tier 3 approve/reject, overrides  
-- Agent runtimes that M4 controls: **A2** (Node rules), **A3** (Python IF + Node dispatch), **A4** (Node + Ollama intent), **A1** (policy reserved; not implemented)
+- Agent runtimes that M4 controls: **A1** (Node readiness rules + Tier 3), **A2** (Node rules), **A3** (Python IF + Node dispatch), **A4** (Node + Ollama intent)
 
 **Not M4:** M1 credit risk models, M2 ledger product APIs, M3 loan lifecycle / EWS (except consuming shared auth/tenant patterns).
 
@@ -221,9 +221,32 @@ Leader task list mentioned LangChain for A1–A4. **Current design defers it:** 
 
 ---
 
-## 6. A1 Compliance (planned)
+## 6. A1 Compliance Readiness v1
 
-Policy `generate_cbsl_report` → A1 Tier **3** exists in defaults/seed. **No real report handler or evaluate route yet** — would stay `pending_approval` until humans approve and a handler is registered. Do not describe A1 as implemented.
+**Goal:** Grounded **CBSL readiness / data-gap package** (`reportKind: cbsl_readiness_v1`) under existing actionType `generate_cbsl_report` → policy Tier **3**. **Not** an official CBSL submission. No invented financial or regulatory figures. No LLM in v1.
+
+**Code:** [`agent-a1-compliance.ts`](../backend/src/lib/agent-a1-compliance.ts), handler `cbslReadinessHandler`, route `POST /api/tenant/agent-actions/cbsl-report/prepare`.
+
+### Flow
+
+1. Validate period (default last 30 days).  
+2. Collect tenant facts: `tenant_info`, branches, employees (incl. missing EPF/ETF counts), payroll counts, agent/audit aggregates, optional loan/borrower/journal counts as **availability slots**.  
+3. Deterministic rules → `dataGaps` / `inferredRisks` / `recommendations` / `overallStatus` (`not_ready` | `ready_with_warnings` | `evidence_complete_for_scoped_checks`). Missing evidence is **never** “compliant.”  
+4. `dispatchAgentAction(generate_cbsl_report)` → `pending_approval` + engine audit; `inputPayload` includes `report`, `proposalHash`, **`preparedByUserId`**.  
+5. Extra audit **`a1_readiness.prepared`** (actor = preparer) stores the same `proposalHash` / preparer — binding **outside** the action row alone. **Not** cryptographic immutability against a DB admin who rewrites both.  
+6. Human reviews A1 summary on `/tier-approval` (status, period, gaps, recommendations, preparer, disclaimer); raw JSON expandable.  
+7. **Approve (A1-only gate before `decideTier3Action`):** deny if preparer missing (legacy fail-closed), approver === preparer (**SoD**), prepare audit missing, or audit/`report` hash mismatch. Then handler re-checks payload self-hash → `executed`. **Reject** unchanged (no handler). Other Tier 3 types unaffected.
+
+**RBAC:** Prepare = `agents:decide_tier3` **or** `finance:manage_ledger`. Approve/reject = `decide_tier3` only (finance can prepare but not approve). Still use **two different users** when both have decide_tier3 (e.g. admin prepare blocked from self-approve).
+
+**Offline:** `npm run verify:a1-compliance` (62/62). **Live ZZ E2E verified:**  
+- Approve/execute: `241418c5-a85a-46b6-acdb-0212daadd390` (finance prepare → admin approve; real handler; hash match).  
+- Reject: `83efcab0-5561-4954-aca9-66d8faa3c1ec` (finance → executive; no handler / no executed audit).  
+- SoD: `805a063d-fca4-4572-b475-271a9b72a8f1` (BM prepare → BM approve **403** → executive reject cleanup).  
+
+**Limits:** `cbsl_readiness_v1` only (not official CBSL); sparse tenants often `not_ready`; prepare-audit hash binding is not DB-admin-proof.
+
+**External datasets (PAR/MIX/Findex):** not used in A1 ops (Option A).
 
 ---
 
@@ -236,7 +259,7 @@ Policy `generate_cbsl_report` → A1 Tier **3** exists in defaults/seed. **No re
 | A2 budget evaluate | yes | yes | yes | yes | Agent Log |
 | A4 NLQ (+ intent-v2 gate) | yes | yes (`verify:a4-nlq`) | yes (ZZ + UI) | **not yet** | **live AgentPanel** |
 | A4 conversational memory | no | — | — | — | deferred **A4 v2** |
-| A1 CBSL | policy only | n/a | no | policy defaults | n/a |
+| A1 readiness (`cbsl_readiness_v1`) | yes | yes (`verify:a1-compliance`) | **yes (ZZ)** | **not yet** | Tier Approval / Agent Log |
 | LangChain | no | — | — | — | deferred |
 
 ---
@@ -290,12 +313,25 @@ A: A4 returns 503; no action row. A2/A3 unaffected.
 **Q: Soft dedupe race on A2?**  
 A: Two concurrent breaches can both pass the soft check (TOCTOU); unique index deferred.
 
+**Q: Is A1 an official CBSL report generator?**  
+A: No. It produces `cbsl_readiness_v1` — facts, gaps, and recommendations from tenant evidence. Blocking gaps → `not_ready`. Never invents CBSL line items.
+
+**Q: Why is Tier 3 valuable for A1 if the report is “just JSON”?**  
+A: Prepare binds a proposal (`proposalHash` + preparer) in the payload and a prepare audit. A different user must approve; self-approve is rejected. Hash mismatches fail closed. This is workflow integrity, not absolute crypto against DB admins.
+
+**Q: Can the preparer approve their own A1 package?**  
+A: No — server returns 403 when `preparedByUserId` equals the approver.
+
+**Q: Does A1 use an LLM?**  
+A: Not in v1. Deterministic rules only (same honesty bar as A4’s grounded counts).
+
 ---
 
 ## 10. Commands (offline)
 
 ```powershell
 cd backend
+npm run verify:a1-compliance
 npm run verify:a2-budget
 npm run verify:a4-nlq
 npx tsc --noEmit -p tsconfig.json
