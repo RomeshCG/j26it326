@@ -5,6 +5,13 @@
  */
 
 import {
+  A1_CBSL_ACTION_TYPE,
+  A1_MODEL_VERSION,
+  A1_REPORT_KIND,
+  A1_RULESET_VERSION,
+  extractA1HandlerGrounding,
+} from "./agent-a1-compliance.js"
+import {
   A2_BUDGET_ACTION_TYPE,
   A2_BUDGET_MODEL_VERSION,
 } from "./agent-a2-budget.js"
@@ -95,6 +102,35 @@ export const budgetThresholdAlertHandler: ActionHandler = (ctx) => {
 }
 
 /**
+ * A1 compliance readiness handler — records the human-reviewed package only.
+ * Re-validates proposalHash; does not re-query Prisma or invent figures.
+ */
+export const cbslReadinessHandler: ActionHandler = (ctx) => {
+  const grounded = extractA1HandlerGrounding(ctx.inputPayload)
+  if (!grounded.ok) {
+    return { error: grounded.error }
+  }
+
+  return {
+    outputPayload: {
+      stubExecuted: false,
+      handler: "cbslReadinessHandler",
+      actionType: A1_CBSL_ACTION_TYPE,
+      reportKind: A1_REPORT_KIND,
+      modelVersion: A1_MODEL_VERSION,
+      rulesetVersion: A1_RULESET_VERSION,
+      proposalHash: grounded.proposalHash,
+      overallStatus: grounded.report.overallStatus,
+      report: grounded.report,
+      disclaimer: grounded.report.disclaimer,
+      actionId: ctx.actionId,
+      recordedAt: new Date().toISOString(),
+      note: "Approved readiness package recorded. Not an official CBSL submission.",
+    },
+  }
+}
+
+/**
  * A4 NLQ handler — records grounded answer from inputPayload only.
  * Does not call Ollama or Prisma; refuses to invent counts.
  */
@@ -151,6 +187,7 @@ export function clearActionHandlers(): void {
  * Registers built-in production handlers. Safe to call once at process start.
  */
 export function registerDefaultAgentHandlers(): void {
+  registerActionHandler(A1_CBSL_ACTION_TYPE, cbslReadinessHandler)
   registerActionHandler(A2_BUDGET_ACTION_TYPE, budgetThresholdAlertHandler)
   registerActionHandler(A4_NLQ_ACTION_TYPE, nlqQueryHandler)
 }
