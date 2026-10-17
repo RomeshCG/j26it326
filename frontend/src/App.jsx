@@ -235,6 +235,7 @@ function App() {
             />
             <Route path="/settings" element={<Settings />} />
             <Route path="/finance-manager" element={<FinanceManagerDashboard />} />
+            <Route path="/mission-drift" element={<MissionDriftDashboard />} />
             <Route path="/alerts" element={<MissionDriftAlerts />} />
             <Route path="/mission-drift/detail" element={<MissionDriftDetail />} />
             <Route path="/pl-report" element={<PAndLReport />} />

@@ -1,4 +1,4 @@
-// IMFS — TENANT database (one physical Neon DB PER institution/MFI)
+// IMFS â€” TENANT database (one physical Neon DB PER institution/MFI)
 // Same schema is provisioned for every tenant. Soft refs to central.users
 // are UUID columns without Prisma relations (cross-database).
 
@@ -14,7 +14,7 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// M4 — Tenant self-reference, branches, HR, agents, audit
+// M4 â€” Tenant self-reference, branches, HR, agents, audit
 // ---------------------------------------------------------------------------
 
 model TenantInfo {
@@ -160,12 +160,12 @@ model AuditLog {
 }
 
 // ---------------------------------------------------------------------------
-// M1 — Credit risk
+// M1 â€” Credit risk
 // ---------------------------------------------------------------------------
 
 model RiskAssessment {
   id                 String   @id @default(uuid()) @db.Uuid
-  /// Soft/API-set link to loan_applications.id (single direction — do not mirror on applications)
+  /// Soft/API-set link to loan_applications.id (single direction â€” do not mirror on applications)
   loanApplicationId  String   @map("loan_application_id") @db.Uuid
   riskScore          Decimal  @map("risk_score") @db.Decimal(8, 4)
   classification     String // low | medium | high
@@ -238,7 +238,7 @@ model DecisionLog {
 }
 
 // ---------------------------------------------------------------------------
-// M3 — Products, borrowers, loans, collections, EWS
+// M3 â€” Products, borrowers, loans, collections, EWS
 // ---------------------------------------------------------------------------
 
 model LoanProduct {
@@ -592,7 +592,7 @@ model GroupRepaymentStat {
 }
 
 // ---------------------------------------------------------------------------
-// M2 — Ledger & dual-mission performance
+// M2 â€” Ledger & dual-mission performance
 // ---------------------------------------------------------------------------
 
 model ChartOfAccount {
@@ -614,6 +614,7 @@ model JournalEntry {
   referenceId     String?  @map("reference_id") @db.Uuid
   description     String?
   createdBy       String?  @map("created_by") @db.Uuid // soft ref
+  dataSource      String   @default("app") @map("data_source") // app | synthetic | par | par+synthetic
   createdAt       DateTime @default(now()) @map("created_at")
 
   lines JournalEntryLine[]
@@ -645,6 +646,9 @@ model FinancialKpiSnapshot {
   portfolioYield  Decimal? @map("portfolio_yield") @db.Decimal(8, 4)
   costPerBorrower Decimal? @map("cost_per_borrower") @db.Decimal(14, 2)
   writeOffRatio   Decimal? @map("write_off_ratio") @db.Decimal(8, 4)
+  portfolioOutstanding Decimal? @map("portfolio_outstanding") @db.Decimal(16, 2)
+  avgLoanSize     Decimal? @map("avg_loan_size") @db.Decimal(14, 2)
+  dataSource      String   @default("synthetic") @map("data_source") // par | par+synthetic | synthetic
   computedAt      DateTime @default(now()) @map("computed_at")
 
   @@unique([period])
@@ -663,6 +667,7 @@ model SocialPerformanceIndicator {
   povertyProxyScore    Decimal? @map("poverty_proxy_score") @db.Decimal(8, 4)
   literacyProgress     Decimal? @map("literacy_progress") @db.Decimal(8, 4)
   groupSolidarityScore Decimal? @map("group_solidarity_score") @db.Decimal(8, 4)
+  dataSource           String   @default("synthetic") @map("data_source") // par+synthetic | synthetic
   computedAt           DateTime @default(now()) @map("computed_at")
 
   @@unique([period])
@@ -675,6 +680,7 @@ model MissionDriftScore {
   mdiScore           Decimal  @map("mdi_score") @db.Decimal(8, 4)
   thresholdState     String   @map("threshold_state") // normal | alert
   contributingTrends Json?    @map("contributing_trends")
+  dataSource         String   @default("synthetic") @map("data_source") // par+synthetic | synthetic
   computedAt         DateTime @default(now()) @map("computed_at")
 
   alerts MissionDriftAlert[]
