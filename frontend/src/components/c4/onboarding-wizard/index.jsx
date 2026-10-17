@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react"
-import { Check, ArrowRight, ArrowLeft, Building2, Landmark, Coins, Users, Play, CheckCircle2, ShieldCheck, FileSpreadsheet, Calendar } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Check, ArrowRight, ArrowLeft, Building2, Landmark, Coins, Users, Play, CheckCircle2, ShieldCheck, FileSpreadsheet, Calendar, AlertCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { useStore } from "@/store"
 import { useNavigate } from "react-router-dom"
+import { registerInstitution } from "@/lib/api"
+import { toBackendInstitutionType } from "@/lib/roles"
 
 import Step1Institution from "./Step1Institution"
 import Step2Branches from "./Step2Branches"
@@ -20,12 +22,22 @@ const STEPS = [
 ]
 
 export default function OnboardingWizard() {
-  const isReRun = useStore((state) => state.onboardingComplete)
+  const store = useStore()
+  const isMockAuth = import.meta.env.VITE_USE_MOCK_AUTH === "true"
+  // isReRun is strictly for mock prototype mode when an already-logged-in mock admin reconfigures demo settings
+  // Real tenant provisioning at /onboarding is NEVER a re-run
+  const isReRun = isMockAuth && Boolean(store.currentUser) && Boolean(store.onboardingComplete)
   const currentWizardStep = useStore((state) => state.currentWizardStep)
   const setOnboardingComplete = useStore((state) => state.setOnboardingComplete)
   const setCurrentWizardStep = useStore((state) => state.setCurrentWizardStep)
+  const setOnboardingStartTime = useStore((state) => state.setOnboardingStartTime)
   const navigate = useNavigate()
-  const store = useStore()
+
+  // SECURITY: Admin password is kept strictly in component state (NEVER persisted in localStorage or store)
+  const [adminPassword, setAdminPassword] = useState("")
+  const [isLaunching, setIsLaunching] = useState(false)
+  const [launchError, setLaunchError] = useState("")
+  const [completionDurationText, setCompletionDurationText] = useState("")
 
   // Wizard state loaded from localStorage if exists
   const [currentStep, setCurrentStep] = useState(1)
@@ -85,20 +97,25 @@ export default function OnboardingWizard() {
           if (!parsed.customProduct) parsed.customProduct = { name: "", sizeRange: "", repaymentCycle: "" }
           if (!parsed.users || !Array.isArray(parsed.users)) parsed.users = []
           setFormData(parsed)
-        } catch (e) {
+        } catch {
           console.error("Failed to parse onboarding data from localStorage")
         }
-      }
-      
-      if (currentWizardStep > 1) {
-        setCurrentStep(currentWizardStep)
-      } else {
+
         const savedStep = localStorage.getItem("microflow-onboarding-step")
         if (savedStep) {
           const stepNum = Number(savedStep)
-          if (stepNum > STEPS.length) setIsLaunched(true)
-          else setCurrentStep(stepNum)
+          if (stepNum >= 1 && stepNum <= STEPS.length) {
+            setCurrentStep(stepNum)
+          } else {
+            setCurrentStep(1)
+          }
+        } else if (currentWizardStep > 1 && currentWizardStep <= STEPS.length) {
+          setCurrentStep(currentWizardStep)
         }
+      } else {
+        // No draft data exists: start completely fresh at Step 1
+        setCurrentStep(1)
+        setCurrentWizardStep(1)
       }
       
       const savedTime = localStorage.getItem("microflow-onboarding-start-time")
@@ -157,7 +174,11 @@ export default function OnboardingWizard() {
 
   // Save state helper
   const saveState = (updatedData, updatedStep) => {
-    localStorage.setItem("microflow-onboarding-data", JSON.stringify(updatedData))
+    // SECURITY: Strictly exclude any password fields from localStorage persistence
+    const persistedData = { ...updatedData }
+    delete persistedData.adminPassword
+    delete persistedData.password
+    localStorage.setItem("microflow-onboarding-data", JSON.stringify(persistedData))
     localStorage.setItem("microflow-onboarding-step", updatedStep.toString())
     if (!isReRun) {
       setCurrentWizardStep(updatedStep)
@@ -209,7 +230,7 @@ export default function OnboardingWizard() {
 
   // Loan Products Helpers
   const toggleProductSelection = (productId) => {
-    let updatedSelected = []
+    let updatedSelected
     if (formData.selectedProducts.includes(productId)) {
       updatedSelected = formData.selectedProducts.filter(id => id !== productId)
     } else {
@@ -285,10 +306,12 @@ export default function OnboardingWizard() {
     }
 
     const phoneRegex = /^(?:\+94|94|0)?(?:7\d{8}|[1-9]\d{8})$/
-    if (!formData.contactPhone.trim()) {
-      newErrors.contactPhone = "Phone number is required"
-    } else if (!phoneRegex.test(formData.contactPhone.trim().replace(/[\s-]/g, ""))) {
+    if (formData.contactPhone && formData.contactPhone.trim() && !phoneRegex.test(formData.contactPhone.trim().replace(/[\s-]/g, ""))) {
       newErrors.contactPhone = "Enter a valid Sri Lankan phone number (e.g. 0771234567)"
+    }
+
+    if (!adminPassword || adminPassword.length < 8) {
+      newErrors.adminPassword = "Administrator password must be at least 8 characters"
     }
 
     setErrors(newErrors)
@@ -436,8 +459,11 @@ export default function OnboardingWizard() {
     }
   }
 
-  const handleLaunch = () => {
-    if (isReRun) {
+  const handleLaunch = async () => {
+    if (isLaunching) return
+    setLaunchError("")
+
+    if (isMockAuth && isReRun) {
       store.updateInstitution({
         name: formData.institutionName,
         registrationNumber: formData.registrationNumber,
@@ -457,35 +483,123 @@ export default function OnboardingWizard() {
       return
     }
 
-    // Generate floating confetti coordinates
-    const particles = Array.from({ length: 120 }).map((_, i) => ({
-      id: i,
-      x: Math.random() * 100, // Left %
-      color: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"][Math.floor(Math.random() * 6)],
-      size: Math.random() * 8 + 6,
-      delay: Math.random() * 3,
-      duration: Math.random() * 2 + 2.5
-    }))
-    store.updateInstitution({
-      name: formData.institutionName || store.institution?.name,
-      registrationNumber: formData.registrationNumber || store.institution?.registrationNumber,
-      district: formData.district || store.institution?.district,
-      type: formData.institutionType || store.institution?.type
-    })
-    setConfetti(particles)
-    setIsLaunched(true)
-    setOnboardingComplete(true)
-    setCurrentWizardStep(1)
-    // Save to step = 6 (completed/launched)
-    saveState(formData, STEPS.length + 1)
+    if (isMockAuth) {
+      // Prototype Mock Auth Path
+      const particles = Array.from({ length: 120 }).map((_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        color: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"][Math.floor(Math.random() * 6)],
+        size: Math.random() * 8 + 6,
+        delay: Math.random() * 3,
+        duration: Math.random() * 2 + 2.5
+      }))
+      store.updateInstitution({
+        name: formData.institutionName || store.institution?.name,
+        registrationNumber: formData.registrationNumber || store.institution?.registrationNumber,
+        district: formData.district || store.institution?.district,
+        type: formData.institutionType || store.institution?.type
+      })
+      setConfetti(particles)
+      setIsLaunched(true)
+      setOnboardingComplete(true)
+      setCurrentWizardStep(1)
+      saveState(formData, STEPS.length + 1)
+      return
+    }
+
+    // Real Authentication / Tenant Provisioning Mode
+    if (!adminPassword || adminPassword.length < 8) {
+      setLaunchError("Administrator password is missing or shorter than 8 characters. Please return to Step 1 to enter a valid password.")
+      return
+    }
+
+    setIsLaunching(true)
+    const currentPassword = adminPassword
+    // Clear password from component memory immediately upon submit attempt (Amendment 1)
+    setAdminPassword("")
+
+    try {
+      const res = await registerInstitution({
+        institutionName: formData.institutionName.trim(),
+        licenseNumber: formData.registrationNumber.trim() || undefined,
+        institutionType: toBackendInstitutionType(formData.institutionType),
+        district: formData.district || undefined,
+        adminFullName: formData.contactName.trim(),
+        adminEmail: formData.contactEmail.trim().toLowerCase(),
+        adminPassword: currentPassword,
+        planName: "Starter",
+        billingCycle: "monthly",
+      })
+
+      // Ensure success status was explicitly 201 Created
+      if (res && res._status && res._status !== 201) {
+        throw new Error(`Unexpected server response: ${res._status}`)
+      }
+
+      // Compute final elapsed duration BEFORE removing start-time from localStorage (Requirement 2)
+      const recordedStartTime = startTime || Number(localStorage.getItem("microflow-onboarding-start-time")) || Date.now()
+      const elapsedSeconds = Math.max(1, Math.floor((Date.now() - recordedStartTime) / 1000))
+      const elapsedMinutes = Math.floor(elapsedSeconds / 60)
+      const formattedDuration = elapsedMinutes === 0
+        ? `${elapsedSeconds} second${elapsedSeconds !== 1 ? "s" : ""}`
+        : `${elapsedMinutes} minute${elapsedMinutes !== 1 ? "s" : ""}${elapsedSeconds % 60 > 0 ? ` and ${elapsedSeconds % 60} seconds` : ""}`
+      setCompletionDurationText(formattedDuration)
+
+      // Clean up local draft state and store flags upon successful provisioning
+      localStorage.removeItem("microflow-onboarding-data")
+      localStorage.removeItem("microflow-onboarding-step")
+      localStorage.removeItem("microflow-onboarding-start-time")
+      setOnboardingComplete(false)
+      setCurrentWizardStep(1)
+      setOnboardingStartTime(null)
+
+      const particles = Array.from({ length: 120 }).map((_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        color: ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"][Math.floor(Math.random() * 6)],
+        size: Math.random() * 8 + 6,
+        delay: Math.random() * 3,
+        duration: Math.random() * 2 + 2.5
+      }))
+      setConfetti(particles)
+      setIsLaunched(true)
+    } catch (err) {
+      let baseError = "Failed to provision workspace. Please try again."
+      if (err.isNetworkError) {
+        baseError = err.message || "Unable to reach server. Please check your connection."
+      } else if (err.status === 429) {
+        const retrySec = err.retryAfter || 60
+        baseError = `Too many requests. Please wait ${retrySec} seconds before retrying.`
+      } else if (err.status === 403) {
+        baseError = err.data?.error || "Registration is currently disabled on this server."
+      } else if (err.status === 503) {
+        baseError = "Service temporarily busy. Please retry in a few moments."
+      } else if (err.status === 400) {
+        if (err.data?.error === "Registration request could not be processed") {
+          baseError = "Registration request could not be processed. This email or institution may already be registered."
+        } else {
+          baseError = err.data?.error || "Registration validation failed. Please check your inputs."
+        }
+      } else if (err.data?.error) {
+        baseError = err.data.error
+      }
+      setLaunchError(`${baseError} Your administrator password has been cleared for security. Please return to Step 1, re-enter your password, and try again.`)
+    } finally {
+      setIsLaunching(false)
+    }
   }
 
   const handleReset = () => {
     localStorage.removeItem("microflow-onboarding-data")
     localStorage.removeItem("microflow-onboarding-step")
     localStorage.removeItem("microflow-onboarding-start-time")
+    setOnboardingComplete(false)
+    setCurrentWizardStep(1)
+    setOnboardingStartTime(null)
     setIsLaunched(false)
     setCurrentStep(1)
+    setAdminPassword("")
+    setLaunchError("")
     setStartTime(Date.now())
     setFormData({
       institutionName: "",
@@ -605,6 +719,11 @@ export default function OnboardingWizard() {
             <p className="text-sm text-muted-foreground">
               Microfinance backbone successfully initialized for <span className="font-semibold text-foreground">{formData.institutionName || "your MFI"}</span>.
             </p>
+            {completionDurationText && (
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                Setup took {completionDurationText}.
+              </p>
+            )}
           </div>
 
           <div className="p-4 bg-muted rounded-lg space-y-3 text-left">
@@ -631,12 +750,12 @@ export default function OnboardingWizard() {
           <div className="space-y-4 pt-2">
             <Button
               onClick={() => {
-                navigate("/dashboard")
+                navigate(isMockAuth ? "/dashboard" : "/login?registered=true")
               }}
               size="lg"
               className="w-full cursor-pointer bg-primary text-primary-foreground font-semibold hover:bg-primary/90"
             >
-              Continue to Dashboard
+              {isMockAuth ? "Continue to Dashboard" : "Proceed to Sign In"}
             </Button>
             
             <p className="text-[10px] text-muted-foreground">
@@ -743,6 +862,14 @@ export default function OnboardingWizard() {
               formData={formData} 
               errors={errors} 
               handleInputChange={handleInputChange} 
+              adminPassword={adminPassword}
+              handlePasswordChange={(val) => {
+                setAdminPassword(val)
+                if (errors.adminPassword) {
+                  setErrors(prev => ({ ...prev, adminPassword: null }))
+                }
+              }}
+              passwordWasCleared={!adminPassword && !!launchError}
             />
           )}
 
@@ -784,13 +911,20 @@ export default function OnboardingWizard() {
           )}
         </CardContent>
 
+        {currentStep === 5 && launchError && (
+          <div className="mx-6 mb-2 p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-xs text-red-600 dark:text-red-400 animate-in fade-in duration-200">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{launchError}</span>
+          </div>
+        )}
+
         <CardFooter className="flex items-center justify-between border-t border-border/50 pt-5">
           <Button
             type="button"
             variant="outline"
             size="lg"
             onClick={handleBack}
-            disabled={currentStep === 1}
+            disabled={currentStep === 1 || isLaunching}
             className="cursor-pointer"
           >
             <ArrowLeft className="mr-2 size-4" />
@@ -802,10 +936,20 @@ export default function OnboardingWizard() {
               type="button"
               size="lg"
               onClick={handleLaunch}
-              className="flex cursor-pointer items-center bg-emerald-600 text-white hover:border-emerald-500 hover:bg-emerald-500"
+              disabled={isLaunching}
+              className="flex cursor-pointer items-center bg-emerald-600 text-white hover:border-emerald-500 hover:bg-emerald-500 disabled:opacity-50"
             >
-              {isReRun ? "Save Changes" : "Launch MicroFlow"}
-              {!isReRun && <Play className="ml-2 size-4 fill-white" />}
+              {isLaunching ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  <span>Provisioning Workspace...</span>
+                </>
+              ) : (
+                <>
+                  {isReRun ? "Save Changes" : "Launch MicroFlow"}
+                  {!isReRun && <Play className="ml-2 size-4 fill-white" />}
+                </>
+              )}
             </Button>
           ) : (
             <Button

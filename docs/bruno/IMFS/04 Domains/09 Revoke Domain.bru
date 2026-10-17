@@ -1,0 +1,20 @@
+meta {
+  name: 09 Revoke Domain
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{baseUrl}}/api/tenant/domains/{{domainId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Revoke Domain
+  Revokes a domain. If the domain was verified, atomically disables all associated active and pending users (fails with 409 if it would remove the institution's last active admin). If the domain was pending, marks it revoked, clears the token, and disables no users (deactivatedUsersCount: 0).
+}

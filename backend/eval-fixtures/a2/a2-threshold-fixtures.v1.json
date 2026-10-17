@@ -1,0 +1,159 @@
+{
+  "specId": "a2-budget-threshold-oracle-v1",
+  "specPath": "eval-fixtures/a2/SPEC.md",
+  "modelVersion": "a2-budget-threshold-rules-v1",
+  "fixturePackVersion": "1.0.0",
+  "disclaimer": "Rule-agreement fixtures for deterministic A2 threshold/validation. Not ML accuracy or real-world alert effectiveness.",
+  "fixtures": [
+    {
+      "id": "A2-F01",
+      "category": "threshold_decision",
+      "description": "Below threshold — no breach",
+      "oracleRef": "SPEC.md R1",
+      "duplicateOfVerify": true,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": 99,
+        "threshold": 100,
+        "periodKey": "2026-Q1",
+        "source": "manual_api_v1"
+      },
+      "expect": { "validateOk": true, "breached": false }
+    },
+    {
+      "id": "A2-F02",
+      "category": "threshold_decision",
+      "description": "Exactly at threshold — breach (equality)",
+      "oracleRef": "SPEC.md R1",
+      "duplicateOfVerify": true,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": 100,
+        "threshold": 100,
+        "periodKey": "2026-Q1",
+        "source": "manual_api_v1"
+      },
+      "expect": { "validateOk": true, "breached": true }
+    },
+    {
+      "id": "A2-F03",
+      "category": "threshold_decision",
+      "description": "Above threshold — breach",
+      "oracleRef": "SPEC.md R1",
+      "duplicateOfVerify": true,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": 150,
+        "threshold": 100,
+        "periodKey": "2026-Q1",
+        "source": "manual_api_v1"
+      },
+      "expect": { "validateOk": true, "breached": true }
+    },
+    {
+      "id": "A2-F04",
+      "category": "threshold_decision",
+      "description": "Zero metric with positive threshold — no breach",
+      "oracleRef": "SPEC.md R1",
+      "duplicateOfVerify": false,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": 0,
+        "threshold": 100,
+        "periodKey": "2026-Q1",
+        "source": "manual_api_v1"
+      },
+      "expect": { "validateOk": true, "breached": false }
+    },
+    {
+      "id": "A2-F05",
+      "category": "threshold_decision",
+      "description": "Decimal equality — breach",
+      "oracleRef": "SPEC.md R1",
+      "duplicateOfVerify": false,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": 10.5,
+        "threshold": 10.5,
+        "periodKey": "2026-Q1",
+        "source": "manual_api_v1"
+      },
+      "expect": { "validateOk": true, "breached": true }
+    },
+    {
+      "id": "A2-F06",
+      "category": "threshold_decision",
+      "description": "Decimal just below threshold — no breach",
+      "oracleRef": "SPEC.md R1",
+      "duplicateOfVerify": false,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": 10.49,
+        "threshold": 10.5,
+        "periodKey": "2026-Q1",
+        "source": "manual_api_v1"
+      },
+      "expect": { "validateOk": true, "breached": false }
+    },
+    {
+      "id": "A2-F07",
+      "category": "input_rejection",
+      "description": "Zero threshold rejected (R2.6)",
+      "oracleRef": "SPEC.md R2.6",
+      "duplicateOfVerify": true,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": 50,
+        "threshold": 0,
+        "source": "manual_api_v1"
+      },
+      "expect": { "validateOk": false }
+    },
+    {
+      "id": "A2-F08",
+      "category": "input_rejection",
+      "description": "Negative threshold rejected (R2.6)",
+      "oracleRef": "SPEC.md R2.6",
+      "duplicateOfVerify": true,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": 50,
+        "threshold": -1,
+        "source": "manual_api_v1"
+      },
+      "expect": { "validateOk": false }
+    },
+    {
+      "id": "A2-F09",
+      "category": "input_rejection",
+      "description": "Negative metricValue rejected (R2.7)",
+      "oracleRef": "SPEC.md R2.7",
+      "duplicateOfVerify": true,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": -1,
+        "threshold": 100,
+        "source": "manual_api_v1"
+      },
+      "expect": { "validateOk": false }
+    },
+    {
+      "id": "A2-F10",
+      "category": "input_rejection",
+      "description": "Non-finite metricValue (NaN) rejected (R2.3)",
+      "oracleRef": "SPEC.md R2.3",
+      "duplicateOfVerify": true,
+      "input": {
+        "metricName": "opex_utilization_pct",
+        "metricValue": null,
+        "threshold": 100,
+        "source": "manual_api_v1",
+        "_note": "JSON cannot encode NaN; null exercises non-finite / non-number path (R2.3). See runner for Infinity case."
+      },
+      "expect": { "validateOk": false },
+      "runtimeOverrides": {
+        "metricValue": "NaN"
+      }
+    }
+  ]
+}

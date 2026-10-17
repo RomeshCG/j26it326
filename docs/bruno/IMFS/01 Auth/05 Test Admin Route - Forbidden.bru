@@ -1,0 +1,20 @@
+meta {
+  name: 05 Test Admin Route - Forbidden (403)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/auth/test/admin
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{nonAdminToken}}
+}
+
+docs {
+  # Test Admin Route - Forbidden (403)
+  Demonstrates RBAC rejection (403) when accessed with a non-admin role token (e.g., loan_officer or hr_officer).
+}

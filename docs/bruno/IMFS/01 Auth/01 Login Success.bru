@@ -1,0 +1,31 @@
+meta {
+  name: 01 Login Success
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{testEmail}}",
+    "password": "{{testPassword}}"
+  }
+}
+
+vars:post-response {
+  authToken: res.body.token
+}
+
+docs {
+  # Login Success
+  Authenticates user against central.users. Returns JWT token and writes to login_audit.
+}

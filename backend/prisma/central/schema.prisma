@@ -19,6 +19,7 @@ model Institution {
   subscriptions  Subscription[]
   configurations SystemConfiguration[]
   users          User[]
+  domains        InstitutionDomain[]
 
   @@map("institutions")
 }
@@ -74,9 +75,36 @@ model Role {
   id   Int    @id @default(autoincrement())
   name String @unique // loan_officer | branch_manager | finance_officer | hr_officer | admin | executive
 
-  users User[]
+  users   User[]
+  domains InstitutionDomain[]
 
   @@map("roles")
+}
+
+enum DomainStatus {
+  pending
+  verified
+  revoked
+}
+
+model InstitutionDomain {
+  id                    String       @id @default(uuid()) @db.Uuid
+  institutionId         String       @map("institution_id") @db.Uuid
+  domain                String
+  status                DomainStatus @default(pending)
+  verificationTokenHash String?      @unique @map("verification_token_hash")
+  tokenExpiresAt        DateTime?    @map("token_expires_at")
+  verifiedAt            DateTime?    @map("verified_at")
+  defaultRoleId         Int          @map("default_role_id")
+  autoApprove           Boolean      @default(false) @map("auto_approve")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  institution           Institution  @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  defaultRole           Role         @relation(fields: [defaultRoleId], references: [id])
+
+  @@index([institutionId])
+  @@map("institution_domains")
 }
 
 model User {

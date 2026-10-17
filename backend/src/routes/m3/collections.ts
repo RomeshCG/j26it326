@@ -22,6 +22,7 @@ const CollectionEntrySchema = z.object({
   visitDate: z.string(), // ISO date
   outcome: z.enum(["paid", "partial", "missed", "promise_to_pay", "not_at_home"]),
   amountCollected: z.number().min(0),
+  notes: z.string().optional(),
   promiseDate: z.string().optional(),
   syncedOfflineEntry: z.boolean().optional().default(false),
 })

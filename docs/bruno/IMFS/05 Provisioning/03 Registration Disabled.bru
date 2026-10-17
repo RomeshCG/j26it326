@@ -1,0 +1,24 @@
+meta {
+  name: 03 Registration Disabled
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/auth/register-institution
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "institutionName": "Disabled MFI",
+    "adminFullName": "Disabled Admin",
+    "adminEmail": "disabled@apex.lk",
+    "adminPassword": "{{adminPassword}}"
+  }
+}

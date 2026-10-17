@@ -1,6 +1,11 @@
 import "dotenv/config"
+import fs from "fs"
+import path from "path"
+import { fileURLToPath } from "url"
 import cors from "cors"
 import express from "express"
+import helmet from "helmet"
+import swaggerUi from "swagger-ui-express"
 import { centralPrisma } from "./lib/prisma-central.js"
 import { defaultTenantPrisma, disconnectAllTenantClients } from "./lib/prisma-tenant.js"
 import {
@@ -8,13 +13,98 @@ import {
   resolveTenantByInstitutionId,
 } from "./lib/tenant-context.js"
 import { m3Router } from "./routes/m3/index.js"
+import { getJwtSecret, logSafeError } from "./lib/auth.js"
+import { authRouter } from "./routes/auth.js"
+import { publicDomainRouter, tenantDomainRouter } from "./routes/domains.js"
+import { registrationRouter } from "./routes/registration.js"
+import { tenantRouter } from "./routes/tenant.js"
+import { exampleRouter } from "./routes/_example.js"
+import { internalAgentDispatchRouter } from "./routes/internal-agent-dispatch.js"
+import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
+import { configureTrustProxy } from "./middleware/rate-limit.js"
+import { registerDefaultAgentHandlers } from "./lib/agent-handlers.js"
+
+// Register Graduated Trust action handlers (A2 budget threshold, …)
+registerDefaultAgentHandlers()
+
+// Strict JWT_SECRET startup guard: server must fail fast if secret is missing or insecure
+try {
+  getJwtSecret()
+} catch (error) {
+  console.error("FATAL: JWT configuration error:", error instanceof Error ? error.message : error)
+  process.exit(1)
+}
 
 const app = express()
 const port = Number(process.env.PORT ?? 4000)
 
+// Configure client IP resolution via trust proxy
+configureTrustProxy(app, process.env.TRUST_PROXY)
+
+// Startup check: ENABLE_RATE_LIMITING=false is ignored in production (Amendment 5)
+if (process.env.NODE_ENV === "production" && process.env.ENABLE_RATE_LIMITING === "false") {
+  console.warn("[security-audit] WARNING: ENABLE_RATE_LIMITING=false is ignored in production. Rate limiting is active.")
+}
+
+// OpenAPI / Swagger: available in development by default; in production only if ENABLE_SWAGGER_DOCS === "true"
+const isDev = process.env.NODE_ENV !== "production"
+const enableSwagger = isDev || process.env.ENABLE_SWAGGER_DOCS === "true"
+
+// Security headers (Helmet). CSP disabled while Swagger UI is mounted — it needs inline script/style.
+app.use(
+  helmet({
+    contentSecurityPolicy: enableSwagger ? false : undefined,
+  })
+)
+
 app.use(cors())
 app.use(express.json())
 
+// Compute paths relative to source file
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+// backend/src -> docs/openapi.json is at ../../docs/openapi.json
+const openApiPath = path.resolve(__dirname, "../../docs/openapi.json")
+
+let openApiSpec: any = null
+function getOpenApiSpec() {
+  if (openApiSpec) return openApiSpec
+  try {
+    if (fs.existsSync(openApiPath)) {
+      const content = fs.readFileSync(openApiPath, "utf8")
+      openApiSpec = JSON.parse(content)
+      return openApiSpec
+    } else {
+      console.warn(`[warning] openapi.json not found at ${openApiPath}`)
+      return null
+    }
+  } catch (err) {
+    console.warn(`[warning] Failed to load openapi.json:`, err)
+    return null
+  }
+}
+
+if (enableSwagger) {
+  app.get("/openapi.json", (_req, res) => {
+    const spec = getOpenApiSpec()
+    if (!spec) {
+      res.status(404).json({ error: "OpenAPI specification not available" })
+      return
+    }
+    res.json(spec)
+  })
+
+  app.use("/docs", swaggerUi.serve, (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const spec = getOpenApiSpec()
+    if (!spec) {
+      res.status(404).send("OpenAPI documentation not found")
+      return
+    }
+    swaggerUi.setup(spec)(req, res, next)
+  })
+}
+
+// Public health checks
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
@@ -34,31 +124,69 @@ app.get("/health/db", async (_req, res) => {
       tenantDefault: "connected",
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Database check failed"
-    res.status(503).json({ ok: false, error: message })
+    logSafeError("[health/db] Database check failed", error)
+    res.status(503).json({ ok: false, error: "Database check failed" })
   }
 })
 
-app.get("/api/institutions", async (_req, res) => {
+// Authentication & Profile routes
+app.use("/auth", authRouter)
+app.use("/auth", publicDomainRouter)
+app.use("/auth", registrationRouter)
+
+// Core Tenant routes (M4 and cross-module queries)
+app.use("/api/tenant", tenantRouter)
+app.use("/api/tenant", tenantDomainRouter)
+
+// Internal agent → Node dispatch (shared service key; not user JWT)
+app.use("/api/internal", internalAgentDispatchRouter)
+
+// Integration example router for teammates (non-production only)
+if (isDev) {
+  app.use("/api/example", exampleRouter)
+}
+
+// ============================================================================
+// Protected Infrastructure Routes (Admin of caller's own institution only)
+// ============================================================================
+
+/**
+ * GET /api/institutions
+ * Returns ONLY the caller's own institution (no cross-institution super-admin).
+ */
+app.get("/api/institutions", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
   try {
+    const callerInstitutionId = req.user!.institutionId
+
     const institutions = await centralPrisma.institution.findMany({
+      where: { id: callerInstitutionId },
       include: {
         databases: true,
         subscriptions: true,
       },
-      orderBy: { createdAt: "asc" },
     })
     res.json({ data: institutions })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to list institutions"
-    res.status(500).json({ error: message })
+    logSafeError("[api/institutions] Failed to list institutions", error)
+    res.status(500).json({ error: "Failed to list institutions" })
   }
 })
 
-app.get("/api/tenants/:dbIdentifier/info", async (req, res) => {
-  const resolved = await resolveTenantByDbIdentifier(req.params.dbIdentifier)
+/**
+ * GET /api/tenants/:dbIdentifier/info
+ * Returns tenant info ONLY if dbIdentifier belongs to caller's own institution.
+ */
+app.get("/api/tenants/:dbIdentifier/info", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
+  const dbIdentifier = String(req.params.dbIdentifier)
+  const resolved = await resolveTenantByDbIdentifier(dbIdentifier)
   if (!resolved.ok) {
     res.status(resolved.status).json({ error: resolved.message })
+    return
+  }
+
+  // Cross-institution protection: tenant must belong to the caller's institution
+  if (resolved.institutionId !== req.user!.institutionId) {
+    res.status(403).json({ error: "Access denied to foreign tenant database" })
     return
   }
 
@@ -73,13 +201,23 @@ app.get("/api/tenants/:dbIdentifier/info", async (req, res) => {
       counts: { branches: branchCount, borrowers: borrowerCount },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load tenant info"
-    res.status(500).json({ error: message })
+    logSafeError("[api/tenants/:dbIdentifier/info] Failed to load tenant info", error)
+    res.status(500).json({ error: "Failed to load tenant info" })
   }
 })
 
-app.get("/api/institutions/:institutionId/tenant-health", async (req, res) => {
-  const resolved = await resolveTenantByInstitutionId(req.params.institutionId)
+/**
+ * GET /api/institutions/:institutionId/tenant-health
+ * Returns tenant health ONLY if institutionId matches caller's own institution.
+ */
+app.get("/api/institutions/:institutionId/tenant-health", authenticate, resolveTenantContext, requireRole("admin"), async (req, res) => {
+  const targetInstitutionId = String(req.params.institutionId)
+  if (targetInstitutionId !== req.user!.institutionId) {
+    res.status(403).json({ error: "Access denied to foreign institution health check" })
+    return
+  }
+
+  const resolved = await resolveTenantByInstitutionId(targetInstitutionId)
   if (!resolved.ok) {
     res.status(resolved.status).json({ error: resolved.message })
     return
@@ -93,8 +231,8 @@ app.get("/api/institutions/:institutionId/tenant-health", async (req, res) => {
       dbIdentifier: resolved.dbIdentifier,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Tenant DB unreachable"
-    res.status(503).json({ ok: false, error: message })
+    logSafeError("[api/institutions/:id/tenant-health] Tenant DB unreachable", error)
+    res.status(503).json({ ok: false, error: "Tenant DB unreachable" })
   }
 })
 
@@ -112,8 +250,11 @@ process.on("SIGTERM", shutdown)
 
 app.listen(port, () => {
   console.log(`IMFS backend listening on http://localhost:${port}`)
-  console.log("Endpoints: GET /health  GET /health/db  GET /api/institutions")
+  console.log(`Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me`)
   console.log("M3 routes: /api/m3/products  /api/m3/borrowers  /api/m3/groups")
   console.log("           /api/m3/applications  /api/m3/loans  /api/m3/collections")
   console.log("           /api/m3/par  /api/m3/ews")
+  if (enableSwagger) {
+    console.log(`Swagger Docs: http://localhost:${port}/docs  (OpenAPI JSON: http://localhost:${port}/openapi.json)`)
+  }
 })

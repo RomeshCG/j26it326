@@ -1,4 +1,3 @@
-import React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,6 +32,17 @@ export default function Step4Users({ formData, errors, handleAddUser, handleRemo
           <Plus className="mr-1.5 size-4" />
           Add User
         </Button>
+      </div>
+
+      {/* Honesty / Provisioning Notice */}
+      <div className="p-3.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs space-y-1 text-muted-foreground">
+        <p className="font-semibold text-foreground flex items-center gap-1.5">
+          <User className="size-3.5 text-amber-500" />
+          Staff Invitation Notice
+        </p>
+        <p>
+          During initial institution provisioning, <strong className="text-foreground">only the Primary Administrator account is created</strong>. Additional staff profiles entered below will be marked as <span className="font-semibold text-amber-600 dark:text-amber-400">Invited Later</span> and will receive invitations to complete setup from your admin console once your workspace is live.
+        </p>
       </div>
 
       <div className="space-y-4">

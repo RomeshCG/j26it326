@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { 
   User, Building2, Bell, Cpu, Shield, 
-  Lock, CheckCircle, Save, LogOut, X, Edit, Trash2, Plus, AlertTriangle, Info
+  Lock, CheckCircle, Edit, Trash2, Plus, AlertTriangle, Info
 } from "lucide-react"
 import { useStore } from "@/store"
 
@@ -28,11 +28,11 @@ export default function Settings() {
   // Zustand State
   const { 
     currentUser, updateProfile, 
-    institution, updateInstitution, branches, addBranch, updateBranch, removeBranch,
+    institution, updateInstitution, branches, addBranch, removeBranch,
     loanProducts, toggleLoanProduct,
     notifications, updateNotification,
     agentSettings, updateAgentSensitivity, toggleAgent,
-    resetDemoData, logout 
+    resetDemoData
   } = useStore()
   
   const [activeTab, setActiveTab] = useState("account")
@@ -45,7 +45,6 @@ export default function Settings() {
   const [profileForm, setProfileForm] = useState(currentUser || {})
   const [instForm, setInstForm] = useState(institution || {})
   const [newBranchMode, setNewBranchMode] = useState(false)
-  const [editingBranch, setEditingBranch] = useState(null)
   
   // Password state
   const [pwd, setPwd] = useState({ current: "", new: "", confirm: "" })

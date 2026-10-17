@@ -1,7 +1,6 @@
-import React from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { CheckSquare, Square } from "lucide-react"
+import { CheckSquare, Square, Coins } from "lucide-react"
 
 export const PREDEFINED_PRODUCTS = [
   {
@@ -42,6 +41,17 @@ export default function Step3Products({ formData, errors, toggleProductSelection
           Select Loan Products
         </h3>
         <p className="text-xs text-muted-foreground">Select the financial products your microfinance institution offers to clients.</p>
+      </div>
+
+      {/* Honesty / Provisioning Notice */}
+      <div className="p-3.5 rounded-lg border border-blue-500/20 bg-blue-500/5 text-xs space-y-1 text-muted-foreground">
+        <p className="font-semibold text-foreground flex items-center gap-1.5">
+          <Coins className="size-3.5 text-blue-500" />
+          Initial Launch Provisioning Notice
+        </p>
+        <p>
+          Initial provisioning establishes core financial ledger and compliance structures. The loan product offerings selected below are saved in your initial setup preferences and will be created as active products via the Loan Portfolio configuration after launch.
+        </p>
       </div>
 
       {errors.products && (

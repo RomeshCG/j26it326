@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+backend/.zz-test-credentials.local
+**/.zz-test-credentials.local
 
 # Dependencies / build
 node_modules/
@@ -45,12 +47,27 @@ ml/**/*.xlsx
 # Allow tiny tracked samples if you ever add them explicitly under samples/
 !ml/**/data/samples/**
 
+# Agents Phase A — synthetic data + IF artifacts (code tracked; outputs local)
+agents/data/synthetic/**
+!agents/data/synthetic/.keep
+agents/artifacts/**
+!agents/artifacts/.keep
+agents/**/__pycache__/
+
 # OS / IDE
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 
+# M4 offline eval artifacts (generated locally; review before committing)
+backend/eval-results/**
+!backend/eval-results/.keep
+
 # Optional local-only docs (uncomment if you do not want them on GitHub)
 internalDocs/
 .cursor/
+
+# M2 private partner data (PAR extracts, raw Excel)
+ml/**/data/private/**
+ml/**/*.xlsx

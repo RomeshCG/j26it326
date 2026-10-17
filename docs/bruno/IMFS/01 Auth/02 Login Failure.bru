@@ -1,0 +1,27 @@
+meta {
+  name: 02 Login Failure - Bad Credentials
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{testEmail}}",
+    "password": "incorrect_password"
+  }
+}
+
+docs {
+  # Login Failure
+  Fails authentication, returns 401 with generic message (no user enumeration), and writes to login_audit.
+}

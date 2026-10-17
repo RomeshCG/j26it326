@@ -6,3 +6,7 @@ xgboost
 shap
 joblib
 python-dotenv
+openpyxl
+matplotlib
+jupyter
+ipykernel

@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { Link } from "react-router-dom"
 import {
   Activity,
@@ -6,12 +5,13 @@ import {
   CheckCircle,
   ChevronRight,
   Clock,
-  Loader2,
-  Send,
+  MessageCircle,
+  Sparkles,
   TrendingUp,
   Users,
   Wallet,
 } from "lucide-react"
+import { useStore } from "@/store"
 
 const formatLKR = (amount) => {
   return new Intl.NumberFormat("en-LK", {
@@ -135,45 +135,7 @@ const AGENT_ACTIONS = [
 ]
 
 export default function ExecutiveDashboard() {
-  const [nlqInput, setNlqInput] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
-  const [nlqResponse, setNlqResponse] = useState(null)
-
-  const handleAsk = (questionText) => {
-    const q = typeof questionText === "string" ? questionText : nlqInput
-    if (!q.trim()) return
-
-    setNlqInput(q)
-    setIsTyping(true)
-    setNlqResponse(null)
-
-    setTimeout(() => {
-      let answer =
-        "Based on current data, your institution is performing within expected parameters. For detailed analysis, please view the full reports."
-      const lowerQ = q.toLowerCase()
-
-      if (lowerQ.includes("par30")) {
-        answer =
-          "The current PAR30 across all branches is 4.2%, which is within the healthy threshold of under 5%. The Ampara branch has the highest PAR30 at 7.8%."
-      } else if (lowerQ.includes("collection")) {
-        answer =
-          "This month's collection rate is 91.3%, up from 88.7% last month. The Kandy branch leads with 94.1%."
-      } else if (lowerQ.includes("epf")) {
-        answer =
-          "A total of LKR 1.2M was paid in EPF this month across all branches."
-      }
-
-      setNlqResponse({ question: q, answer })
-      setIsTyping(false)
-      setNlqInput("")
-    }, 1500)
-  }
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      handleAsk()
-    }
-  }
+  const openAgentPanel = useStore((state) => state.openAgentPanel)
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-background text-foreground">
@@ -544,81 +506,26 @@ export default function ExecutiveDashboard() {
         <div className="relative overflow-hidden rounded-2xl border border-blue-500/20 bg-card p-6 shadow-sm">
           <div className="pointer-events-none absolute top-0 right-0 h-64 w-64 translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/5 blur-3xl" />
 
-          <h2 className="relative z-10 mb-4 flex items-center gap-2 text-base font-semibold text-foreground">
+          <h2 className="relative z-10 mb-3 flex items-center gap-2 text-base font-semibold text-foreground">
             <span className="flex size-6 items-center justify-center rounded bg-blue-500 text-xs font-bold text-white">
               A4
             </span>
             Ask MicroFlow — Agent 4
           </h2>
-
-          <div className="relative z-10 mb-4 flex gap-3">
-            <input
-              type="text"
-              value={nlqInput}
-              onChange={(e) => setNlqInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask anything about your institution... e.g. What is the PAR30 for the Kandy branch this month?"
-              className="flex-1 rounded-xl border border-input bg-background px-4 py-4 text-sm text-foreground shadow-inner transition-all placeholder:text-muted-foreground focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none sm:text-base"
-            />
-            <button
-              type="button"
-              onClick={() => handleAsk(nlqInput)}
-              disabled={!nlqInput.trim() || isTyping}
-              className="flex items-center justify-center rounded-xl bg-primary px-6 text-primary-foreground transition-colors hover:bg-primary/80 disabled:bg-muted disabled:text-muted-foreground"
-            >
-              <Send size={20} />
-            </button>
-          </div>
-
-          {!nlqResponse && !isTyping && (
-            <div className="relative z-10 flex flex-wrap gap-2">
-              {[
-                "What is this month's collection rate?",
-                "Which branch has the highest PAR30?",
-                "How much was paid in EPF this month?",
-              ].map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => handleAsk(suggestion)}
-                  className="cursor-pointer rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-muted"
-                >
-                  &quot;{suggestion}&quot;
-                </button>
-              ))}
-            </div>
-          )}
-
-          {isTyping && (
-            <div className="relative z-10 mt-4 flex animate-in fade-in items-center gap-3 rounded-xl border border-blue-500/10 bg-blue-500/5 p-4 text-blue-600 dark:text-blue-400">
-              <Loader2 className="animate-spin" size={20} />
-              <span className="text-sm font-medium">
-                Agent 4 is analysing data...
-              </span>
-            </div>
-          )}
-
-          {nlqResponse && !isTyping && (
-            <div className="relative z-10 mt-4 animate-in slide-in-from-bottom-2 rounded-xl border border-border bg-muted/50 p-5">
-              <div className="mb-2 text-sm text-muted-foreground italic">
-                &quot;{nlqResponse.question}&quot;
-              </div>
-              <div className="mb-4 text-base leading-relaxed text-foreground">
-                {nlqResponse.answer}
-              </div>
-              <div className="flex items-center gap-2 border-t border-border pt-3">
-                <div className="flex size-5 items-center justify-center rounded bg-blue-500 text-[10px] font-bold text-white">
-                  A4
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Answered by Agent 4 — NLQ Interface
-                </div>
-                <div className="ml-auto rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">
-                  Tier 1 • Auto
-                </div>
-              </div>
-            </div>
-          )}
+          <p className="relative z-10 mb-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
+            Agent 4 answers grounded Graduated Trust questions via the shared Ask
+            Agent 4 panel (tenant API). This dashboard no longer simulates
+            PAR, collection, or EPF replies.
+          </p>
+          <button
+            type="button"
+            onClick={() => openAgentPanel()}
+            className="relative z-10 inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-teal-500"
+          >
+            <MessageCircle size={18} />
+            Open Ask Agent 4
+            <Sparkles size={16} className="opacity-80" />
+          </button>
         </div>
       </div>
     </div>
