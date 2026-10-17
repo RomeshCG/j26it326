@@ -39,18 +39,60 @@ export default function BranchPortfolio({ onBack, onOpenAlert, onOpenEarlyWarnin
   const [branchId, setBranchId] = useState(initialBranchId || BRANCH_LIST[0].id)
   const [computing, setComputing] = useState(false)
   const [livePar, setLivePar] = useState(null)
+  const [liveAlertsCount, setLiveAlertsCount] = useState(null)
+  const [isLive, setIsLive] = useState(false)
 
   const portfolio = useMemo(
     () => BRANCHES[branchId] ?? BRANCH_LIST[0],
     [branchId]
   )
-  const { branch, manager, stats, officers, topAlerts } = portfolio
+  const { branch, manager, stats: staticStats, officers, topAlerts } = portfolio
+
+  useEffect(() => {
+    let active = true
+    async function fetchSummary() {
+      try {
+        const [parRes, alertsRes] = await Promise.allSettled([
+          getParSummary(),
+          getEwsAlerts({ status: "open" }),
+        ])
+        if (!active) return
+
+        let live = false
+        if (parRes.status === "fulfilled" && parRes.value && typeof parRes.value.par30Ratio === "number") {
+          setLivePar(parRes.value)
+          live = true
+        }
+        if (alertsRes.status === "fulfilled" && Array.isArray(alertsRes.value)) {
+          setLiveAlertsCount(alertsRes.value.length)
+          live = true
+        }
+        setIsLive(live)
+      } catch {
+        if (active) setIsLive(false)
+      }
+    }
+    fetchSummary()
+    return () => {
+      active = false
+    }
+  }, [branchId])
+
+  const stats = useMemo(() => ({
+    ...staticStats,
+    par30: livePar?.par30Ratio != null ? (livePar.par30Ratio * 100).toFixed(1) : staticStats.par30,
+    ewsAlertCount: liveAlertsCount != null ? liveAlertsCount : staticStats.ewsAlertCount,
+    activeLoans: livePar?.totalLoans != null ? livePar.totalLoans : staticStats.activeLoans,
+  }), [staticStats, livePar, liveAlertsCount])
 
   async function handleComputePar() {
     setComputing(true)
     try {
       const summary = await computePar()
-      if (summary) setLivePar(summary)
+      if (summary) {
+        setLivePar(summary)
+        setIsLive(true)
+      }
     } catch (err) {
       console.warn("Compute PAR offline fallback:", err)
     } finally {
@@ -70,7 +112,12 @@ export default function BranchPortfolio({ onBack, onOpenAlert, onOpenEarlyWarnin
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Component 3 · Branch risk monitoring
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">{branch}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">{branch}</h1>
+            <Badge variant={isLive ? "default" : "secondary"}>
+              {isLive ? "Live API" : "Demo Data"}
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground">
             Manager {manager} · {stats.officers} loan officers
           </p>

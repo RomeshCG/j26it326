@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react"
 import { ArrowLeft, ChevronRight, Users } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { GROUPS, formatLkr } from "./mock-data"
+import { getGroup } from "@/lib/m3-api"
 
 function memberStatusBadge(status) {
   if (status === "ews") return <Badge variant="destructive">EWS</Badge>
@@ -19,16 +21,57 @@ function memberStatusBadge(status) {
 }
 
 export default function GroupLending({ groupId, onBack, onOpenLoan }) {
-  const group = GROUPS[groupId] ?? GROUPS["GRP-KIR-12"]
+  const [group, setGroup] = useState(GROUPS[groupId] ?? GROUPS["GRP-KIR-12"])
+  const [isLive, setIsLive] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    async function loadGroup() {
+      if (!groupId) return
+      try {
+        const live = await getGroup(groupId)
+        if (live && active) {
+          const fallback = GROUPS[groupId] ?? GROUPS["GRP-KIR-12"]
+          setGroup({
+            ...fallback,
+            id: live.id || groupId,
+            name: live.groupName || fallback.name,
+            members: Array.isArray(live.members) && live.members.length > 0
+              ? live.members.map((m, idx) => ({
+                  borrowerId: m.borrowerId || m.borrower?.id,
+                  name: m.borrower?.fullName || `Member ${idx + 1}`,
+                  loanId: fallback.members[idx]?.loanId || null,
+                  outstanding: fallback.members[idx]?.outstanding || 0,
+                  status: m.borrower?.status === "active" ? "current" : (fallback.members[idx]?.status || "current"),
+                }))
+              : fallback.members,
+          })
+          setIsLive(true)
+        }
+      } catch {
+        if (active) setIsLive(false)
+      }
+    }
+    loadGroup()
+    return () => {
+      active = false
+    }
+  }, [groupId])
+
   const activeMembers = group.members.filter((m) => m.loanId)
   const totalOutstanding = activeMembers.reduce((sum, m) => sum + m.outstanding, 0)
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5 px-4 py-8">
-      <Button type="button" variant="ghost" size="default" onClick={onBack} className="cursor-pointer">
-        <ArrowLeft />
-        Back
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button type="button" variant="ghost" size="default" onClick={onBack} className="cursor-pointer">
+          <ArrowLeft />
+          Back
+        </Button>
+        <Badge variant={isLive ? "default" : "secondary"}>
+          {isLive ? "Live API" : "Demo Data"}
+        </Badge>
+      </div>
 
       <Card className="rounded-xl border bg-card">
         <CardHeader className="border-b border-border/50 pb-4">
