@@ -1,0 +1,53 @@
+# M2 priors: every synthetic number lives here, with its source.
+# Read by ml/m2_mission_intel/features/make_m2_synthetic.py
+
+seed = 42
+anchor_month = "2026-07"       # real PAR snapshot month
+history_months = 12            # Aug 2025 .. Jul 2026
+
+[par]
+# `age` = number of installments in arrears (confirmed by team, 17 Oct). PAR30 = more than 4.3 installments late.
+# 99% of loans are weekly, so rule = more than 4.3 installments late (~30 days).
+par30_min_installments_late = 4.3
+
+[social_priors]
+# Gender: median % female borrowers of 25 Sri Lankan MFIs, MIX Market (ml/shared/data/MFIsdata_mixmarket.xlsx)
+female_share = 0.78
+# Census 2012 area shares
+rural_share = 0.774
+urban_share = 0.182
+estate_share = 0.044
+# Official poverty line, LKR per person per month.
+# TODO: confirm latest Dept of Census and Statistics value and month before the report.
+poverty_line_lkr = 17000
+poverty_line_month = "TODO-confirm"
+# Low-income = income per person below this multiple of the poverty line
+low_income_multiple = 1.5
+# PAR has only active loans -> no dropout data. Monthly rate (synthetic).
+monthly_dropout_rate = 0.03
+
+[finance_priors]
+# MIX Sri Lanka median OER = 13% of portfolio per year (opex / avg portfolio)
+oer_annual = 0.13
+salary_share_of_opex = 0.60
+# Annual cost of funds on borrowings (synthetic prior)
+funding_rate_annual = 0.12
+# Share of the portfolio funded by borrowings (rest = equity)
+borrowings_share = 0.70
+# Loan-loss provision as share of PAR30 balance, per month
+provision_rate_of_par30 = 0.01
+# Monthly repayment rate: share of portfolio repaid as principal per month
+principal_repay_rate = 0.07
+# Interest yield actually earned per month on avg portfolio (synthetic; contract terms imply ~60%/yr flat,
+# so we use an earned-yield prior near the MIX Sri Lanka median of 20%/yr instead of showing 60%).
+interest_yield_annual = 0.26
+
+[history]
+# Aug 2025 .. Apr 2026 stable; May .. Jul 2026 drift (synthetic demo scenario, NOT a finding)
+noise_pct = 0.015              # +-1.5% random monthly noise
+drift_start = "2026-05"
+# Total change by Jul 2026 relative to the stable level (applied gradually over drift months)
+drift_female_delta = -0.06
+drift_poverty_delta = -0.10     # relative change of the poverty share
+drift_avg_loan_delta = 0.12     # relative increase of avg loan size
+drift_rural_delta = -0.04
