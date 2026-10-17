@@ -38,6 +38,9 @@ ml/**/models/*.joblib
 ml/**/models/*.json
 ml/**/models/*.bst
 ml/**/models/*.bin
+ml/**/models/*.pt
+ml/**/models/*.pth
+ml/**/models/*.keras
 ml/**/*.csv
 ml/**/*.parquet
 ml/**/*.feather

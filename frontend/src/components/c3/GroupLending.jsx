@@ -32,10 +32,20 @@ export default function GroupLending({ groupId, onBack, onOpenLoan }) {
         const live = await getGroup(groupId)
         if (live && active) {
           const fallback = GROUPS[groupId] ?? GROUPS["GRP-KIR-12"]
+          const latestStat = Array.isArray(live.repaymentStats) && live.repaymentStats.length > 0 ? live.repaymentStats[0] : null
+          const guaranteeStrength = latestStat?.groupRepaymentRatio != null
+            ? (Number(latestStat.groupRepaymentRatio) >= 0.95 ? "Strong" : Number(latestStat.groupRepaymentRatio) >= 0.85 ? "Moderate" : "Weak")
+            : fallback.guaranteeStrength
+          const meetingAttendance = latestStat?.groupRepaymentRatio != null
+            ? Math.round(Number(latestStat.groupRepaymentRatio) * 100)
+            : fallback.meetingAttendance
+
           setGroup({
             ...fallback,
             id: live.id || groupId,
             name: live.groupName || fallback.name,
+            guaranteeStrength,
+            meetingAttendance,
             members: Array.isArray(live.members) && live.members.length > 0
               ? live.members.map((m, idx) => ({
                   borrowerId: m.borrowerId || m.borrower?.id,

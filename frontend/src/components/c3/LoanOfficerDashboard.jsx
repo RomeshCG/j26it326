@@ -166,6 +166,11 @@ export default function LoanOfficerDashboard({
               {isLive ? "Live API" : "Demo Data"}
             </Badge>
           </div>
+          {!Boolean(typeof window !== "undefined" && localStorage.getItem("mf_auth_token")) && (
+            <p className="text-xs text-muted-foreground">
+              No auth token — log in via M4 to see live data
+            </p>
+          )}
           <p className="text-sm text-muted-foreground">
             {officer.branch} · {officer.portfolioId}
           </p>
