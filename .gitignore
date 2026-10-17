@@ -43,6 +43,7 @@ ml/**/*.parquet
 ml/**/*.feather
 ml/**/*.xlsx
 !ml/**/.keep
+!ml/**/data/private/README.md
 
 # Allow tiny tracked samples if you ever add them explicitly under samples/
 !ml/**/data/samples/**

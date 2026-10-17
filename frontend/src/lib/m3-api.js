@@ -1,48 +1,100 @@
 /**
- * M3 — API Client
- * Connects frontend UI components to backend /api/m3 routes with:
- * - Mock auth headers / institution resolution
- * - Offline queue for field collections
- * - Automatic fallback to mock data when backend is not running
+ * M3 — API Client (live JWT edition)
+ * ====================================
+ * Connects frontend UI components to backend /api/m3 routes.
+ *
+ * Auth: reads the JWT Bearer token stored by M4 login flow
+ *       (localStorage key "mf_auth_token") — same key used by api.js.
+ *       No mock headers are sent in production.
+ *
+ * Offline: field collections are queued in localStorage when the network
+ *          is unavailable and synced on reconnect.
+ *
+ * Error handling: all errors are normalised to { message, status } so UI
+ *                 components can display them without extra parsing.
  */
 
-const API_BASE = "/api/m3"
+import { getApiBaseUrl } from "./api.js"
 
-function getHeaders() {
-  const token = localStorage.getItem("mf_auth_token")
-  const role = localStorage.getItem("mf_auth_role") || "loan_officer"
-  const institutionId = localStorage.getItem("mf_institution_id") || "00000000-0000-4000-8000-000000000001"
-  const userId = localStorage.getItem("mf_user_id") || "20000000-0000-4000-8000-000000000001"
-
-  return {
-    "Content-Type": "application/json",
-    "x-institution-id": institutionId,
-    "x-mock-user-id": userId,
-    "x-mock-role": role.toLowerCase().replace(" ", "_"),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  }
+// Derive M3 prefix from the same base URL used by the rest of the app
+function getM3Base() {
+  return `${getApiBaseUrl()}/api/m3`
 }
 
-async function request(path, options = {}) {
-  const url = `${API_BASE}${path}`
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...getHeaders(),
-      ...(options.headers || {}),
-    },
-  })
+// ── Auth helpers ─────────────────────────────────────────────────────────────
 
-  if (!response.ok) {
-    const errorJson = await response.json().catch(() => ({}))
-    throw new Error(errorJson.error || `Request failed with status ${response.status}`)
+function getAuthHeaders() {
+  const token = localStorage.getItem("mf_auth_token")
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  }
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
+  }
+  return headers
+}
+
+// ── Core fetch wrapper ────────────────────────────────────────────────────────
+
+async function request(path, options = {}) {
+  const url = `${getM3Base()}${path}`
+
+  let response
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        ...getAuthHeaders(),
+        ...(options.headers || {}),
+      },
+    })
+  } catch (err) {
+    const networkErr = new Error(
+      `Network error reaching ${url}: ${err.message}`
+    )
+    networkErr.isNetworkError = true
+    throw networkErr
   }
 
-  const json = await response.json()
-  return json.data
+  // Let the global auth layer in api.js handle 401s via redirect;
+  // here we just parse and throw a meaningful error.
+  if (response.status === 401) {
+    localStorage.removeItem("mf_auth_token")
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login?expired=true"
+    }
+    throw new Error("Session expired — please log in again")
+  }
+
+  const contentType = response.headers.get("content-type") || ""
+  let data
+  if (contentType.includes("application/json")) {
+    try {
+      data = await response.json()
+    } catch {
+      data = null
+    }
+  } else {
+    data = await response.text()
+  }
+
+  if (!response.ok) {
+    const msg =
+      (data && typeof data === "object" && (data.error || data.message)) ||
+      `Request failed with status ${response.status}`
+    const err = new Error(msg)
+    err.status = response.status
+    err.data = data
+    throw err
+  }
+
+  // Backend M3 routes return { data: ... }
+  return data && typeof data === "object" && "data" in data ? data.data : data
 }
 
 // ── Products & Borrowers ──────────────────────────────────────────────────────
+
 export async function getProducts() {
   return request("/products")
 }
@@ -63,7 +115,15 @@ export async function createBorrower(data) {
   })
 }
 
+export async function updateBorrower(id, data) {
+  return request(`/borrowers/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  })
+}
+
 // ── Applications & Approvals ──────────────────────────────────────────────────
+
 export async function getApplications(params = {}) {
   const qs = new URLSearchParams(params).toString()
   return request(`/applications${qs ? `?${qs}` : ""}`)
@@ -98,11 +158,17 @@ export async function rejectApplication(id, rejectionReason) {
   })
 }
 
+/**
+ * Request a risk assessment from M1's credit model for an application.
+ * Calls POST /api/m3/applications/:id/risk-score which internally calls
+ * M1's POST /api/risk/assess — M3 never reads M1's model weights directly.
+ */
 export async function requestRiskScore(id) {
   return request(`/applications/${id}/risk-score`, { method: "POST" })
 }
 
 // ── Loans & Disbursements ─────────────────────────────────────────────────────
+
 export async function getLoans(params = {}) {
   const qs = new URLSearchParams(params).toString()
   return request(`/loans${qs ? `?${qs}` : ""}`)
@@ -124,6 +190,7 @@ export async function disburseLoan(id, disburseData) {
 }
 
 // ── Field Collections & Offline Queue ─────────────────────────────────────────
+
 const OFFLINE_COLLECTIONS_KEY = "imfs_offline_collections_v1"
 
 export function getOfflineCollections() {
@@ -150,10 +217,12 @@ export async function recordCollection(data) {
       body: JSON.stringify(data),
     })
   } catch (err) {
-    // If network failure, queue offline automatically
-    console.warn("[M3 Collection] Offline or request failed — queuing locally:", err.message)
-    const queued = queueOfflineCollection(data)
-    return { ...queued, offline: true }
+    if (err.isNetworkError || err.status >= 500) {
+      console.warn("[M3 Collection] Offline or server error — queuing locally:", err.message)
+      const queued = queueOfflineCollection(data)
+      return { ...queued, offline: true }
+    }
+    throw err
   }
 }
 
@@ -166,12 +235,12 @@ export async function syncOfflineCollections() {
     body: JSON.stringify({ entries: queue }),
   })
 
-  // Clear synced items
   localStorage.removeItem(OFFLINE_COLLECTIONS_KEY)
   return results
 }
 
 // ── PAR & EWS ────────────────────────────────────────────────────────────────
+
 export async function getParSummary() {
   return request("/par/summary")
 }
@@ -195,6 +264,24 @@ export async function acknowledgeEwsAlert(id) {
 
 export async function logIntervention(alertId, data) {
   return request(`/ews/alerts/${alertId}/interventions`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+// ── Groups ────────────────────────────────────────────────────────────────────
+
+export async function getGroups(params = {}) {
+  const qs = new URLSearchParams(params).toString()
+  return request(`/groups${qs ? `?${qs}` : ""}`)
+}
+
+export async function getGroup(id) {
+  return request(`/groups/${id}`)
+}
+
+export async function createGroup(data) {
+  return request("/groups", {
     method: "POST",
     body: JSON.stringify(data),
   })

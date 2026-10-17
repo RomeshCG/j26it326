@@ -147,15 +147,110 @@ def main():
     print(f"  Alerts triggered   : {alert_count} ({alert_count / len(scored_records):.1%})")
     print(f"  Results saved to   : {out_path}")
 
-    # Optional DB persistence
+    # ── DB persistence (tenant PostgreSQL on port 5435) ───────────────────────
     if args.db_url:
-        try:
-            import psycopg2
-            print(f"[M3 Batch Score] Persisting alerts to database at {args.db_url}...")
-            # Persist logic when live DB available
-        except Exception as e:
-            print(f"[WARN] Could not connect to DB to persist: {e}")
+        _persist_to_db(args.db_url, scored_records)
+
+
+def _persist_to_db(db_url: str, records: list[dict]) -> None:
+    """
+    Upserts EWS scores into ews_scores and creates new ews_alerts rows for
+    high/critical loans that do not already have an open alert.
+
+    Table expectations (must match Prisma tenant schema):
+      ews_scores  (id uuid PK, loan_id uuid, distress_score numeric,
+                   risk_band text, scored_at timestamptz, model_version text)
+      ews_alerts  (id uuid PK, loan_id uuid, borrower_id uuid,
+                   distress_score numeric, risk_band text, status text,
+                   rationale text, recommendation text, created_at timestamptz)
+    """
+    try:
+        import psycopg2
+        import psycopg2.extras
+    except ImportError:
+        print("[WARN] psycopg2 not installed — skipping DB persistence. "
+              "Install with: pip install psycopg2-binary", file=sys.stderr)
+        return
+
+    try:
+        conn = psycopg2.connect(db_url)
+    except Exception as exc:
+        print(f"[WARN] Cannot connect to DB ({db_url}): {exc}", file=sys.stderr)
+        return
+
+    print(f"[M3 Batch Score] Persisting {len(records)} scores to DB...")
+
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                # 1. Upsert ews_scores (one canonical row per loan per run date)
+                upsert_score_sql = """
+                    INSERT INTO ews_scores
+                        (id, loan_id, distress_score, risk_band, scored_at, model_version)
+                    VALUES
+                        (gen_random_uuid(), %s, %s, %s, %s, %s)
+                    ON CONFLICT (loan_id, DATE(scored_at))
+                    DO UPDATE SET
+                        distress_score = EXCLUDED.distress_score,
+                        risk_band      = EXCLUDED.risk_band,
+                        scored_at      = EXCLUDED.scored_at,
+                        model_version  = EXCLUDED.model_version
+                """
+
+                # 2. Fetch already-open alert loan_ids to avoid duplicates
+                cur.execute("""
+                    SELECT DISTINCT loan_id::text
+                    FROM ews_alerts
+                    WHERE status = 'open'
+                """)
+                already_open: set[str] = {row[0] for row in cur.fetchall()}
+
+                n_scores = 0
+                n_alerts = 0
+
+                for rec in records:
+                    loan_id   = str(rec["loan_id"])
+                    scored_at = rec["scored_at"]
+
+                    cur.execute(upsert_score_sql, (
+                        loan_id,
+                        rec["distress_score"],
+                        rec["risk_band"],
+                        scored_at,
+                        rec["model_version"],
+                    ))
+                    n_scores += 1
+
+                    # Create alert only for high/critical loans without an open alert
+                    if rec["is_alert"] and loan_id not in already_open:
+                        cur.execute("""
+                            INSERT INTO ews_alerts
+                                (id, loan_id, borrower_id, distress_score,
+                                 risk_band, status, rationale, recommendation, created_at)
+                            VALUES
+                                (gen_random_uuid(), %s, %s, %s, %s, 'open', %s, %s, %s)
+                        """, (
+                            loan_id,
+                            str(rec["borrower_id"]),
+                            rec["distress_score"],
+                            rec["risk_band"],
+                            rec["rationale"],
+                            rec["recommendation"],
+                            scored_at,
+                        ))
+                        already_open.add(loan_id)  # don't double-insert in same run
+                        n_alerts += 1
+
+        print(f"[M3 Batch Score] DB persistence complete:")
+        print(f"  Scores upserted  : {n_scores}")
+        print(f"  New alerts opened: {n_alerts}")
+
+    except Exception as exc:
+        print(f"[ERROR] DB persistence failed: {exc}", file=sys.stderr)
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
     main()
+
