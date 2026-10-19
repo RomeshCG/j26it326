@@ -24,6 +24,18 @@ class LoanTerms(BaseModel):
     product_category: str = Field(min_length=1)
     product_type: str = Field(min_length=1)
     product: str = Field(min_length=1)
+    # Borrower fields: accepted now, used by the v3 model; the v2 model ignores them.
+    borrower_age: int | None = Field(default=None, ge=18, le=100)
+    dependants: int | None = Field(default=None, ge=0, le=20)
+    monthly_income: float | None = Field(default=None, gt=0)
+    living_expenses: float | None = Field(default=None, ge=0)
+    other_debt_payment: float | None = Field(default=None, ge=0)
+    business_age_years: float | None = Field(default=None, ge=0, le=80)
+    first_time_borrower: int | None = Field(default=None, ge=0, le=1)
+    occupation: str | None = None
+    income_pattern: str | None = None
+    assets: str | None = None
+    civil_status: str | None = None
 
 
 @app.get("/health")

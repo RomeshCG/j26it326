@@ -25,6 +25,7 @@ If the model service is down, `/api/risk/assess` returns **503**. Keep the servi
 
 | Method | Path | Roles | Notes |
 |--------|------|-------|--------|
+| POST | `/api/risk/decisions` | same as assess | Save officer accept / override (see below) |
 | GET | `/api/risk/health` | any authenticated | Router up check (does not call the model service) |
 | POST | `/api/risk/assess` | `loan_officer`, `branch_manager`, `executive`, `admin` | Score (+ optional persist) |
 
@@ -75,6 +76,24 @@ Origination-time loan terms only. Arrears / paid fields are NOT inputs (they def
 - `shap_logodds` is in log-odds. One factor per input field (branch, product, installment, ...) with the value that was scored; one-hot columns are summed back to their field.
 - `unseen_categories` lists branch/product values the model never saw; they have no effect on the score. Treat the score as weaker when this is non-empty.
 - With `persist=true`, `risk_score` is stored as 0-100 and `shap_explanations.contribution` holds the log-odds value.
+
+## Decisions
+
+`POST /api/risk/decisions` body: `{ "assessmentId": "<uuid from a persisted assess>", "decision": "accept" | "override", "reasoning": "required for override", "explanationMode": "optional" }` -> `201 { ok, decisionId, createdAt }`. The officer id comes from the JWT; the AI recommendation is read from the stored assessment. Override also bumps `reliance_profiles.override_count`. `404` if the assessment is not in the tenant DB, `400` on a bad body.
+
+## Borrower fields (optional)
+
+`features` also accepts: `borrower_age`, `dependants`, `monthly_income`, `living_expenses`, `other_debt_payment`, `business_age_years`, `first_time_borrower` (0/1), `occupation`, `income_pattern`, `assets`, `civil_status`. The live v2 model does **not** use them yet (the PAR data has no borrower fields); the response lists what was sent but ignored in `borrower_fields_ignored`, so the UI must not imply they moved the score. They start to count when the v3 model (trained on labelled expert-prior data) is switched on.
+
+Errors: `400` invalid body, `503` model service down/unreachable, `500` generic (details only in server logs).
+
+## Demo runbook
+
+1. Start Postgres, the model service (`cd ml && uvicorn app:app --app-dir m1_credit_risk/serve --port 8001`), then the backend (`cd backend && npm run dev`).
+2. Check `GET http://127.0.0.1:8001/health` returns `"ok": true`, then Bruno `01 Login Success` -> `10 M1 Risk / 02 Assess Risk`.
+3. Use real PAR values in the demo: branches such as Kandy, Kegalle, Hatton, Anuradhapura; product categories `Micro Loan`, `Business Loan`, `Personal Loan`; product types Daily / Weekly / Monthly. An unknown branch/product still scores but shows `unseen_categories`.
+4. **If the model service is down:** the API returns 503. Say so, restart it (step 1), or show the saved `ml/m1_credit_risk/artifacts/sample_explanation.json` and the Bruno response from a previous run. Never show a made-up score.
+5. Backend route tests: `cd backend && npm test`. Model service tests: `cd ml && python m1_credit_risk/tests/test_app.py`.
 
 ## Limits (state these in reports)
 

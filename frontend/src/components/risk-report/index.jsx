@@ -8,6 +8,7 @@ import { assessRisk } from "@/lib/api"
 
 import AdaptiveExplanation from "./AdaptiveExplanation"
 import AiRecommendationCard from "./AiRecommendationCard"
+import PlainEnglishExplanation from "./PlainEnglishExplanation"
 import OfficerDecisionPanel from "./OfficerDecisionPanel"
 import RiskAssessmentHero from "./RiskAssessmentHero"
 import ShapContributors from "./ShapContributors"
@@ -76,9 +77,25 @@ export default function RiskReportPage() {
       setUsedFallback(false)
 
       const { features, assumed } = buildAssessFeatures(reportContext)
+      // Persist needs a UUID; demo APP- ids are not UUIDs — use a fresh one for the assessment row.
+      const uuidRe =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      const loanApplicationId = uuidRe.test(reportContext.applicationId || "")
+        ? reportContext.applicationId
+        : crypto.randomUUID()
 
       try {
-        const api = await assessRisk({ features, persist: false })
+        let api
+        try {
+          api = await assessRisk({
+            features,
+            persist: true,
+            loanApplicationId,
+          })
+        } catch {
+          // Score still works without DB persist (e.g. demo UUID / DB hiccup).
+          api = await assessRisk({ features, persist: false })
+        }
         if (cancelled) return
         setReport(mapAssessResponseToReport(api, reportContext, assumed))
       } catch (err) {
@@ -190,7 +207,17 @@ export default function RiskReportPage() {
         </div>
       ) : null}
 
+      {!loading && !usedFallback ? (
+        <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-2 text-xs text-sky-800 dark:text-sky-200">
+          Prototype (v2): scored from loan terms, branch and product only. Borrower details
+          (income, debts, occupation) are collected but not yet scored; they join in v3 once the
+          expert's numbers are verified.
+        </div>
+      ) : null}
+
       <RiskAssessmentHero report={report} />
+
+      <PlainEnglishExplanation report={report} />
 
       <div ref={evidenceRef}>
         <ShapContributors contributors={report.shapContributors} />

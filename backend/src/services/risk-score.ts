@@ -12,6 +12,8 @@ export type LoanTerms = {
   product_category: string
   product_type: string
   product: string
+  // Optional borrower fields; forwarded as-is, the model service decides which it uses.
+  [borrowerField: string]: string | number | undefined
 }
 
 export type RiskFactor = {

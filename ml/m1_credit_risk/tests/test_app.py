@@ -24,6 +24,14 @@ def test_rejects_bad_input():
     assert client.post("/score", json={k: v for k, v in OK.items() if k != "branch"}).status_code == 422
 
 
+def test_borrower_fields_accepted_and_validated():
+    ok = {**OK, "monthly_income": 60000, "borrower_age": 35, "occupation": "Trader"}
+    if scoring.model_ready():
+        assert client.post("/score", json=ok).status_code == 200
+    assert client.post("/score", json={**OK, "borrower_age": 5}).status_code == 422
+    assert client.post("/score", json={**OK, "monthly_income": 0}).status_code == 422
+
+
 def test_503_when_model_missing(monkeypatch=None):
     orig = app_module.model_ready
     app_module.model_ready = lambda: False
