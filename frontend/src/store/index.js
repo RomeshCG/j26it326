@@ -94,16 +94,33 @@ const DEFAULT_DEMO_DATA = {
   ]
 }
 
+/** In-memory only — never written by persist (see partialize). */
+const EMPTY_AGENT_NLQ = {
+  agentPanelOpen: false,
+  nlqChatHistory: [],
+  nlqChatArchive: [],
+  unreadAgentResponses: false,
+}
+
+const NLQ_PERSIST_KEYS = [
+  "agentPanelOpen",
+  "nlqChatHistory",
+  "nlqChatArchive",
+  "unreadAgentResponses",
+]
+
+function userIdentity(user) {
+  if (!user) return null
+  return user.id ?? user.userId ?? user.email ?? null
+}
+
 export const useStore = create(
   persist(
     (set) => ({
       ...DEFAULT_DEMO_DATA,
       
       // Agent Panel NLQ (schema v2 = live A4 backend; pre-v2 history is mock)
-      agentPanelOpen: false,
-      nlqChatHistory: [],
-      nlqChatArchive: [],
-      unreadAgentResponses: false,
+      ...EMPTY_AGENT_NLQ,
       nlqHistorySchemaVersion: 2,
 
       toggleAgentPanel: () => set((state) => ({ 
@@ -136,13 +153,40 @@ export const useStore = create(
         }
       }),
       markAgentResponsesRead: () => set({ unreadAgentResponses: false }),
+      /** Close panel and wipe NLQ threads (logout / 401 / user switch). */
+      clearAgentSession: () => set({ ...EMPTY_AGENT_NLQ }),
 
       // Current User
       updateProfile: (profileUpdates) => set((state) => ({
         currentUser: { ...state.currentUser, ...profileUpdates }
       })),
-      logout: () => set({ currentUser: null }),
-      login: (user) => set({ currentUser: user }),
+      logout: () => set({ currentUser: null, ...EMPTY_AGENT_NLQ }),
+      login: (user) =>
+        set((state) => {
+          const prev = userIdentity(state.currentUser)
+          const next = userIdentity(user)
+          const switched = Boolean(prev && next && String(prev) !== String(next))
+          const freshLogin = !prev
+          const sameUser = Boolean(prev && next && String(prev) === String(next))
+          // /auth/me omits institutionName; keep login-scoped name for the same user only.
+          // Never fall back to demo institution.name in the store.
+          const incomingName =
+            typeof user?.institutionName === "string"
+              ? user.institutionName.trim()
+              : ""
+          const retainedName =
+            sameUser && typeof state.currentUser?.institutionName === "string"
+              ? state.currentUser.institutionName.trim()
+              : ""
+          const institutionName = incomingName || retainedName || undefined
+          return {
+            currentUser: {
+              ...user,
+              ...(institutionName ? { institutionName } : {}),
+            },
+            ...((switched || freshLogin) ? EMPTY_AGENT_NLQ : {}),
+          }
+        }),
 
       // Onboarding
       setOnboardingComplete: (status) => set({ onboardingComplete: status }),
@@ -242,10 +286,21 @@ export const useStore = create(
     }),
     {
       name: "microflow-storage", // name of item in localStorage
-      version: 2,
+      version: 3,
       /**
-       * Pre-v2 NLQ history used fabricated keyword answers. Archive it with
-       * legacyMock so it never appears as live A4 replies in the active thread.
+       * NLQ chat is session-scoped and must not survive logout or user switches.
+       * Keep demo/onboarding fields; omit live Agent 4 conversation state.
+       */
+      partialize: (state) => {
+        const persisted = { ...state }
+        for (const key of NLQ_PERSIST_KEYS) {
+          delete persisted[key]
+        }
+        return persisted
+      },
+      /**
+       * Pre-v2 NLQ history used fabricated keyword answers.
+       * v3+: strip any leftover NLQ blobs from older persisted payloads.
        */
       migrate: (persistedState, fromVersion) => {
         const state =
@@ -256,20 +311,16 @@ export const useStore = create(
           const oldHistory = Array.isArray(state.nlqChatHistory)
             ? state.nlqChatHistory
             : []
-          const archive = Array.isArray(state.nlqChatArchive)
-            ? [...state.nlqChatArchive]
-            : []
+          // Do not keep legacy mock threads in archive either (cross-user leak risk).
           if (oldHistory.length > 0) {
-            archive.push({
-              sessionId: Date.now(),
-              archivedAt: new Date().toISOString(),
-              legacyMock: true,
-              source: "pre_a4_live_ui",
-              messages: oldHistory,
-            })
+            // discarded intentionally
           }
-          state.nlqChatArchive = archive
-          state.nlqChatHistory = []
+          state.nlqHistorySchemaVersion = 2
+        }
+        if (fromVersion < 3) {
+          for (const key of NLQ_PERSIST_KEYS) {
+            delete state[key]
+          }
           state.nlqHistorySchemaVersion = 2
         }
         return state

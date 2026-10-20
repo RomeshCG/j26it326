@@ -186,12 +186,12 @@ const response = await fetch("http://localhost:4000/api/tenant/info", {
 ### Mock Auth for Early Frontend Work
 If you want to test frontend screens before connecting the real login screen:
 - **Apex demo:** Run `backend/scripts/seed-test-users.ts` (with user approval) for `*@apex.lk` accounts.
-- **ZZ Test Org 1 (preferred for M4 E2E / A1 SoD):**  
-  `ALLOW_ZZ_TEST_USER_SEED=1` and `npm run seed:zz-test-users` from `backend/`.  
-  Creates `executive` / `branch_manager` / `finance_officer` / `hr_officer` / `loan_officer` on institution `33b6545d-…` only.  
-  Does **not** modify `admin@zz-test-org1.lk`. Requires `NODE_ENV !== production`.  
-  Credentials → local gitignored `backend/.zz-test-credentials.local` (never commit; script does not print passwords).  
-  Idempotent skip if accounts already valid; mismatches abort without writes.  
+- **ZZ Test Org 1 (preferred for M4 E2E / A1 SoD):**
+  `ALLOW_ZZ_TEST_USER_SEED=1` and `npm run seed:zz-test-users` from `backend/`.
+  Creates `executive` / `branch_manager` / `finance_officer` / `hr_officer` / `loan_officer` on institution `33b6545d-…` only.
+  Does **not** modify `admin@zz-test-org1.lk`. Requires `NODE_ENV !== production`.
+  Credentials → local gitignored `backend/.zz-test-credentials.local` (never commit; script does not print passwords).
+  Idempotent skip if accounts already valid; mismatches abort without writes.
   Disable later: set that user’s `status` to `disabled` in central.
 - Or acquire a valid token once via `POST /auth/login` in Bruno, copy it, and store it in your frontend dev state:
   ```typescript
@@ -422,22 +422,29 @@ Component 4 provides the Graduated Trust engine and governance APIs for AI agent
 - **Body**: `{ "metricName": string, "metricValue": number, "threshold": number, "periodKey"?: string, "source"?: "manual_api_v1", "branchId"?: uuid }`
 - **Rule**: breach when `metricValue >= threshold` (equality counts). Non-breach returns `dispatched: false` without creating an action.
 - **On breach**: dispatches `budget_threshold_alert`; active policy supplies **Tier 2 / A2**. Handler writes Agent Log evidence (`notified`). **No email/SMS/push** in v1.
-- **Metrics**: caller-supplied only (`source` must be `manual_api_v1`). **Automatic M2 ledger/budget monitoring is a later milestone** (no M2 routes exist yet).
+- **Metrics**: caller-supplied only (`source` must be `manual_api_v1`). **Automatic M2 ledger/budget monitoring is a later milestone** (no M2 routes exist yet). ZZ viva demo rows created via this same evaluate path are **synthetic caller metrics for governance UI**, not proof of live M2 monitoring.
 - **Soft dedupe**: within ~24h, same `dedupeKey` may return `duplicate: true` without a new row. Race possible under concurrency (no unique DB index; migration deferred). Pass `?allowDuplicate=true` to force a new dispatch for tests.
 - **Offline check**: `npx tsx scripts/verify-a2-budget-threshold.ts` from `backend/`.
+- **ZZ viva prep script** (M4-owned): `backend/scripts/prepare-zz-viva-demo.ps1` — opt-in write gate; records created action ids in a **gitignored** local manifest. Do not commit credentials or manifests.
 
-### A4 NLQ — natural language (v1)
-- **Endpoint**: `POST /api/tenant/agent-actions/nlq/query`
+### A4 NLQ — natural language (v1) + knowledge (v1.2)
+- **Endpoint**: `POST /api/tenant/agent-actions/nlq/query` (same URL for count NLQ and knowledge).
 - **Auth**: JWT + tenant context. Endpoint gate: `agents:query_nlq` (all six roles).
 - **Body**: `{ "question": string }` (3–500 chars after trim).
-- **Flow**: private Ollama (`OLLAMA_BASE_URL` / `OLLAMA_MODEL`) classifies intent as JSON only → Node enforces **per-tool RBAC** → Prisma `count` on `agent_actions` → `dispatchAgentAction(nlq_query)` → Tier 1 `executed`. **Counts never come from the model.**
-- **Timeout**: `OLLAMA_TIMEOUT_MS` (optional; default **30000**). First chat after idle may be slow (cold load); warm calls are typically a few seconds. Still fail-closed on timeout → `503`.
-- **Supported intents**:
+- **Count NLQ flow**: optional lexical cue check → private Ollama intent JSON (`a4-intent-v2`) → Node **per-tool RBAC** → Prisma `count` on `agent_actions` → `dispatchAgentAction(nlq_query)` → Tier 1 `executed`. **Counts never come from the model.**
+- **Knowledge flow** (when count NLQ unsupported / no lexical cues): Ollama educational JSON (`a4-knowledge-v1.2`) → **no** `AgentAction` row. Not a substitute for M1/M2/M3 KPIs.
+- **Timeout**: `OLLAMA_TIMEOUT_MS` (optional; default **30000**). Knowledge stage budget ~45s with one length-only retry. Knowledge `num_predict` default **1024** (`A4_KNOWLEDGE_NUM_PREDICT` override).
+- **Supported count intents**:
   - `count_pending_tier3` — requires `agents:decide_tier3` (admin, executive, branch_manager). Mirrors `GET …/pending`.
   - `count_actions_window` — requires `agents:view_actions`; optional `agentId` A1–A4; `days` default **7**, allowed **1–30** only (out of range → `supported: false`, **no silent clamp**).
-- **Fail-closed**: Ollama unset/timeout/error → `503` (no dispatch). Invalid model JSON → `422`. Unsupported intent / days → `200` `{ supported: false, dispatched: false }`. Tool capability missing → `403`.
-- **Handler**: real `nlqQueryHandler` (`stubExecuted: false`); formats grounded `inputPayload` only.
-- **Offline check**: `npm run verify:a4-nlq` from `backend/`.
+- **Fail-closed**: Ollama unset/timeout/error → `503` (no dispatch). Invalid model JSON → `422`. Unsupported intent / days → knowledge attempt or `200` `{ supported: false }`. Tool capability missing → `403`.
+- **Handler**: real `nlqQueryHandler` (`stubExecuted: false`) for dispatched counts only.
+- **Offline checks**: `npm run verify:a4-nlq` and `npm run verify:a4-knowledge` from `backend/`.
+
+### A1 CBSL readiness prepare (v1)
+- **Endpoint**: `POST /api/tenant/agent-actions/cbsl-report/prepare`
+- **Auth**: `agents:decide_tier3` **or** `finance:manage_ledger`. Approve/reject remain `decide_tier3` only (SoD).
+- **Contract**: grounded tenant aggregates + deterministic gaps → Tier 3 `pending_approval` (`generate_cbsl_report`). **Not** an official CBSL filing. Optional loan/borrower/journal **availability** slots only — M3/M2 must own real reporting data if required later.
 
 ### The 4 Tiers & Action Statuses
 Actions are categorized into four trust tiers:
@@ -483,13 +490,68 @@ Actions are categorized into four trust tiers:
 
 ---
 
-## 14. Open Items for Team Lead
+## 14. What M1 / M2 / M3 must provide to M4 (integration contracts)
 
-1. **Pull Request into `main`**: When is the scheduled merge window for branch `m4/tenant-routing` into `main`?
-2. **Cross-Module Event Format**: What is the agreed schema, transport, and delivery guarantee for cross-module asynchronous events:
-   - Component 4 Payroll events triggering Component 2 journal entries?
-   - Component 3 Loan Disbursements triggering Component 2 ledger entries?
-3. **Dataset Status**: What is the current status and availability of standardized tenant seed datasets across developer environments?
+M4 already ships Graduated Trust, agent governance APIs, and honest UI placeholders where peer data is missing. Peer modules connect by **owning their APIs and tables**, then optionally calling M4 governance endpoints — **never** by writing `agent_actions` directly or inventing counts in the frontend.
+
+### 14.1 Existing vs missing (honest)
+
+| Need | Status today | Owner |
+|------|--------------|--------|
+| JWT + `req.tenantPrisma` + RBAC | **Existing** | M4 |
+| Agent Log / pending / policies / NLQ / A1 prepare / A2 evaluate / A3 internal dispatch | **Existing** | M4 |
+| Executive / BM dashboard KPIs for loans, finance, HR | **Missing** — UI shows **Not connected** | M3 / M2 / M4 HR |
+| Automatic A2 budget monitoring from ledger | **Missing** — A2 accepts `manual_api_v1` caller metrics only | M2 |
+| Real PAR / portfolio risk series for A4 or dashboards | **Missing** — A4 knowledge is educational only | M1 / M2 / M3 (product decision) |
+| Loan product catalog in Settings | **Not in Settings** — demo toggles removed; use M3 loan workspace | M3 |
+| Branch list for admin Settings | **Existing** — `GET /api/tenant/branches` | M4 tenant |
+| Cross-module async events (payroll→journal, disbursement→ledger) | **Planned / open** | Team lead (§15) |
+
+### 14.2 How to connect data to M4 (implementation steps)
+
+1. **Mount your router** behind `authenticate` → `resolveTenantContext` → `requireRole(...)` (§3). Use **only** `req.tenantPrisma`.
+2. **Publish a read API** your dashboard or agent consumer can call (example shapes — agree exact JSON with M4 before wiring UI):
+   - **M3 → BM/Exec loan tiles:** e.g. `GET /api/m3/.../branch-summary` returning `{ activeLoans, repaymentRate?, asOf }` for the caller's branch scope.
+   - **M2 → Exec finance tiles / future A2:** e.g. budget utilization `{ metricName, metricValue, threshold, periodKey, branchId? }` suitable for `POST …/budget-threshold/evaluate` **or** a dedicated monitor job that calls that endpoint with `source: "manual_api_v1"` until a dedicated `m2_*` source is approved in code.
+   - **M1 → risk surfaces:** keep assessments in M1 tables; if M4 should display a KPI, expose a summary GET — do not push scores into `agent_actions` unless using the internal allowlisted dispatch path.
+3. **Optional governance write path:**
+   - User JWT + evaluate/prepare/nlq as documented in §13.
+   - Service automation (A3-style): `POST /api/internal/agent-actions/dispatch` with `AGENT_SERVICE_KEY` — **allowlist only** (`volume_spike_alert` today). Request new allowlist entries via M4 review; do not bypass policy/tier.
+4. **Frontend:** M4 will replace “Not connected” tiles only when a **real tenant API** exists. Do not reintroduce Zustand demo numbers on executive/BM dashboards.
+5. **Verify:** Bruno auth → your module GET → (optional) A2 evaluate or Agent Log row → confirm ZZ institution id `33b6545d-…` if using ZZ Test Org 1. Offline: `npm run verify:a2-budget` / peer module tests.
+
+### 14.3 Tenant isolation & RBAC (non-negotiable)
+
+- No `institution_id` column in tenant tables — the DB is the boundary.
+- Soft user UUIDs must pass `validateUserId` before save (§5).
+- Capabilities that matter for agents: `agents:view_actions`, `agents:decide_tier3`, `agents:query_nlq`, `finance:manage_ledger`, `agents:manage_policies`.
+- List/pending endpoints **omit payloads**; only `GET …/agent-actions/:id` (decide_tier3) returns full JSON.
+- Never commit `.env`, ZZ credentials, or viva manifests.
+
+### 14.4 Relevant M4 backend files
+
+| File | Role |
+|------|------|
+| `backend/src/middleware/auth.ts` | JWT + tenant resolution + `requireRole` |
+| `backend/src/lib/permissions.ts` | Capability map |
+| `backend/src/routes/agent-governance.ts` | Agent actions, NLQ, A1 prepare, A2 evaluate |
+| `backend/src/routes/agent-policies.ts` | Policy CRUD |
+| `backend/src/lib/agent-engine.ts` | `dispatchAgentAction` |
+| `backend/src/lib/agent-a2-budget.ts` | Threshold contract |
+| `backend/src/lib/agent-a1-compliance.ts` | Readiness package |
+| `backend/src/lib/agent-a4-nlq.ts` / `agent-a4-knowledge.ts` | A4 count + knowledge |
+| `backend/src/routes/internal-agent-dispatch.ts` | Service-key allowlist |
+
+---
+
+## 15. Open Items for Team Lead
+
+1. **Pull Request into `main`**: Merge window for `feature/m4-dashboard-wire` / remaining M4 agent work?
+2. **Cross-Module Event Format**: Agreed schema, transport, and delivery guarantee for:
+   - Component 4 Payroll events → Component 2 journal entries?
+   - Component 3 Loan Disbursements → Component 2 ledger entries?
+3. **Dataset Status**: Standardized tenant seed datasets across developer environments (prefer ZZ Test Org 1 for M4 E2E; avoid Apex-only assumptions).
+4. **A2 source evolution**: When may callers use a non-`manual_api_v1` source backed by live M2 monitoring?
 
 
 

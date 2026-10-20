@@ -27,23 +27,17 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useStore } from "@/store"
-import { clearSessionCache } from "@/lib/api"
+import { endClientSession } from "@/lib/api"
 
 export function NavUser({ user }) {
   const { isMobile } = useSidebar()
   const navigate = useNavigate()
-  const logout = useStore((state) => state.logout)
 
   const initials =
     `${user?.name?.split(" ")?.[0]?.[0] || "U"}${user?.name?.split(" ")?.[1]?.[0] || ""}`.toUpperCase()
 
   function handleLogout() {
-    clearSessionCache()
-    logout()
-    localStorage.removeItem("mf_auth_token")
-    localStorage.removeItem("mf_auth_role")
-    localStorage.removeItem("mf_auth_branch")
+    endClientSession()
     navigate("/login")
   }
 

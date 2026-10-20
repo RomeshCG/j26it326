@@ -14,6 +14,8 @@ import {
 const SUGGESTIONS_BASE = [
   "How many A3 actions were recorded in the last 7 days?",
   "How many agent actions were recorded in the last 7 days?",
+  "What is PAR30 in microfinance?",
+  "What do Agents A1–A4 do in MicroFlow?",
 ]
 
 const SUGGESTION_PENDING =
@@ -72,6 +74,9 @@ export default function AgentPanel() {
   const archiveNlqChat = useStore((state) => state.archiveNlqChat)
   const markAgentResponsesRead = useStore((state) => state.markAgentResponsesRead)
   const unreadAgentResponses = useStore((state) => state.unreadAgentResponses)
+  /** Drives re-auth when logout / login / user switch updates the store. */
+  const currentUser = useStore((state) => state.currentUser)
+  const currentUserId = currentUser?.id ?? currentUser?.userId ?? null
 
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
@@ -96,7 +101,16 @@ export default function AgentPanel() {
   }, [])
 
   // Prefer verified /auth/me session (capabilities + role) over token-only checks.
+  // Parent remounts this panel on user id change; effect only loads when a token+user exist.
   useEffect(() => {
+    const token =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("mf_auth_token")
+        : null
+    if (!token || !currentUser) {
+      return undefined
+    }
+
     let cancelled = false
     verifySessionOnce()
       .then((user) => {
@@ -112,9 +126,14 @@ export default function AgentPanel() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [currentUser, currentUserId])
 
-  const authenticated = sessionReady && !!session
+  const hasAuthToken =
+    typeof localStorage !== "undefined" &&
+    Boolean(localStorage.getItem("mf_auth_token"))
+  // currentUser from store flips on logout without waiting for local session state.
+  const authenticated =
+    Boolean(currentUser) && hasAuthToken && sessionReady && Boolean(session)
 
   const getPageName = (path) => {
     if (path.includes("/dashboard")) return "Dashboard"
@@ -183,18 +202,33 @@ export default function AgentPanel() {
         let agentText
         let meta = null
 
-        if (result?.supported === false) {
+        if (result?.kind === "knowledge" || (result?.supported === true && result?.dispatched === false && result?.disclaimer)) {
+          const body =
+            typeof result.answer === "string" && result.answer.trim()
+              ? result.answer.trim()
+              : "Agent 4 returned no educational answer."
+          const disclaimer =
+            typeof result.disclaimer === "string" && result.disclaimer.trim()
+              ? result.disclaimer.trim()
+              : "General educational information — not live institution data."
+          agentText = `${body}\n\n${disclaimer}`
+          meta = { kind: "knowledge" }
+        } else if (result?.supported === false || result?.kind === "unsupported") {
           agentText =
+            (typeof result?.message === "string" && result.message.trim()) ||
             "I'm sorry, but that question is outside my current scope, so I'm unable to help with it right now."
-          meta = { kind: "unsupported" }
-        } else if (result?.supported === true && result?.dispatched) {
+          meta = { kind: "unsupported", reason: result?.reason ?? null }
+        } else if (
+          result?.kind === "nlq" ||
+          (result?.supported === true && result?.dispatched)
+        ) {
           agentText =
             typeof result.answer === "string" && result.answer.trim()
               ? result.answer
               : "Agent 4 returned no answer text."
           const d = result.dispatch || {}
           meta = {
-            kind: "success",
+            kind: "nlq",
             tier: d.tier,
             actionStatus: d.actionStatus,
             actionId: d.actionId,
@@ -262,7 +296,14 @@ export default function AgentPanel() {
         </span>
       )
     }
-    if (meta.kind === "success" && meta.tier != null) {
+    if (meta.kind === "knowledge") {
+      return (
+        <span>
+          Agent 4 — General education (not live institution data) — {time}
+        </span>
+      )
+    }
+    if ((meta.kind === "nlq" || meta.kind === "success") && meta.tier != null) {
       const status = meta.actionStatus ? String(meta.actionStatus) : "ok"
       const fallback = meta.isFallback ? " · fallback policy" : ""
       return (
@@ -396,9 +437,9 @@ export default function AgentPanel() {
               </h3>
               <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
                 Ask about agent activity in your institution. v1 answers grounded
-                Graduated Trust counts (recent actions by agent, and pending Tier 3
-                approvals if you are authorized). It does not invent loan, PAR, payroll,
-                or ledger figures.
+                Graduated Trust activity counts when authorized, plus general
+                microfinance education. Educational replies are not live institution
+                data and never invent loan, PAR, payroll, or ledger figures.
               </p>
 
               <div className="flex w-full max-w-md flex-col gap-2">

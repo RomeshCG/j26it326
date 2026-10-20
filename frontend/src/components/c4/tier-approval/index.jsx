@@ -191,7 +191,9 @@ function ApprovalSummaryCard({
         <CardDescription className="text-xs uppercase tracking-wide">
           Agent prepared action awaiting human decision
         </CardDescription>
-        <CardTitle className="text-lg font-semibold">{item.action || "Untitled action"}</CardTitle>
+        <CardTitle className="text-lg font-semibold break-words">
+          {item.action || "Untitled action"}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 pt-5">
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -510,7 +512,7 @@ export default function TierApproval() {
       (detail.confidence != null && detail.confidence !== ""))
 
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-background text-foreground">
+    <div className="flex min-h-full min-w-0 flex-1 flex-col bg-background text-foreground">
       <header className="shrink-0 border-b border-border px-4 py-6 sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -544,7 +546,7 @@ export default function TierApproval() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-w-0 flex-1 overflow-hidden">
         <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-r border-border bg-background custom-scrollbar">
           <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background p-4">
             <div className="text-sm font-semibold text-foreground">Pending Approvals</div>
@@ -578,7 +580,7 @@ export default function TierApproval() {
                     <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {agentLabel(item)}
                     </div>
-                    <div className="mb-2 text-sm font-medium leading-snug text-foreground">
+                    <div className="mb-2 break-words text-sm font-medium leading-snug text-foreground">
                       {item.action || "Untitled action"}
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -597,7 +599,7 @@ export default function TierApproval() {
           </div>
         </aside>
 
-        <div className="relative flex-1 overflow-y-auto bg-background p-6 custom-scrollbar lg:p-10">
+        <div className="relative min-w-0 flex-1 overflow-y-auto bg-background p-6 custom-scrollbar lg:p-10">
           {actionState.type ? (
             <div className="flex h-full flex-col items-center justify-center animate-in zoom-in-95 duration-300">
               {actionState.type === "success" ? (
@@ -647,7 +649,7 @@ export default function TierApproval() {
               </Link>
             </div>
           ) : (
-            <div className="mx-auto max-w-4xl space-y-8 pb-20 animate-in fade-in duration-300">
+            <div className="mx-auto w-full min-w-0 max-w-4xl space-y-8 pb-20 animate-in fade-in duration-300">
               {deepLinkNotice && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
                   {deepLinkNotice}{" "}
@@ -840,7 +842,7 @@ export default function TierApproval() {
                           ? "Show full report JSON"
                           : "Input payload"}
                       </summary>
-                      <pre className="max-h-80 overflow-auto border-t border-border p-4 font-mono text-[11px] text-foreground">
+                      <pre className="max-h-80 max-w-full overflow-auto border-t border-border p-4 font-mono text-[11px] text-foreground whitespace-pre-wrap break-all">
                         {JSON.stringify(detail.inputPayload ?? {}, null, 2)}
                       </pre>
                     </details>
@@ -854,30 +856,34 @@ export default function TierApproval() {
                       </p>
                     ) : (
                       <div className="space-y-3">
-                        {(hasRowModelMeta) && (
-                          <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                            <div className="rounded-lg border bg-muted/30 p-3">
+                        {hasRowModelMeta && (
+                          <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
+                            <div className="min-w-0 rounded-lg border bg-muted/30 p-3">
                               <dt className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                                 Model / prompt
                               </dt>
-                              <dd className="mt-1 font-mono text-xs">
+                              <dd className="mt-1 break-all font-mono text-xs">
                                 {detail.modelVersion || "—"} / {detail.promptVersion || "—"}
                               </dd>
                             </div>
-                            <div className="rounded-lg border bg-muted/30 p-3">
+                            <div className="min-w-0 rounded-lg border bg-muted/30 p-3">
                               <dt className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                                 Tools used
                               </dt>
-                              <dd className="mt-1 font-mono text-xs">
-                                {detail.toolsUsed
-                                  ? JSON.stringify(detail.toolsUsed)
-                                  : "—"}
+                              <dd className="mt-1 min-w-0">
+                                {detail.toolsUsed ? (
+                                  <pre className="max-h-48 max-w-full overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] text-foreground">
+                                    {JSON.stringify(detail.toolsUsed, null, 2)}
+                                  </pre>
+                                ) : (
+                                  <span className="font-mono text-xs">—</span>
+                                )}
                               </dd>
                             </div>
                           </dl>
                         )}
                         {mlEvidence && (
-                          <pre className="max-h-64 overflow-auto rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 font-mono text-[11px] text-foreground">
+                          <pre className="max-h-64 max-w-full min-w-0 overflow-auto rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 font-mono text-[11px] text-foreground whitespace-pre-wrap break-all">
                             {JSON.stringify(mlEvidence, null, 2)}
                           </pre>
                         )}

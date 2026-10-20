@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { Link } from "react-router-dom"
 import { 
   User, Building2, Bell, Cpu, Shield, 
-  Lock, CheckCircle, Edit, Trash2, Plus, AlertTriangle, Info
+  Lock, CheckCircle, Plus, AlertTriangle, Info
 } from "lucide-react"
 import { useStore } from "@/store"
+import { fetchTenantBranches, fetchAgentPolicies } from "@/lib/api"
 
 const TABS = [
   { id: "account", label: "Account Settings", icon: User },
@@ -14,25 +15,13 @@ const TABS = [
   { id: "privacy", label: "Data & Privacy", icon: Shield }
 ]
 
-const SRI_LANKAN_DISTRICTS = [
-  "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", 
-  "Galle", "Gampaha", "Hambantota", "Jaffna", "Kalutara", 
-  "Kandy", "Kegalle", "Kilinochchi", "Kurunegala", "Mannar", 
-  "Matale", "Matara", "Moneragala", "Mullaitivu", "Nuwara Eliya", 
-  "Polonnaruwa", "Puttalam", "Ratnapura", "Trincomalee", "Vavuniya"
-]
-
 export default function Settings() {
-  const navigate = useNavigate()
-  
   // Zustand State
-  const { 
-    currentUser, updateProfile, 
-    institution, updateInstitution, branches, addBranch, removeBranch,
-    loanProducts, toggleLoanProduct,
-    notifications, updateNotification,
-    agentSettings, updateAgentSensitivity, toggleAgent,
-    resetDemoData
+  const {
+    currentUser,
+    notifications,
+    updateNotification,
+    agentSettings,
   } = useStore()
   
   const [activeTab, setActiveTab] = useState("account")
@@ -40,37 +29,123 @@ export default function Settings() {
   const [unsavedChanges, setUnsavedChanges] = useState(false)
   
   const isAdmin = currentUser?.role === "Institution Admin"
+  const hasAuthToken =
+    typeof localStorage !== "undefined" &&
+    Boolean(localStorage.getItem("mf_auth_token"))
+  /** Real login session - hide demo-only danger controls. */
+  const isAuthenticatedSession = Boolean(
+    hasAuthToken ||
+      currentUser?.institutionId ||
+      currentUser?.backendRole ||
+      currentUser?.institutionName
+  )
 
-  // Local state for forms
-  const [profileForm, setProfileForm] = useState(currentUser || {})
-  const [instForm, setInstForm] = useState(institution || {})
-  const [newBranchMode, setNewBranchMode] = useState(false)
-  
-  // Password state
-  const [pwd, setPwd] = useState({ current: "", new: "", confirm: "" })
-  const [pwdStrength, setPwdStrength] = useState({ label: "", color: "" })
+  // Authenticated institution label - never demo Zustand institution.name / Apex.
+  const institutionLabel =
+    (typeof currentUser?.institutionName === "string" &&
+      currentUser.institutionName.trim()) ||
+    "Your institution"
+
+  const displayFirstName =
+    (typeof currentUser?.firstName === "string" && currentUser.firstName.trim()) ||
+    ""
+  const displayLastName =
+    (typeof currentUser?.lastName === "string" && currentUser.lastName.trim()) ||
+    ""
+  const displayEmail =
+    (typeof currentUser?.email === "string" && currentUser.email.trim()) || ""
+  const displayRole =
+    (typeof currentUser?.role === "string" && currentUser.role.trim()) || "User"
+
+  // Live branches (Institution tab) - never fall back to demo store.branches
+  const [liveBranches, setLiveBranches] = useState([])
+  const [branchCount, setBranchCount] = useState(null)
+  const [branchLoading, setBranchLoading] = useState(false)
+  const [branchError, setBranchError] = useState(null)
+  const branchReqIdRef = useRef(0)
+
+  // Live agent policies (Agents tab) - read-only; do not call updateAgentPolicy here
+  const [livePolicies, setLivePolicies] = useState([])
+  const [policiesLoading, setPoliciesLoading] = useState(false)
+  const [policiesError, setPoliciesError] = useState(null)
+  const policiesReqIdRef = useRef(0)
+
+  const userScopeKey =
+    currentUser?.id ??
+    currentUser?.userId ??
+    currentUser?.institutionId ??
+    "anon"
+
+  const loadBranches = useCallback(async () => {
+    const reqId = ++branchReqIdRef.current
+    setBranchLoading(true)
+    setBranchError(null)
+    setLiveBranches([])
+    setBranchCount(null)
+    try {
+      const res = await fetchTenantBranches()
+      if (reqId !== branchReqIdRef.current) return
+      const rows = Array.isArray(res?.data) ? res.data : []
+      setLiveBranches(rows)
+      setBranchCount(
+        typeof res?.count === "number" ? res.count : rows.length
+      )
+    } catch (err) {
+      if (reqId !== branchReqIdRef.current) return
+      setLiveBranches([])
+      setBranchCount(null)
+      const status = err?.status
+      if (status === 401) {
+        setBranchError("Session expired. Sign in again to load branches.")
+      } else if (status === 403) {
+        setBranchError("You do not have permission to view branches.")
+      } else {
+        setBranchError(err?.message || "Failed to load branches.")
+      }
+    } finally {
+      if (reqId === branchReqIdRef.current) {
+        setBranchLoading(false)
+      }
+    }
+  }, [])
+
+  // Load when Institution tab is open; re-fetch on user/tenant switch.
+  // loadBranches clears prior rows immediately so a user switch cannot show stale branches.
+  useEffect(() => {
+    if (activeTab !== "institution" || !isAdmin) return undefined
+    void loadBranches()
+  }, [activeTab, isAdmin, userScopeKey, loadBranches])
+
+  const loadPolicies = useCallback(async () => {
+    const reqId = ++policiesReqIdRef.current
+    setPoliciesLoading(true)
+    setPoliciesError(null)
+    setLivePolicies([])
+    try {
+      const res = await fetchAgentPolicies()
+      if (reqId !== policiesReqIdRef.current) return
+      setLivePolicies(Array.isArray(res?.data) ? res.data : [])
+    } catch (err) {
+      if (reqId !== policiesReqIdRef.current) return
+      setLivePolicies([])
+      setPoliciesError(err?.message || "Failed to load agent policies.")
+    } finally {
+      if (reqId === policiesReqIdRef.current) {
+        setPoliciesLoading(false)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab !== "agents" || !isAdmin) return undefined
+    void loadPolicies()
+  }, [activeTab, isAdmin, userScopeKey, loadPolicies])
 
   const triggerToast = (msg) => {
     setShowToast({ visible: true, message: msg })
     setTimeout(() => setShowToast({ visible: false, message: "" }), 3000)
     setUnsavedChanges(false)
   }
-
-  // Effect for password strength
-  useEffect(() => {
-    const val = pwd.new
-    if (!val) { setPwdStrength({ label: "", color: "" }); return }
-    let score = 0
-    if (val.length >= 8) score++
-    if (/[A-Z]/.test(val)) score++
-    if (/[0-9]/.test(val)) score++
-    if (/[^A-Za-z0-9]/.test(val)) score++
-    
-    if (score <= 1) setPwdStrength({ label: "Weak", color: "bg-red-500" })
-    else if (score === 2) setPwdStrength({ label: "Fair", color: "bg-amber-500" })
-    else if (score === 3) setPwdStrength({ label: "Strong", color: "bg-green-500" })
-    else setPwdStrength({ label: "Very Strong", color: "bg-blue-500" })
-  }, [pwd.new])
 
   // Admin Check wrapper for tabs
   const renderTabContent = () => {
@@ -98,25 +173,32 @@ export default function Settings() {
   // --- TAB SUBCOMPONENTS ---
 
   const TabAccount = () => {
-    const getInitials = (f, l) => `${f?.[0] || ''}${l?.[0] || ''}`
+    const getInitials = (f, l) => `${f?.[0] || ""}${l?.[0] || ""}` || "U"
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
         <div>
           <h2 className="text-xl font-bold text-foreground">Account Settings</h2>
-          <p className="text-muted-foreground text-sm">Update your personal information and security settings.</p>
+          <p className="text-muted-foreground text-sm">
+            View your signed-in profile. Editing is not available yet.
+          </p>
         </div>
 
-        {/* Profile Card */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-xl font-bold text-white shadow-lg">
-              {getInitials(currentUser?.firstName, currentUser?.lastName)}
+              {getInitials(displayFirstName, displayLastName)}
             </div>
             <div>
-              <div className="text-lg font-bold text-foreground">{currentUser?.firstName} {currentUser?.lastName}</div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="bg-muted text-foreground/80 text-xs px-2 py-0.5 rounded-full font-medium">{currentUser?.role}</span>
-                <span className="text-muted-foreground text-xs">• {institution?.name} • Member since {currentUser?.memberSince}</span>
+              <div className="text-lg font-bold text-foreground">
+                {[displayFirstName, displayLastName].filter(Boolean).join(" ") || "User"}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <span className="bg-muted text-foreground/80 text-xs px-2 py-0.5 rounded-full font-medium">
+                  {displayRole}
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  • {institutionLabel}
+                </span>
               </div>
             </div>
           </div>
@@ -124,106 +206,79 @@ export default function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground mb-1">First Name</label>
-                <input type="text" value={profileForm.firstName || ""} onChange={(e) => {setProfileForm({...profileForm, firstName: e.target.value}); setUnsavedChanges(true)}} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors" />
+                <input
+                  type="text"
+                  readOnly
+                  value={displayFirstName}
+                  className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm cursor-not-allowed"
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-muted-foreground mb-1">Last Name</label>
-                <input type="text" value={profileForm.lastName || ""} onChange={(e) => {setProfileForm({...profileForm, lastName: e.target.value}); setUnsavedChanges(true)}} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors" />
+                <input
+                  type="text"
+                  readOnly
+                  value={displayLastName}
+                  className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm cursor-not-allowed"
+                />
               </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-muted-foreground mb-1">Email Address</label>
-              <input type="email" value={profileForm.email || ""} onChange={(e) => {setProfileForm({...profileForm, email: e.target.value}); setUnsavedChanges(true)}} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors" />
-              <div className="text-[10px] text-muted-foreground mt-1">Changing your email requires verification.</div>
+              <input
+                type="email"
+                readOnly
+                value={displayEmail}
+                placeholder="Not available"
+                className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm cursor-not-allowed placeholder:text-muted-foreground"
+              />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground mb-1">Phone Number</label>
-                <input type="text" value={profileForm.phone || ""} onChange={(e) => {setProfileForm({...profileForm, phone: e.target.value}); setUnsavedChanges(true)}} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground mb-1">Language</label>
-                <select value={profileForm.language || "English"} onChange={(e) => {setProfileForm({...profileForm, language: e.target.value}); setUnsavedChanges(true)}} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors">
-                  <option>English</option>
-                  <option>Sinhala</option>
-                  <option>Tamil</option>
-                </select>
-              </div>
-            </div>
-            <div className="pt-2">
-              <button 
-                onClick={() => { updateProfile(profileForm); triggerToast("Profile updated successfully.") }}
-                className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
+            <div className="pt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                disabled
+                title="Profile editing is not available yet"
+                className="bg-muted text-muted-foreground text-sm font-medium px-6 py-2 rounded-lg border border-border cursor-not-allowed opacity-70"
               >
                 Save Changes
               </button>
+              <span className="text-xs text-muted-foreground">
+                Saving is not available yet.
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Password Card */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-foreground mb-4">Password</h3>
-          <div className="max-w-md space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground mb-1">Current Password</label>
-              <input type="password" value={pwd.current} onChange={(e) => setPwd({...pwd, current: e.target.value})} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground mb-1">New Password</label>
-              <input type="password" value={pwd.new} onChange={(e) => setPwd({...pwd, new: e.target.value})} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors" />
-              {pwd.new && (
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-                    <div className={`h-full ${pwdStrength.color} transition-all duration-300`} style={{width: pwdStrength.label === 'Weak' ? '25%' : pwdStrength.label === 'Fair' ? '50%' : pwdStrength.label === 'Strong' ? '75%' : '100%'}}></div>
-                  </div>
-                  <div className="text-[10px] font-bold text-muted-foreground w-16">{pwdStrength.label}</div>
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-muted-foreground mb-1">Confirm New Password</label>
-              <input type="password" value={pwd.confirm} onChange={(e) => setPwd({...pwd, confirm: e.target.value})} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors" />
-              {pwd.confirm && pwd.new !== pwd.confirm && <div className="text-red-400 text-xs mt-1">Passwords do not match</div>}
-            </div>
-            <div className="pt-2">
-              <button 
-                onClick={() => { setPwd({current: "", new: "", confirm: ""}); triggerToast("Password updated successfully.") }}
-                disabled={!pwd.current || !pwd.new || pwd.new !== pwd.confirm}
-                className="bg-muted hover:bg-muted disabled:opacity-50 text-foreground text-sm font-medium px-6 py-2 rounded-lg transition-colors border border-border"
-              >
-                Update Password
-              </button>
-            </div>
-          </div>
+          <h3 className="text-lg font-bold text-foreground mb-2">Password</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Password changes are not available from this page yet.
+          </p>
+          <button
+            type="button"
+            disabled
+            className="bg-muted text-muted-foreground text-sm font-medium px-6 py-2 rounded-lg border border-border cursor-not-allowed opacity-70"
+          >
+            Update Password
+          </button>
         </div>
 
-        {/* Sessions Card */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-foreground mb-4">Active Sessions</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 bg-muted border border-border rounded-lg">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-foreground">This device</span>
-                  <span className="bg-green-500/10 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full">Active</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Chrome on Windows • Last active: Just now</div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-muted border border-border rounded-lg">
-              <div>
-                <div className="text-sm font-bold text-foreground">Mobile device</div>
-                <div className="text-xs text-muted-foreground mt-1">Chrome on Android • Last active: 2 days ago</div>
-              </div>
-              <button onClick={() => triggerToast("Session revoked.")} className="text-red-400 hover:text-red-300 text-xs font-medium border border-red-500/30 bg-red-500/10 px-3 py-1.5 rounded transition-colors">
-                Revoke
-              </button>
-            </div>
-          </div>
+          <h3 className="text-lg font-bold text-foreground mb-2">Active Sessions</h3>
+          <p className="text-sm text-muted-foreground">
+            Only this browser session is active. Viewing or signing out other sessions is
+            not available yet.
+          </p>
         </div>
       </div>
     )
+  }
+
+  const formatBranchPlace = (branch) => {
+    const parts = [branch?.location, branch?.district]
+      .map((p) => (typeof p === "string" ? p.trim() : ""))
+      .filter(Boolean)
+    return parts.length > 0 ? parts.join(" - ") : "No location on file"
   }
 
   const TabInstitution = () => {
@@ -231,21 +286,9 @@ export default function Settings() {
       <div className="space-y-8 animate-in fade-in duration-300">
         <div>
           <h2 className="text-xl font-bold text-foreground">Institution Settings</h2>
-          <p className="text-muted-foreground text-sm">Manage your institution profile and configuration.</p>
-        </div>
-
-        {/* Onboarding Configuration Re-run */}
-        <div className="bg-card border border-blue-500/20 rounded-xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-foreground mb-1">Review Onboarding Configuration</h3>
-            <p className="text-sm text-muted-foreground">Re-run the setup wizard to update your institution details, branches, loan products, or staff accounts.</p>
-          </div>
-          <button 
-            onClick={() => navigate("/onboarding")}
-            className="shrink-0 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-6 py-2.5 rounded-lg transition-colors shadow-sm"
-          >
-            Review Configuration
-          </button>
+          <p className="text-muted-foreground text-sm">
+            View your institution profile and live branch list. Editing is not available yet.
+          </p>
         </div>
 
         {/* Institution Profile */}
@@ -254,105 +297,138 @@ export default function Settings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-xs font-bold text-muted-foreground mb-1">Institution Name</label>
-              <input type="text" value={instForm.name || ""} onChange={(e) => {setInstForm({...instForm, name: e.target.value}); setUnsavedChanges(true)}} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors" />
+              <input
+                type="text"
+                readOnly
+                value={institutionLabel}
+                className="w-full bg-muted border border-border text-foreground rounded-lg p-2.5 text-sm cursor-not-allowed"
+              />
+              <div className="text-[10px] text-muted-foreground mt-1">
+                From your signed-in session. Not editable here.
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-muted-foreground mb-1">Registration Number</label>
-              <input type="text" value={instForm.registrationNumber || ""} onChange={(e) => {setInstForm({...instForm, registrationNumber: e.target.value}); setUnsavedChanges(true)}} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors" />
-              <div className="text-[10px] text-muted-foreground mt-1">Issued by Central Bank of Sri Lanka.</div>
+              <input
+                type="text"
+                readOnly
+                value=""
+                placeholder="Not available"
+                className="w-full bg-muted border border-border text-muted-foreground rounded-lg p-2.5 text-sm cursor-not-allowed placeholder:text-muted-foreground"
+              />
+              <div className="text-[10px] text-muted-foreground mt-1">
+                Not available yet.
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-muted-foreground mb-1">Institution Type</label>
-              <select value={instForm.type || ""} onChange={(e) => {setInstForm({...instForm, type: e.target.value}); setUnsavedChanges(true)}} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors">
-                <option>Licensed Finance Company</option>
-                <option>Microfinance NGO</option>
-                <option>Rural Development Bank</option>
-                <option>Co-operative Society</option>
-              </select>
+              <input
+                type="text"
+                readOnly
+                value=""
+                placeholder="Not available"
+                className="w-full bg-muted border border-border text-muted-foreground rounded-lg p-2.5 text-sm cursor-not-allowed placeholder:text-muted-foreground"
+              />
             </div>
             <div>
               <label className="block text-xs font-bold text-muted-foreground mb-1">District</label>
-              <select value={instForm.district || ""} onChange={(e) => {setInstForm({...instForm, district: e.target.value}); setUnsavedChanges(true)}} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-blue-500 focus:outline-none transition-colors">
-                {SRI_LANKAN_DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <input
+                type="text"
+                readOnly
+                value=""
+                placeholder="Not available"
+                className="w-full bg-muted border border-border text-muted-foreground rounded-lg p-2.5 text-sm cursor-not-allowed placeholder:text-muted-foreground"
+              />
             </div>
             <div>
               <label className="block text-xs font-bold text-muted-foreground mb-1">Number of Branches</label>
-              <input type="text" readOnly value={branches.length} className="w-full bg-muted border border-border text-muted-foreground rounded-lg p-2.5 text-sm cursor-not-allowed" />
+              <input
+                type="text"
+                readOnly
+                value={
+                  branchLoading
+                    ? "Loading..."
+                    : branchError
+                      ? "-"
+                      : branchCount == null
+                        ? "-"
+                        : String(branchCount)
+                }
+                className="w-full bg-muted border border-border text-muted-foreground rounded-lg p-2.5 text-sm cursor-not-allowed"
+              />
             </div>
           </div>
-          <div className="pt-6">
-            <button 
-              onClick={() => { updateInstitution(instForm); triggerToast("Institution profile updated.") }}
-              className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-6 py-2 rounded-lg transition-colors"
+          <div className="pt-6 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              disabled
+              title="Institution profile editing is not available yet"
+              className="bg-muted text-muted-foreground text-sm font-medium px-6 py-2 rounded-lg border border-border cursor-not-allowed opacity-70"
             >
               Save Institution Profile
             </button>
+            <span className="text-xs text-muted-foreground">
+              Saving is not available yet.
+            </span>
           </div>
         </div>
 
         {/* Branch Management */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h3 className="text-lg font-bold text-foreground">Branch Management</h3>
-            <button onClick={() => setNewBranchMode(true)} className="flex items-center gap-1 text-sm bg-muted hover:bg-muted text-foreground px-3 py-1.5 rounded transition-colors border border-border"><Plus size={16}/> Add Branch</button>
+            <button
+              type="button"
+              disabled
+              title="Adding branches is not available yet"
+              className="flex items-center gap-1 text-sm bg-muted text-muted-foreground px-3 py-1.5 rounded border border-border cursor-not-allowed opacity-70"
+            >
+              <Plus size={16} /> Add Branch
+            </button>
           </div>
+          <p className="text-xs text-muted-foreground mb-4">
+            Live branches for your institution. Adding or editing branches is not available yet.
+          </p>
           <div className="space-y-3">
-            {branches.map(b => (
-              <div key={b.id} className="p-4 bg-muted border border-border rounded-lg flex items-center justify-between group">
-                <div>
-                  <div className="text-sm font-bold text-foreground">{b.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{b.location} • Manager: {b.manager}</div>
-                </div>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-1.5 text-muted-foreground hover:text-blue-400 hover:bg-muted rounded"><Edit size={16}/></button>
-                  <button onClick={() => { if(confirm("Remove this branch?")) removeBranch(b.id) }} className="p-1.5 text-muted-foreground hover:text-red-400 hover:bg-muted rounded"><Trash2 size={16}/></button>
-                </div>
-              </div>
-            ))}
-            {newBranchMode && (
-              <div className="p-4 bg-blue-500/5 border border-blue-500/30 rounded-lg animate-in fade-in">
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  <input type="text" placeholder="Branch Name" id="n_bname" className="bg-background border border-border text-sm rounded p-2 text-foreground outline-none focus:border-blue-500" />
-                  <input type="text" placeholder="Location" id="n_bloc" className="bg-background border border-border text-sm rounded p-2 text-foreground outline-none focus:border-blue-500" />
-                  <input type="text" placeholder="Manager Name" id="n_bmgr" className="bg-background border border-border text-sm rounded p-2 text-foreground outline-none focus:border-blue-500" />
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => {
-                    const name = document.getElementById("n_bname").value
-                    const location = document.getElementById("n_bloc").value
-                    const manager = document.getElementById("n_bmgr").value
-                    if(name) addBranch({name, location, manager})
-                    setNewBranchMode(false)
-                  }} className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded">Save</button>
-                  <button onClick={() => setNewBranchMode(false)} className="bg-muted text-foreground text-xs px-3 py-1.5 rounded">Cancel</button>
-                </div>
+            {branchLoading && (
+              <div className="p-6 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+                Loading branches...
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Loan Products */}
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-foreground mb-4">Loan Products</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {loanProducts.map(p => (
-              <div key={p.id} className={`p-4 rounded-xl border flex justify-between items-center transition-colors ${p.active ? 'bg-muted border-border' : 'bg-background border-border opacity-60'}`}>
-                <div>
-                  <div className="text-sm font-bold text-foreground">{p.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{p.range} • {p.cycle}</div>
-                </div>
-                <button 
-                  onClick={() => { toggleLoanProduct(p.id); triggerToast("Product updated.") }}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${p.active ? 'bg-blue-600' : 'bg-accent'}`}
+            {!branchLoading && branchError && (
+              <div className="p-6 text-center border border-dashed border-border rounded-lg space-y-3">
+                <p className="text-sm text-muted-foreground">{branchError}</p>
+                <button
+                  type="button"
+                  onClick={loadBranches}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
                 >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${p.active ? 'translate-x-6' : 'translate-x-1'}`} />
+                  Retry
                 </button>
               </div>
-            ))}
-          </div>
-          <div className="mt-4 text-xs text-muted-foreground flex items-center gap-1.5">
-            <Info size={14} /> Loan product changes take effect on new applications only.
+            )}
+            {!branchLoading && !branchError && liveBranches.length === 0 && (
+              <div className="p-6 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+                No active branches recorded for this tenant.
+              </div>
+            )}
+            {!branchLoading &&
+              !branchError &&
+              liveBranches.map((b) => (
+                <div
+                  key={b.id}
+                  className="p-4 bg-muted border border-border rounded-lg flex items-center justify-between"
+                >
+                  <div>
+                    <div className="text-sm font-bold text-foreground">
+                      {b.name || "-"}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {formatBranchPlace(b)}
+                    </div>
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       </div>
@@ -367,13 +443,20 @@ export default function Settings() {
         <div className={`flex items-center justify-between p-3 rounded-lg ${disabled ? 'opacity-50' : 'hover:bg-muted/30'} transition-colors`}>
           <div className="pr-4">
             <div className="text-sm font-medium text-foreground flex items-center gap-2">
-              {label} {disabled && <Lock size={12} className="text-muted-foreground" />}
+              {label}{" "}
+              <span className="text-[10px] font-normal text-muted-foreground uppercase tracking-wide">
+                Local only
+              </span>
+              {disabled && <Lock size={12} className="text-muted-foreground" />}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">{desc}</div>
           </div>
           <button 
             disabled={disabled}
-            onClick={() => { updateNotification(type, key, !active); triggerToast("Preference saved.") }}
+            onClick={() => {
+              updateNotification(type, key, !active)
+              triggerToast("Saved in this browser only - not synced to the server.")
+            }}
             className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors ${active ? 'bg-blue-600' : 'bg-accent'}`}
           >
             <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${active ? 'translate-x-5' : 'translate-x-1'}`} />
@@ -389,7 +472,9 @@ export default function Settings() {
       <div className="space-y-8 animate-in fade-in duration-300">
         <div>
           <h2 className="text-xl font-bold text-foreground">Notification Preferences</h2>
-          <p className="text-muted-foreground text-sm">Choose what you want to be notified about and how.</p>
+          <p className="text-muted-foreground text-sm">
+            Preferences are saved in this browser only and are not synced to the server.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -422,8 +507,10 @@ export default function Settings() {
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <Bell className="text-blue-400" size={20} />
-            <div className="text-sm text-blue-100">
-              You are currently receiving <span className="font-bold">{emailCount}</span> email notifications and <span className="font-bold">{inAppCount}</span> in-app notifications.
+            <div className="text-sm text-foreground">
+              <span className="font-bold">{emailCount}</span> email and{" "}
+              <span className="font-bold">{inAppCount}</span> in-app toggles are on in this
+              browser only (not server-backed).
             </div>
           </div>
         </div>
@@ -433,24 +520,17 @@ export default function Settings() {
 
   const TabAgents = () => {
     const getAgentUI = (id) => {
-      switch(id) {
-        case "A1": return { name: "Agent 1", desc: "Compliance & Reporting", color: "purple" }
-        case "A2": return { name: "Agent 2", desc: "Workflow Orchestrator", color: "blue" }
-        case "A3": return { name: "Agent 3", desc: "Anomaly Detection", color: "red" }
-        case "A4": return { name: "Agent 4", desc: "NLQ Interface", color: "teal" }
-        default: return { name: "", desc: "", color: "slate" }
-      }
-    }
-
-    const handleAgentToggle = (a) => {
-      if(a.active) {
-        if(confirm(`Disabling ${getAgentUI(a.id).name} will stop all autonomous actions. Are you sure?`)) {
-          toggleAgent(a.id)
-          triggerToast(`${getAgentUI(a.id).name} disabled. Manual processes will need to handle tasks until re-enabled.`)
-        }
-      } else {
-        toggleAgent(a.id)
-        triggerToast(`${getAgentUI(a.id).name} enabled.`)
+      switch (id) {
+        case "A1":
+          return { name: "Agent 1", desc: "Compliance & Reporting", color: "purple" }
+        case "A2":
+          return { name: "Agent 2", desc: "Workflow Orchestrator", color: "blue" }
+        case "A3":
+          return { name: "Agent 3", desc: "Anomaly Detection", color: "red" }
+        case "A4":
+          return { name: "Agent 4", desc: "NLQ Interface", color: "teal" }
+        default:
+          return { name: "", desc: "", color: "slate" }
       }
     }
 
@@ -458,159 +538,150 @@ export default function Settings() {
       <div className="space-y-8 animate-in fade-in duration-300">
         <div>
           <h2 className="text-xl font-bold text-foreground">Agent Settings</h2>
-          <p className="text-muted-foreground text-sm">Configure how MicroFlow's AI agents behave and what they are allowed to do autonomously.</p>
+          <p className="text-muted-foreground text-sm">
+            Agent enablement is not configured from this page. Live tier policies below are
+            read-only.
+          </p>
         </div>
 
-        {/* Agent Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {agentSettings.agents.map(a => {
+          {agentSettings.agents.map((a) => {
             const ui = getAgentUI(a.id)
             return (
-              <div key={a.id} className={`bg-card border rounded-xl p-5 shadow-sm transition-all ${a.active ? `border-${ui.color}-500/30 border-t-4 border-t-${ui.color}-500` : 'border-border opacity-70'}`}>
+              <div
+                key={a.id}
+                className="bg-card border border-border rounded-xl p-5 shadow-sm opacity-90"
+              >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg bg-${ui.color}-500/10 flex items-center justify-center text-${ui.color}-500 font-bold text-lg`}>{a.id}</div>
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-foreground font-bold text-lg">
+                      {a.id}
+                    </div>
                     <div>
                       <div className="font-bold text-foreground">{ui.name}</div>
                       <div className="text-xs text-muted-foreground">{ui.desc}</div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => handleAgentToggle(a)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${a.active ? 'bg-green-500' : 'bg-accent'}`}
+                  <button
+                    type="button"
+                    disabled
+                    title="Agent enable/disable is not available yet"
+                    className="relative inline-flex h-6 w-11 items-center rounded-full bg-accent cursor-not-allowed opacity-70"
                   >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${a.active ? 'translate-x-6' : 'translate-x-1'}`} />
+                    <span className="inline-block h-4 w-4 transform translate-x-1 rounded-full bg-white" />
                   </button>
                 </div>
-                <div className="flex items-center gap-2 mt-4 text-xs">
-                  <span className={`bg-muted text-foreground px-2 py-0.5 rounded font-medium border border-border`}>{a.active ? 'Active' : 'Inactive'}</span>
-                  <span className="text-muted-foreground">• 1,244 actions this month</span>
+                <div className="text-xs text-muted-foreground">
+                  Enable/disable is not available yet.
                 </div>
               </div>
             )
           })}
         </div>
 
-        {/* Sensitivity */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-foreground mb-2">Agent 3 — Anomaly Detection Sensitivity</h3>
-          <p className="text-sm text-muted-foreground mb-6">Adjust the threshold at which transactions are flagged for review.</p>
-          
-          <div className="max-w-xl">
-            <input 
-              type="range" min="1" max="3" step="1" 
-              value={agentSettings.sensitivity === "Low" ? 1 : agentSettings.sensitivity === "Medium" ? 2 : 3}
-              onChange={(e) => {
-                const val = e.target.value
-                const str = val === "1" ? "Low" : val === "2" ? "Medium" : "High"
-                updateAgentSensitivity(str)
-                setUnsavedChanges(true)
-              }}
-              className="w-full accent-blue-500 h-2 bg-muted rounded-lg appearance-none cursor-pointer mb-2"
-            />
-            <div className="flex justify-between text-xs font-bold text-muted-foreground mb-4 px-1">
-              <span>Low</span><span>Medium</span><span>High</span>
-            </div>
-            
-            <div className="bg-muted p-4 rounded-lg border border-border min-h-[80px]">
-              {agentSettings.sensitivity === "Low" && <p className="text-sm text-foreground/80">Agent 3 will only flag transactions that are extremely unusual. Fewer alerts, lower chance of false positives. Recommended for established institutions with stable transaction patterns.</p>}
-              {agentSettings.sensitivity === "Medium" && <p className="text-sm text-foreground/80">Balanced detection. Agent 3 flags moderately unusual patterns. Recommended for most institutions.</p>}
-              {agentSettings.sensitivity === "High" && <p className="text-sm text-foreground/80">Agent 3 will flag any transaction that deviates from baseline patterns. More alerts, higher chance of false positives. Recommended during periods of rapid growth or suspected fraud.</p>}
-            </div>
-            
-            <div className="mt-4 flex items-center justify-between">
-              <div className="text-xs text-muted-foreground">Current sensitivity: {agentSettings.sensitivity}. Adjusted thresholds take effect on the next transaction cycle.</div>
-              <button 
-                onClick={() => triggerToast(`Anomaly sensitivity updated to ${agentSettings.sensitivity}.`)}
-                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-4 py-2 rounded transition-colors"
-              >
-                Save Sensitivity
-              </button>
-            </div>
-          </div>
+          <h3 className="text-lg font-bold text-foreground mb-2">
+            Agent 3 - Anomaly Detection Sensitivity
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Sensitivity cannot be changed from Settings yet.
+          </p>
+          <button
+            type="button"
+            disabled
+            className="bg-muted text-muted-foreground text-xs font-medium px-4 py-2 rounded border border-border cursor-not-allowed opacity-70"
+          >
+            Save Sensitivity
+          </button>
         </div>
 
-        {/* Tier Table */}
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           <div className="p-6 border-b border-border">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold text-foreground mb-1">Graduated Trust Architecture — Current Configuration</h3>
-                <p className="text-sm text-muted-foreground">These tier assignments define how much autonomy each agent has. Contact MicroFlow support to modify tier assignments.</p>
+                <h3 className="text-lg font-bold text-foreground mb-1">
+                  Graduated Trust policies (read-only)
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Live policies for your institution. Change them on the Graduated Trust page.
+                </p>
               </div>
-              <Link to="/graduated-trust" className="text-sm font-medium text-primary hover:underline">View overview</Link>
+              <Link
+                to="/graduated-trust"
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Open Graduated Trust
+              </Link>
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-foreground/80">
-              <thead className="text-xs text-muted-foreground uppercase bg-muted border-b border-border font-bold">
-                <tr>
-                  <th className="px-6 py-3">Action Type</th>
-                  <th className="px-6 py-3">Agent</th>
-                  <th className="px-6 py-3">Current Tier</th>
-                  <th className="px-6 py-3">Description</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50">
-                <tr className="hover:bg-muted/20">
-                  <td className="px-6 py-4 font-medium text-foreground">NLQ Query Response</td>
-                  <td className="px-6 py-4">Agent 4</td>
-                  <td className="px-6 py-4"><span className="bg-blue-600 text-white px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">Tier 1</span></td>
-                  <td className="px-6 py-4">Executes automatically, no notification</td>
-                </tr>
-                <tr className="hover:bg-muted/20">
-                  <td className="px-6 py-4 font-medium text-foreground">Payroll Journal Entry Posting</td>
-                  <td className="px-6 py-4">Agent 2</td>
-                  <td className="px-6 py-4"><span className="bg-blue-600 text-white px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">Tier 1</span></td>
-                  <td className="px-6 py-4">Executes automatically, no notification</td>
-                </tr>
-                <tr className="hover:bg-muted/20">
-                  <td className="px-6 py-4 font-medium text-foreground">Budget Threshold Alert</td>
-                  <td className="px-6 py-4">Agent 2</td>
-                  <td className="px-6 py-4"><span className="bg-green-600 text-white px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">Tier 2</span></td>
-                  <td className="px-6 py-4">Executes automatically, manager notified</td>
-                </tr>
-                <tr className="hover:bg-muted/20">
-                  <td className="px-6 py-4 font-medium text-foreground">Duplicate Payment Detection</td>
-                  <td className="px-6 py-4">Agent 3</td>
-                  <td className="px-6 py-4"><span className="bg-green-600 text-white px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">Tier 2</span></td>
-                  <td className="px-6 py-4">Flags automatically, officer notified</td>
-                </tr>
-                <tr className="hover:bg-muted/20">
-                  <td className="px-6 py-4 font-medium text-foreground">EPF/ETF Compliance Report</td>
-                  <td className="px-6 py-4">Agent 1</td>
-                  <td className="px-6 py-4"><span className="bg-green-600 text-white px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">Tier 2</span></td>
-                  <td className="px-6 py-4">Generates automatically, HR notified</td>
-                </tr>
-                <tr className="hover:bg-muted/20">
-                  <td className="px-6 py-4 font-medium text-foreground">Central Bank Regulatory Report</td>
-                  <td className="px-6 py-4">Agent 1</td>
-                  <td className="px-6 py-4"><span className="bg-amber-500 text-slate-900 px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">Tier 3</span></td>
-                  <td className="px-6 py-4">Prepared by agent, Finance Manager must approve</td>
-                </tr>
-                <tr className="hover:bg-muted/20">
-                  <td className="px-6 py-4 font-medium text-foreground">High-Value Transaction Anomaly</td>
-                  <td className="px-6 py-4">Agent 3</td>
-                  <td className="px-6 py-4"><span className="bg-amber-500 text-slate-900 px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">Tier 3</span></td>
-                  <td className="px-6 py-4">Flagged by agent, Finance Officer must review</td>
-                </tr>
-                <tr className="hover:bg-muted/20">
-                  <td className="px-6 py-4 font-medium text-foreground">Volume Spike Detection</td>
-                  <td className="px-6 py-4">Agent 3</td>
-                  <td className="px-6 py-4"><span className="bg-red-600 text-white px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">Tier 4</span></td>
-                  <td className="px-6 py-4">Alert raised, human decides all next steps</td>
-                </tr>
-                <tr className="hover:bg-muted/20">
-                  <td className="px-6 py-4 font-medium text-foreground">Cross-Branch Anomaly Pattern</td>
-                  <td className="px-6 py-4">Agent 3</td>
-                  <td className="px-6 py-4"><span className="bg-red-600 text-white px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">Tier 4</span></td>
-                  <td className="px-6 py-4">Alert raised, human decides all next steps</td>
-                </tr>
-              </tbody>
-            </table>
+            {policiesLoading && (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                Loading policies...
+              </div>
+            )}
+            {!policiesLoading && policiesError && (
+              <div className="p-8 text-center space-y-3">
+                <p className="text-sm text-muted-foreground">{policiesError}</p>
+                <button
+                  type="button"
+                  onClick={loadPolicies}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {!policiesLoading && !policiesError && livePolicies.length === 0 && (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                No agent policies returned for this tenant.
+              </div>
+            )}
+            {!policiesLoading && !policiesError && livePolicies.length > 0 && (
+              <table className="w-full text-sm text-left text-foreground/80">
+                <thead className="text-xs text-muted-foreground uppercase bg-muted border-b border-border font-bold">
+                  <tr>
+                    <th className="px-6 py-3">Action Type</th>
+                    <th className="px-6 py-3">Agent</th>
+                    <th className="px-6 py-3">Tier</th>
+                    <th className="px-6 py-3">Active</th>
+                    <th className="px-6 py-3">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {livePolicies.map((policy) => (
+                    <tr key={policy.id} className="hover:bg-muted/20">
+                      <td className="px-6 py-4 font-medium text-foreground font-mono text-xs">
+                        {policy.actionType || "-"}
+                      </td>
+                      <td className="px-6 py-4 text-xs">
+                        {policy.agentId || "-"}
+                        {policy.agentName ? (
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {policy.agentName}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="bg-muted border border-border px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap">
+                          Tier {policy.tier ?? "-"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-xs">
+                        {policy.isActive ? "Yes" : "No"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-muted-foreground max-w-xs">
+                        {policy.description || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
           <div className="p-4 bg-muted text-xs text-muted-foreground border-t border-border flex items-center gap-1.5">
-            <Info size={14} /> Tier assignments are set by MicroFlow's governance framework and reflect the risk level of each action type.
+            <Info size={14} /> Read-only view. Policy changes belong on Graduated Trust.
           </div>
         </div>
       </div>
@@ -618,80 +689,91 @@ export default function Settings() {
   }
 
   const TabPrivacy = () => {
-    const handleExport = () => {
-      triggerToast("Preparing export... Download will start shortly.")
-      setTimeout(() => triggerToast("Export ready. Downloading."), 2500)
-    }
-
     const [delConfirm, setDelConfirm] = useState("")
-    const [showResetModal, setShowResetModal] = useState(false)
     const [showDelModal, setShowDelModal] = useState(false)
-
-    const handleReset = () => {
-      resetDemoData()
-      setShowResetModal(false)
-      triggerToast("Demo data reset successfully.")
-    }
 
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
         <div>
           <h2 className="text-xl font-bold text-foreground">Data & Privacy</h2>
-          <p className="text-muted-foreground text-sm">Manage your institution's data and privacy settings.</p>
+          <p className="text-muted-foreground text-sm">
+            Export and destructive actions are not available yet.
+          </p>
         </div>
 
-        {/* Data Export */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-foreground mb-4">Export Institution Data</h3>
+          <h3 className="text-lg font-bold text-foreground mb-2">Export Institution Data</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Data export is not available yet. These buttons do not download files.
+          </p>
           <div className="flex flex-wrap gap-4">
-            <button onClick={handleExport} disabled={!isAdmin} className="bg-muted hover:bg-muted disabled:opacity-50 text-foreground text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-border cursor-pointer">Export All Loan Data — CSV</button>
-            <button onClick={handleExport} disabled={!isAdmin} className="bg-muted hover:bg-muted disabled:opacity-50 text-foreground text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-border cursor-pointer">Export Staff & Payroll Data — CSV</button>
-            <button onClick={handleExport} disabled={!isAdmin} className="bg-muted hover:bg-muted disabled:opacity-50 text-foreground text-sm font-medium px-4 py-2.5 rounded-lg transition-colors border border-border cursor-pointer">Export Agent Activity Log — CSV</button>
+            <button
+              type="button"
+              disabled
+              className="bg-muted text-muted-foreground text-sm font-medium px-4 py-2.5 rounded-lg border border-border cursor-not-allowed opacity-70"
+            >
+              Export All Loan Data - CSV
+            </button>
+            <button
+              type="button"
+              disabled
+              className="bg-muted text-muted-foreground text-sm font-medium px-4 py-2.5 rounded-lg border border-border cursor-not-allowed opacity-70"
+            >
+              Export Staff & Payroll Data - CSV
+            </button>
+            <button
+              type="button"
+              disabled
+              className="bg-muted text-muted-foreground text-sm font-medium px-4 py-2.5 rounded-lg border border-border cursor-not-allowed opacity-70"
+            >
+              Export Agent Activity Log - CSV
+            </button>
           </div>
-          {!isAdmin && <p className="text-xs text-muted-foreground mt-3">Exports are only available to Institution Admins.</p>}
         </div>
 
-        {/* Retention Policy */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2"><Shield size={18} className="text-blue-400"/> Data Retention Policy</h3>
-          <p className="text-sm text-foreground/80 leading-relaxed max-w-3xl">MicroFlow retains transaction data for 7 years in compliance with Sri Lankan financial regulations. Agent activity logs are retained for 3 years. Personal staff data is retained for the duration of employment plus 5 years.</p>
+          <h3 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            <Shield size={18} className="text-blue-400" /> Data Retention Policy
+          </h3>
+          <p className="text-sm text-foreground/80 leading-relaxed max-w-3xl">
+            Automated data-retention rules are not configured in this product yet. Do not
+            assume records are purged on a schedule.
+          </p>
         </div>
 
-        {/* Danger Zone */}
         {isAdmin && (
           <div className="bg-card border border-border border-l-4 border-l-red-500 rounded-xl p-6 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-bl-full pointer-events-none"></div>
-            <h3 className="text-lg font-bold text-red-500 mb-1 flex items-center gap-2"><AlertTriangle size={18} /> Danger Zone</h3>
-            <p className="text-sm text-muted-foreground mb-6">These actions are irreversible. Proceed with caution.</p>
-            
+            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-bl-full pointer-events-none" />
+            <h3 className="text-lg font-bold text-red-500 mb-1 flex items-center gap-2">
+              <AlertTriangle size={18} /> Danger Zone
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Destructive actions are not available yet.
+            </p>
+
             <div className="flex flex-col sm:flex-row gap-4">
-              <button 
-                onClick={() => setShowResetModal(true)}
-                className="py-2.5 px-6 rounded-lg border-2 border-red-500/50 text-red-400 font-bold hover:bg-red-500/10 hover:border-red-500 transition-colors bg-background"
-              >
-                Reset Demo Data
-              </button>
-              <button 
+              {!isAuthenticatedSession && (
+                <button
+                  type="button"
+                  disabled
+                  className="py-2.5 px-6 rounded-lg border-2 border-red-500/30 text-red-400/70 font-bold cursor-not-allowed opacity-70 bg-background"
+                >
+                  Reset Demo Data
+                </button>
+              )}
+              <button
+                type="button"
                 onClick={() => setShowDelModal(true)}
-                className="py-2.5 px-6 rounded-lg bg-red-600 text-white font-bold hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20"
+                className="py-2.5 px-6 rounded-lg border-2 border-red-500/50 text-red-400 font-bold hover:bg-red-500/10 transition-colors bg-background"
               >
                 Delete Institution
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Danger Modals */}
-        {showResetModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-card border border-red-500/30 rounded-2xl w-full max-w-md shadow-2xl p-6">
-              <h2 className="text-xl font-bold text-foreground mb-2">Reset Demo Data?</h2>
-              <p className="text-muted-foreground text-sm mb-6 leading-relaxed">This will reset all MicroFlow data to the original demo state. All custom configuration, staff accounts, and transaction history will be replaced with demo data. This is intended for prototype demonstration purposes only.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setShowResetModal(false)} className="flex-1 py-2.5 rounded-lg border border-border text-foreground/80 hover:bg-muted transition-colors font-medium">Cancel</button>
-                <button onClick={handleReset} className="flex-1 py-2.5 rounded-lg border-2 border-red-500/50 text-red-400 font-bold hover:bg-red-500/10 hover:border-red-500 transition-colors">Reset Demo Data</button>
-              </div>
-            </div>
+            {isAuthenticatedSession && (
+              <p className="text-xs text-muted-foreground mt-3">
+                Demo reset is hidden while you are signed into an institution session.
+              </p>
+            )}
           </div>
         )}
 
@@ -699,17 +781,44 @@ export default function Settings() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
             <div className="bg-card border border-red-500 rounded-2xl w-full max-w-md shadow-2xl p-6">
               <h2 className="text-xl font-bold text-foreground mb-2">Delete Institution?</h2>
-              <p className="text-muted-foreground text-sm mb-4 leading-relaxed">This will permanently delete your institution and all associated data. This action cannot be undone.</p>
+              <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
+                Institution deletion is not available yet. Confirmation below will not
+                permanently delete your institution.
+              </p>
               <div className="mb-6">
-                <label className="block text-xs font-bold text-muted-foreground mb-2">Please type <span className="text-foreground select-none">{institution?.name}</span> to confirm.</label>
-                <input type="text" value={delConfirm} onChange={e=>setDelConfirm(e.target.value)} className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-red-500 focus:outline-none" />
+                <label className="block text-xs font-bold text-muted-foreground mb-2">
+                  Type <span className="text-foreground select-none">{institutionLabel}</span> to
+                  acknowledge.
+                </label>
+                <input
+                  type="text"
+                  value={delConfirm}
+                  onChange={(e) => setDelConfirm(e.target.value)}
+                  className="w-full bg-muted border border-border rounded-lg p-2.5 text-foreground text-sm focus:border-red-500 focus:outline-none"
+                />
               </div>
               <div className="flex gap-3">
-                <button onClick={() => {setShowDelModal(false); setDelConfirm("")}} className="flex-1 py-2.5 rounded-lg border border-border text-foreground/80 hover:bg-muted transition-colors font-medium">Cancel</button>
-                <button 
-                  disabled={delConfirm !== institution?.name}
-                  onClick={() => { setShowDelModal(false); setDelConfirm(""); triggerToast("This action is disabled in the demo environment.") }} 
-                  className="flex-1 py-2.5 rounded-lg bg-red-600 text-white font-bold hover:bg-red-500 disabled:opacity-30 disabled:hover:bg-red-600 transition-colors shadow-lg shadow-red-600/20 disabled:shadow-none"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDelModal(false)
+                    setDelConfirm("")
+                  }}
+                  className="flex-1 py-2.5 rounded-lg border border-border text-foreground/80 hover:bg-muted transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={delConfirm !== institutionLabel}
+                  onClick={() => {
+                    setShowDelModal(false)
+                    setDelConfirm("")
+                    triggerToast(
+                      "Institution deletion is not available yet."
+                    )
+                  }}
+                  className="flex-1 py-2.5 rounded-lg bg-red-600 text-white font-bold hover:bg-red-500 disabled:opacity-30 disabled:hover:bg-red-600 transition-colors"
                 >
                   Delete Permanently
                 </button>
@@ -717,7 +826,6 @@ export default function Settings() {
             </div>
           </div>
         )}
-
       </div>
     )
   }
@@ -753,7 +861,16 @@ export default function Settings() {
             return (
               <button
                 key={t.id}
-                onClick={() => { if(!isDisabled) setActiveTab(t.id) }}
+                onClick={() => {
+                  if (isDisabled) return
+                  if (t.id === "institution") {
+                    setBranchLoading(true)
+                    setBranchError(null)
+                    setLiveBranches([])
+                    setBranchCount(null)
+                  }
+                  setActiveTab(t.id)
+                }}
                 className={`w-full flex items-center justify-between p-3 rounded-xl transition-all relative ${
                   isActive 
                     ? "bg-blue-600/10 text-blue-400 font-medium" 
