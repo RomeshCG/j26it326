@@ -165,7 +165,6 @@ const LOAN_OFFICER_NAV = [
 export function AppSidebar({ ...props }) {
   const location = useLocation()
   const currentUser = useStore((state) => state.currentUser)
-  const institution = useStore((state) => state.institution)
   // null = unknown / error / non-decider — never show a fake badge count
   const [tierCount, setTierCount] = React.useState(null)
 
@@ -173,12 +172,14 @@ export function AppSidebar({ ...props }) {
   const role = currentUser?.role || "Institution Admin"
   const canFetchPending = TIER3_DECIDER_ROLES.includes(role)
   const isMockAuth = import.meta.env.VITE_USE_MOCK_AUTH === "true"
+  // Authenticated tenant label only - never persisted demo institution.name (Apex).
+  const institutionLabel =
+    (typeof currentUser?.institutionName === "string" &&
+      currentUser.institutionName.trim()) ||
+    "Your institution"
 
   React.useEffect(() => {
-    if (!canFetchPending) {
-      setTierCount(null)
-      return
-    }
+    if (!canFetchPending) return undefined
 
     let cancelled = false
 
@@ -212,9 +213,12 @@ export function AppSidebar({ ...props }) {
 
   const user = {
     name: currentUser
-      ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim()
-      : "Jane Smith",
-    email: currentUser?.email || currentUser?.role || "Institution Admin",
+      ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() ||
+        "User"
+      : "User",
+    email: currentUser
+      ? currentUser.email || currentUser.role || ""
+      : "",
     avatar: currentUser?.avatar || "",
   }
 
@@ -228,7 +232,11 @@ export function AppSidebar({ ...props }) {
             item.roles.includes(role))
       ).map((item) =>
         item.title === "Tier Approvals"
-          ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
+          ? {
+              ...item,
+              badge:
+                canFetchPending && tierCount > 0 ? tierCount : undefined,
+            }
           : item
       )
 
@@ -246,9 +254,7 @@ export function AppSidebar({ ...props }) {
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">MicroFlow</span>
                 <span className="truncate text-xs">
-                  {isLoanOfficerArea
-                    ? "Loan Officer"
-                    : institution?.name || "IMFS"}
+                  {isLoanOfficerArea ? "Loan Officer" : institutionLabel}
                 </span>
               </div>
             </SidebarMenuButton>

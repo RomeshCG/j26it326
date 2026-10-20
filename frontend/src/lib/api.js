@@ -263,6 +263,16 @@ export async function verifySessionOnce() {
 }
 
 /**
+ * Lists active branches for the caller's tenant database.
+ * GET /api/tenant/branches
+ * Success: { data: Branch[], count }
+ * Branch fields include id, name, location, district, isActive, createdAt (no manager).
+ */
+export async function fetchTenantBranches() {
+  return await apiRequest("/api/tenant/branches")
+}
+
+/**
  * A4 NLQ v1 — classify question via Node (Ollama on server) + grounded tenant tools.
  * POST /api/tenant/agent-actions/nlq/query
  * Body: { question: string }
