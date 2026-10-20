@@ -43,7 +43,7 @@ import AgentPanel from "@/components/c4/AgentPanel"
 import BorrowerManagementPage from "@/components/borrower-management/page"
 import { useStore } from "@/store"
 import { verifySessionOnce, getCachedSession, isJwtExpired, endClientSession } from "@/lib/api"
-import { toDisplayRole } from "@/lib/roles"
+import { getRoleRedirect, toDisplayRole } from "@/lib/roles"
 
 function ProtectedRoute({ children }) {
   const location = useLocation()
@@ -135,6 +135,7 @@ function RequireRole({ allowedRoles, children }) {
   const isAllowed = allowedRoles.includes(cached.role)
 
   if (!isAllowed) {
+    const roleHome = getRoleRedirect(cached.role)
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-6 text-foreground">
         <div className="w-full max-w-md bg-card border border-border rounded-xl p-8 text-center shadow-lg">
@@ -146,7 +147,7 @@ function RequireRole({ allowedRoles, children }) {
             Your role does not have authorization to view this area.
           </p>
           <Link
-            to="/dashboard"
+            to={roleHome}
             className="block w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg font-medium text-xs transition-colors"
           >
             Back to Dashboard

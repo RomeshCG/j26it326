@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { 
   User, Building2, Bell, Cpu, Shield, 
   Lock, CheckCircle, Plus, AlertTriangle, Info
@@ -16,12 +16,9 @@ const TABS = [
 ]
 
 export default function Settings() {
-  const navigate = useNavigate()
-  
   // Zustand State
   const {
     currentUser,
-    loanProducts,
     notifications,
     updateNotification,
     agentSettings,
@@ -182,7 +179,7 @@ export default function Settings() {
         <div>
           <h2 className="text-xl font-bold text-foreground">Account Settings</h2>
           <p className="text-muted-foreground text-sm">
-            Your authenticated profile. Edits are unavailable until account write APIs are connected.
+            View your signed-in profile. Editing is not available yet.
           </p>
         </div>
 
@@ -240,13 +237,13 @@ export default function Settings() {
               <button
                 type="button"
                 disabled
-                title="Profile updates are not connected to a backend API"
+                title="Profile editing is not available yet"
                 className="bg-muted text-muted-foreground text-sm font-medium px-6 py-2 rounded-lg border border-border cursor-not-allowed opacity-70"
               >
                 Save Changes
               </button>
               <span className="text-xs text-muted-foreground">
-                Saving is unavailable - no profile write API is connected.
+                Saving is not available yet.
               </span>
             </div>
           </div>
@@ -255,8 +252,7 @@ export default function Settings() {
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-bold text-foreground mb-2">Password</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Password changes are not available here. No password-update API is connected
-            to this Settings page.
+            Password changes are not available from this page yet.
           </p>
           <button
             type="button"
@@ -270,8 +266,8 @@ export default function Settings() {
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-bold text-foreground mb-2">Active Sessions</h3>
           <p className="text-sm text-muted-foreground">
-            Session listing and remote revoke are not connected. Only your current browser
-            session is managed by local authentication.
+            Only this browser session is active. Viewing or signing out other sessions is
+            not available yet.
           </p>
         </div>
       </div>
@@ -291,43 +287,8 @@ export default function Settings() {
         <div>
           <h2 className="text-xl font-bold text-foreground">Institution Settings</h2>
           <p className="text-muted-foreground text-sm">
-            View your institution profile and live branch list. Profile edits are not
-            available until write APIs are connected.
+            View your institution profile and live branch list. Editing is not available yet.
           </p>
-        </div>
-
-        {/* Onboarding - signed-in tenants are redirected away from /onboarding; wizard does not write tenant APIs */}
-        <div className="bg-card border border-blue-500/20 rounded-xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-foreground mb-1">
-              Review Onboarding Configuration
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {isAuthenticatedSession
-                ? "While signed in, the onboarding route returns you to the dashboard. The wizard does not update live institution or branch data through tenant APIs."
-                : "The setup wizard mainly updates local demo state. It does not provide a durable tenant write path for institution settings."}
-            </p>
-          </div>
-          <button
-            type="button"
-            disabled={isAuthenticatedSession}
-            title={
-              isAuthenticatedSession
-                ? "Unavailable while signed in - /onboarding redirects to the dashboard"
-                : undefined
-            }
-            onClick={() => {
-              if (isAuthenticatedSession) return
-              navigate("/onboarding")
-            }}
-            className={`shrink-0 text-sm font-medium px-6 py-2.5 rounded-lg transition-colors shadow-sm ${
-              isAuthenticatedSession
-                ? "bg-muted text-muted-foreground border border-border cursor-not-allowed opacity-70"
-                : "bg-blue-600 hover:bg-blue-500 text-white"
-            }`}
-          >
-            Review Configuration
-          </button>
         </div>
 
         {/* Institution Profile */}
@@ -343,7 +304,7 @@ export default function Settings() {
                 className="w-full bg-muted border border-border text-foreground rounded-lg p-2.5 text-sm cursor-not-allowed"
               />
               <div className="text-[10px] text-muted-foreground mt-1">
-                From your authenticated session (login). Not editable here.
+                From your signed-in session. Not editable here.
               </div>
             </div>
             <div>
@@ -356,7 +317,7 @@ export default function Settings() {
                 className="w-full bg-muted border border-border text-muted-foreground rounded-lg p-2.5 text-sm cursor-not-allowed placeholder:text-muted-foreground"
               />
               <div className="text-[10px] text-muted-foreground mt-1">
-                Not provided by the tenant API yet.
+                Not available yet.
               </div>
             </div>
             <div>
@@ -401,13 +362,13 @@ export default function Settings() {
             <button
               type="button"
               disabled
-              title="Institution profile updates are not connected to a backend API"
+              title="Institution profile editing is not available yet"
               className="bg-muted text-muted-foreground text-sm font-medium px-6 py-2 rounded-lg border border-border cursor-not-allowed opacity-70"
             >
               Save Institution Profile
             </button>
             <span className="text-xs text-muted-foreground">
-              Saving is unavailable - no write API is connected.
+              Saving is not available yet.
             </span>
           </div>
         </div>
@@ -419,15 +380,14 @@ export default function Settings() {
             <button
               type="button"
               disabled
-              title="Adding branches is not connected to a backend API"
+              title="Adding branches is not available yet"
               className="flex items-center gap-1 text-sm bg-muted text-muted-foreground px-3 py-1.5 rounded border border-border cursor-not-allowed opacity-70"
             >
               <Plus size={16} /> Add Branch
             </button>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
-            Live branches from your tenant database. Add, edit, and delete are unavailable
-            until write APIs exist. Manager is not returned by the API.
+            Live branches for your institution. Adding or editing branches is not available yet.
           </p>
           <div className="space-y-3">
             {branchLoading && (
@@ -469,49 +429,6 @@ export default function Settings() {
                   </div>
                 </div>
               ))}
-          </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-foreground mb-2">Loan Products</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Product configuration is not connected on this page. Manage live products in the
-            loan workspace - these Settings toggles do not update the server.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {loanProducts.map((p) => (
-              <div
-                key={p.id}
-                className="p-4 rounded-xl border flex justify-between items-center bg-background border-border opacity-70"
-              >
-                <div>
-                  <div className="text-sm font-bold text-foreground">{p.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {p.range} • {p.cycle}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground mt-1">
-                    Demo list only - not live M3 catalog
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled
-                  title="Loan product toggles are not connected in Settings"
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full cursor-not-allowed ${
-                    p.active ? "bg-blue-600/50" : "bg-accent"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      p.active ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 text-xs text-muted-foreground flex items-center gap-1.5">
-            <Info size={14} /> Settings loan toggles are unavailable. M3 loan product APIs are unchanged.
           </div>
         </div>
       </div>
@@ -556,7 +473,7 @@ export default function Settings() {
         <div>
           <h2 className="text-xl font-bold text-foreground">Notification Preferences</h2>
           <p className="text-muted-foreground text-sm">
-            Browser-only preferences stored locally. They are not persisted by a notification API.
+            Preferences are saved in this browser only and are not synced to the server.
           </p>
         </div>
 
@@ -622,8 +539,8 @@ export default function Settings() {
         <div>
           <h2 className="text-xl font-bold text-foreground">Agent Settings</h2>
           <p className="text-muted-foreground text-sm">
-            Agent enablement and sensitivity are not configured from this page. Live tier
-            policies below are read-only from the tenant API.
+            Agent enablement is not configured from this page. Live tier policies below are
+            read-only.
           </p>
         </div>
 
@@ -648,14 +565,14 @@ export default function Settings() {
                   <button
                     type="button"
                     disabled
-                    title="Agent enable/disable is not connected to the backend"
+                    title="Agent enable/disable is not available yet"
                     className="relative inline-flex h-6 w-11 items-center rounded-full bg-accent cursor-not-allowed opacity-70"
                   >
                     <span className="inline-block h-4 w-4 transform translate-x-1 rounded-full bg-white" />
                   </button>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Enable/disable unavailable - not persisted by Settings.
+                  Enable/disable is not available yet.
                 </div>
               </div>
             )
@@ -667,8 +584,7 @@ export default function Settings() {
             Agent 3 - Anomaly Detection Sensitivity
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Sensitivity is not configurable here. No Settings write API updates Agent 3
-            thresholds.
+            Sensitivity cannot be changed from Settings yet.
           </p>
           <button
             type="button"
@@ -687,8 +603,7 @@ export default function Settings() {
                   Graduated Trust policies (read-only)
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Loaded from GET /api/tenant/agent-policies. Edit policies on the Graduated
-                  Trust page - Settings does not modify them.
+                  Live policies for your institution. Change them on the Graduated Trust page.
                 </p>
               </div>
               <Link
@@ -782,15 +697,14 @@ export default function Settings() {
         <div>
           <h2 className="text-xl font-bold text-foreground">Data & Privacy</h2>
           <p className="text-muted-foreground text-sm">
-            Export and destructive actions stay unavailable until authorized backend
-            workflows exist.
+            Export and destructive actions are not available yet.
           </p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <h3 className="text-lg font-bold text-foreground mb-2">Export Institution Data</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            CSV export is not connected - these buttons do not download files.
+            Data export is not available yet. These buttons do not download files.
           </p>
           <div className="flex flex-wrap gap-4">
             <button
@@ -822,10 +736,8 @@ export default function Settings() {
             <Shield size={18} className="text-blue-400" /> Data Retention Policy
           </h3>
           <p className="text-sm text-foreground/80 leading-relaxed max-w-3xl">
-            Automated data-retention periods and regulatory compliance for transactions,
-            agent logs, and staff records are not configured or verified in this product
-            build. Treat retention as not yet enforced until a documented retention
-            workflow is implemented.
+            Automated data-retention rules are not configured in this product yet. Do not
+            assume records are purged on a schedule.
           </p>
         </div>
 
@@ -836,7 +748,7 @@ export default function Settings() {
               <AlertTriangle size={18} /> Danger Zone
             </h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Destructive actions require authorized backend workflows.
+              Destructive actions are not available yet.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -870,8 +782,8 @@ export default function Settings() {
             <div className="bg-card border border-red-500 rounded-2xl w-full max-w-md shadow-2xl p-6">
               <h2 className="text-xl font-bold text-foreground mb-2">Delete Institution?</h2>
               <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
-                Institution deletion is not connected to an authorized backend workflow.
-                Confirmation below cannot permanently delete your tenant.
+                Institution deletion is not available yet. Confirmation below will not
+                permanently delete your institution.
               </p>
               <div className="mb-6">
                 <label className="block text-xs font-bold text-muted-foreground mb-2">
@@ -903,7 +815,7 @@ export default function Settings() {
                     setShowDelModal(false)
                     setDelConfirm("")
                     triggerToast(
-                      "Institution deletion is unavailable - no authorized delete API."
+                      "Institution deletion is not available yet."
                     )
                   }}
                   className="flex-1 py-2.5 rounded-lg bg-red-600 text-white font-bold hover:bg-red-500 disabled:opacity-30 disabled:hover:bg-red-600 transition-colors"

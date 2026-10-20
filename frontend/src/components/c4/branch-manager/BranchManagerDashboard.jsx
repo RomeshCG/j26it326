@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { Building2, Users, FileText, CheckCircle2, ShieldAlert } from "lucide-react"
+import { Building2, Users, FileText, ShieldAlert } from "lucide-react"
 import { useStore } from "@/store"
 import { fetchPendingAgentActions } from "@/lib/api"
 import { toBackendRole } from "@/lib/roles"
@@ -99,18 +99,6 @@ export default function BranchManagerDashboard() {
             <Building2 className="w-4 h-4 text-primary" />
             <span className="font-semibold">{branchLabel}</span>
           </div>
-        </div>
-      </div>
-
-      {/* Notice Card */}
-      <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 flex items-start gap-3">
-        <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-        <div className="space-y-1 text-xs">
-          <p className="font-semibold text-foreground">Branch Manager Workspace (M4 Graduated Trust)</p>
-          <p className="text-muted-foreground leading-relaxed">
-            Authenticated via backend JWT RBAC. Pending Tier 3 approvals below use the live tenant
-            approval queue. Officer, loan, and repayment metrics are not connected yet.
-          </p>
         </div>
       </div>
 
