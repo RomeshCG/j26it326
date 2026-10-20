@@ -42,7 +42,7 @@ import AbExperimentPage from "@/components/ab-experiment"
 import AgentPanel from "@/components/c4/AgentPanel"
 import BorrowerManagementPage from "@/components/borrower-management/page"
 import { useStore } from "@/store"
-import { verifySessionOnce, getCachedSession, isJwtExpired, clearSessionCache } from "@/lib/api"
+import { verifySessionOnce, getCachedSession, isJwtExpired, endClientSession } from "@/lib/api"
 import { toDisplayRole } from "@/lib/roles"
 
 function ProtectedRoute({ children }) {
@@ -99,10 +99,7 @@ function ProtectedRoute({ children }) {
 
   // All hooks executed above. Conditional checks and returns follow:
   if (location.pathname && token && isJwtExpired(token)) {
-    clearSessionCache()
-    localStorage.removeItem("mf_auth_token")
-    localStorage.removeItem("mf_auth_role")
-    localStorage.removeItem("mf_auth_branch")
+    endClientSession()
     return <Navigate to="/login?expired=true" replace />
   }
 
@@ -188,6 +185,10 @@ function OnboardingRoute() {
 }
 
 function App() {
+  const currentUser = useStore((state) => state.currentUser)
+  const agentPanelKey =
+    currentUser?.id ?? currentUser?.userId ?? currentUser?.email ?? "signed-out"
+
   return (
     <ThemeProvider>
       <BrowserRouter>
@@ -308,7 +309,7 @@ function App() {
             />
           </Route>
         </Routes>
-        <AgentPanel />
+        <AgentPanel key={agentPanelKey} />
       </BrowserRouter>
     </ThemeProvider>
   )

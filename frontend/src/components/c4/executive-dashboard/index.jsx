@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import {
   Activity,
@@ -12,6 +13,13 @@ import {
   Wallet,
 } from "lucide-react"
 import { useStore } from "@/store"
+import { fetchAgentActions } from "@/lib/api"
+import { toBackendRole } from "@/lib/roles"
+
+/** Backend roles with agents:decide_tier3 (matches Tier Approvals / Graduated Trust). */
+const TIER3_DECIDER_ROLES = ["admin", "executive", "branch_manager"]
+
+const FEED_LIMIT = 8
 
 const formatLKR = (amount) => {
   return new Intl.NumberFormat("en-LK", {
@@ -22,120 +30,145 @@ const formatLKR = (amount) => {
   }).format(amount)
 }
 
+/** Relative time — same approach as Agent Log (API `createdAt` only). */
+function getRelativeTime(timestamp) {
+  if (!timestamp) return "—"
+  try {
+    const diffMs = new Date(timestamp) - new Date()
+    const diffSec = Math.round(diffMs / 1000)
+    const diffMin = Math.round(diffSec / 60)
+    const diffHours = Math.round(diffMin / 60)
+    const diffDays = Math.round(diffHours / 24)
+
+    if (Math.abs(diffMin) < 60) return `${Math.abs(diffMin)}m ago`
+    if (Math.abs(diffHours) < 24) return `${Math.abs(diffHours)}h ago`
+    if (Math.abs(diffDays) === 1) return "yesterday"
+    return `${Math.abs(diffDays)}d ago`
+  } catch {
+    return String(timestamp)
+  }
+}
+
+function getAgentColor(agentId) {
+  switch (agentId) {
+    case "A1":
+      return "bg-purple-500"
+    case "A2":
+      return "bg-blue-500"
+    case "A3":
+      return "bg-red-500"
+    case "A4":
+      return "bg-teal-500"
+    default:
+      return "bg-slate-500"
+  }
+}
+
+function formatStatusLabel(status) {
+  if (!status) return "—"
+  return String(status).replace(/_/g, " ")
+}
+
+function getTierLabel(tier) {
+  switch (tier) {
+    case 1:
+      return "Auto-execute"
+    case 2:
+      return "Execute + notify"
+    case 3:
+      return "Human approval"
+    case 4:
+      return "Alert only"
+    default:
+      return "Unknown"
+  }
+}
+
+function getTierBadgeClass(tier) {
+  switch (tier) {
+    case 1:
+      return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+    case 2:
+      return "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20"
+    case 3:
+      return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+    case 4:
+      return "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20"
+    default:
+      return "bg-muted text-muted-foreground border-border"
+  }
+}
+
 const RECENT_STAFF_ACT = [
   { id: 1, text: "Payroll processed — Dec 2024", time: "2 hours ago" },
   { id: 2, text: "2 leave requests approved", time: "5 hours ago" },
   { id: 3, text: "1 new staff added — Kandy branch", time: "1 day ago" },
 ]
 
-const AGENT_ACTIONS = [
-  {
-    id: 1,
-    agent: "A2",
-    name: "Agent 2",
-    action: "Payroll journal entries posted to Finance",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    time: "2 mins ago",
-    color: "bg-blue-500",
-    tierColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  },
-  {
-    id: 2,
-    agent: "A3",
-    name: "Agent 3",
-    action:
-      "Unusual transaction flagged: LKR 450,000 disbursement outside business hours",
-    tier: "Tier 3",
-    tierBadge: "Awaiting Approval",
-    status: "Pending Approval",
-    time: "15 mins ago",
-    color: "bg-amber-500",
-    tierColor:
-      "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
-    approvalLink: "/tier-approval?action=anomaly-ampara",
-  },
-  {
-    id: 3,
-    agent: "A1",
-    name: "Compliance Agent",
-    action: "CBSL monthly report compiled — missing data in 2 branches",
-    tier: "Tier 3",
-    tierBadge: "Awaiting Approval",
-    status: "Pending Approval",
-    time: "1 hour ago",
-    color: "bg-purple-500",
-    tierColor:
-      "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
-    approvalLink: "/tier-approval?action=cbsl-report",
-  },
-  {
-    id: 4,
-    agent: "A4",
-    name: "Agent 4",
-    action: 'NLQ query answered: "What is PAR30 for Kandy branch?"',
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    time: "1 hour ago",
-    color: "bg-green-500",
-    tierColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  },
-  {
-    id: 5,
-    agent: "A3",
-    name: "Agent 3",
-    action: "Duplicate payment pattern detected — Kandy branch",
-    tier: "Tier 2",
-    tierBadge: "Notified",
-    status: "Escalated",
-    time: "3 hours ago",
-    color: "bg-amber-500",
-    tierColor:
-      "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
-  },
-  {
-    id: 6,
-    agent: "A1",
-    name: "Agent 1",
-    action: "Daily system health check completed",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    time: "5 hours ago",
-    color: "bg-purple-500",
-    tierColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  },
-  {
-    id: 7,
-    agent: "A4",
-    name: "Agent 4",
-    action: "Generated ad-hoc report for P&L",
-    tier: "Tier 1",
-    tierBadge: "Auto",
-    status: "Completed",
-    time: "1 day ago",
-    color: "bg-green-500",
-    tierColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  },
-  {
-    id: 8,
-    agent: "A2",
-    name: "Agent 2",
-    action: "Reconciled daily collection accounts",
-    tier: "Tier 2",
-    tierBadge: "Notified",
-    status: "Completed",
-    time: "1 day ago",
-    color: "bg-blue-500",
-    tierColor:
-      "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
-  },
-]
-
 export default function ExecutiveDashboard() {
   const openAgentPanel = useStore((state) => state.openAgentPanel)
+  const currentUser = useStore((state) => state.currentUser)
+  const userRole =
+    currentUser?.backendRole || toBackendRole(currentUser?.role)
+  const canDecideTier3 = TIER3_DECIDER_ROLES.includes(userRole)
+  const [actions, setActions] = useState([])
+  const [feedLoading, setFeedLoading] = useState(true)
+  const [feedError, setFeedError] = useState(null)
+  const feedReqIdRef = useRef(0)
+
+  const applyFeedError = useCallback((err) => {
+    setActions([])
+    const status = err?.status
+    if (status === 401) {
+      setFeedError("Session expired. Sign in again to view agent activity.")
+    } else if (status === 403) {
+      setFeedError("You do not have permission to view agent actions.")
+    } else {
+      setFeedError(err?.message || "Failed to load agent activity.")
+    }
+  }, [])
+
+  const loadAgentFeed = useCallback(async () => {
+    const reqId = ++feedReqIdRef.current
+    setFeedLoading(true)
+    setFeedError(null)
+    try {
+      const res = await fetchAgentActions({ page: 1, limit: FEED_LIMIT })
+      if (reqId !== feedReqIdRef.current) return
+      setActions(Array.isArray(res?.data) ? res.data : [])
+    } catch (err) {
+      if (reqId !== feedReqIdRef.current) return
+      applyFeedError(err)
+    } finally {
+      if (reqId === feedReqIdRef.current) {
+        setFeedLoading(false)
+      }
+    }
+  }, [applyFeedError])
+
+  // Mount-only fetch: avoid sync setState in the effect body (react-hooks/set-state-in-effect).
+  useEffect(() => {
+    const reqId = ++feedReqIdRef.current
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetchAgentActions({ page: 1, limit: FEED_LIMIT })
+        if (cancelled || reqId !== feedReqIdRef.current) return
+        setActions(Array.isArray(res?.data) ? res.data : [])
+        setFeedError(null)
+      } catch (err) {
+        if (cancelled || reqId !== feedReqIdRef.current) return
+        applyFeedError(err)
+      } finally {
+        if (!cancelled && reqId === feedReqIdRef.current) {
+          setFeedLoading(false)
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [applyFeedError])
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-background text-foreground">
@@ -404,86 +437,138 @@ export default function ExecutiveDashboard() {
                 Agent Activity
               </div>
               <div className="flex items-center gap-1">
-                <span className="size-2 animate-pulse rounded-full bg-blue-500" />
-                <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                  Live Feed
-                </span>
+                {!feedLoading && !feedError && (
+                  <>
+                    <span className="size-2 animate-pulse rounded-full bg-blue-500" />
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                      Live Feed
+                    </span>
+                  </>
+                )}
+                {feedLoading && (
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Loading…
+                  </span>
+                )}
               </div>
             </h2>
 
             <div className="relative -mr-2 max-h-[300px] flex-1 space-y-4 overflow-y-auto pr-2">
-              <div className="absolute top-4 bottom-4 left-[15px] z-0 w-px bg-border" />
+              {feedLoading && (
+                <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                  Loading agent activity…
+                </div>
+              )}
 
-              {AGENT_ACTIONS.map((action) => {
-                const card = (
-                  <div className="flex-1 rounded-xl border border-border/60 bg-muted/50 p-3">
-                    <div className="mb-1 flex items-start justify-between gap-2">
-                      <div className="text-sm font-medium text-foreground">
-                        {action.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {action.time}
-                      </div>
-                    </div>
-                    <div className="mb-2 text-sm leading-snug text-foreground/80">
-                      {action.action}
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div
-                        className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${action.tierColor}`}
-                      >
-                        {action.tier} • {action.tierBadge}
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        {action.status === "Completed" && (
-                          <CheckCircle
-                            size={10}
-                            className="text-green-600 dark:text-green-400"
-                          />
-                        )}
-                        {action.status === "Pending Approval" && (
-                          <Clock
-                            size={10}
-                            className="text-amber-600 dark:text-amber-400"
-                          />
-                        )}
-                        {action.status === "Escalated" && (
-                          <AlertCircle
-                            size={10}
-                            className="text-red-600 dark:text-red-400"
-                          />
-                        )}
-                        {action.status}
-                      </div>
-                    </div>
-                    {action.approvalLink && (
-                      <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
-                        Click to review and approve →
-                      </p>
-                    )}
-                  </div>
-                )
+              {!feedLoading && feedError && (
+                <div className="flex h-40 flex-col items-center justify-center gap-3 px-2 text-center">
+                  <p className="text-sm text-muted-foreground">{feedError}</p>
+                  <button
+                    type="button"
+                    onClick={loadAgentFeed}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
 
-                return (
-                  <div key={action.id} className="relative z-10 flex gap-4">
-                    <div
-                      className={`flex size-8 shrink-0 items-center justify-center rounded-full ${action.color} text-xs font-bold text-foreground shadow-lg ring-4 ring-card`}
-                    >
-                      {action.agent}
-                    </div>
-                    {action.approvalLink ? (
-                      <Link
-                        to={action.approvalLink}
-                        className="flex-1 cursor-pointer transition-opacity hover:opacity-90"
-                      >
-                        {card}
-                      </Link>
-                    ) : (
-                      <div className="flex-1">{card}</div>
-                    )}
-                  </div>
-                )
-              })}
+              {!feedLoading && !feedError && actions.length === 0 && (
+                <div className="flex h-40 items-center justify-center px-2 text-center text-sm text-muted-foreground">
+                  No agent actions recorded for this tenant yet.
+                </div>
+              )}
+
+              {!feedLoading && !feedError && actions.length > 0 && (
+                <>
+                  <div className="absolute top-4 bottom-4 left-[15px] z-0 w-px bg-border" />
+
+                  {actions.map((act) => {
+                    const isPending =
+                      act.status === "pending_approval" && act.tier === 3
+                    const approvalLink =
+                      isPending && canDecideTier3
+                        ? `/tier-approval?action=${act.id}`
+                        : null
+                    const statusLabel = formatStatusLabel(act.status)
+
+                    const card = (
+                      <div className="flex-1 rounded-xl border border-border/60 bg-muted/50 p-3">
+                        <div className="mb-1 flex items-start justify-between gap-2">
+                          <div className="text-sm font-medium text-foreground">
+                            {act.agentName || act.agentId || "—"}
+                          </div>
+                          <div
+                            className="text-xs text-muted-foreground"
+                            title={act.createdAt || undefined}
+                          >
+                            {getRelativeTime(act.createdAt)}
+                          </div>
+                        </div>
+                        <div className="mb-2 text-sm leading-snug text-foreground/80">
+                          {act.action || "—"}
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div
+                            className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${getTierBadgeClass(act.tier)}`}
+                          >
+                            Tier {act.tier} · {getTierLabel(act.tier)}
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] capitalize text-muted-foreground">
+                            {(act.status === "executed" ||
+                              act.status === "notified") && (
+                              <CheckCircle
+                                size={10}
+                                className="text-green-600 dark:text-green-400"
+                              />
+                            )}
+                            {act.status === "pending_approval" && (
+                              <Clock
+                                size={10}
+                                className="text-amber-600 dark:text-amber-400"
+                              />
+                            )}
+                            {(act.status === "failed" ||
+                              act.status === "rejected" ||
+                              act.status === "alert_only") && (
+                              <AlertCircle
+                                size={10}
+                                className="text-red-600 dark:text-red-400"
+                              />
+                            )}
+                            {statusLabel}
+                          </div>
+                        </div>
+                        {approvalLink && (
+                          <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                            Click to review and approve →
+                          </p>
+                        )}
+                      </div>
+                    )
+
+                    return (
+                      <div key={act.id} className="relative z-10 flex gap-4">
+                        <div
+                          className={`flex size-8 shrink-0 items-center justify-center rounded-full ${getAgentColor(act.agentId)} text-xs font-bold text-white shadow-lg ring-4 ring-card`}
+                        >
+                          {act.agentId || "—"}
+                        </div>
+                        {approvalLink ? (
+                          <Link
+                            to={approvalLink}
+                            className="flex-1 cursor-pointer transition-opacity hover:opacity-90"
+                          >
+                            {card}
+                          </Link>
+                        ) : (
+                          <div className="flex-1">{card}</div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </>
+              )}
             </div>
 
             <div className="mt-4 flex justify-between gap-3 border-t border-border/60 pt-4">

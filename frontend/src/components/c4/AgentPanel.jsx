@@ -72,6 +72,9 @@ export default function AgentPanel() {
   const archiveNlqChat = useStore((state) => state.archiveNlqChat)
   const markAgentResponsesRead = useStore((state) => state.markAgentResponsesRead)
   const unreadAgentResponses = useStore((state) => state.unreadAgentResponses)
+  /** Drives re-auth when logout / login / user switch updates the store. */
+  const currentUser = useStore((state) => state.currentUser)
+  const currentUserId = currentUser?.id ?? currentUser?.userId ?? null
 
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
@@ -96,7 +99,16 @@ export default function AgentPanel() {
   }, [])
 
   // Prefer verified /auth/me session (capabilities + role) over token-only checks.
+  // Parent remounts this panel on user id change; effect only loads when a token+user exist.
   useEffect(() => {
+    const token =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("mf_auth_token")
+        : null
+    if (!token || !currentUser) {
+      return undefined
+    }
+
     let cancelled = false
     verifySessionOnce()
       .then((user) => {
@@ -112,9 +124,14 @@ export default function AgentPanel() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [currentUser, currentUserId])
 
-  const authenticated = sessionReady && !!session
+  const hasAuthToken =
+    typeof localStorage !== "undefined" &&
+    Boolean(localStorage.getItem("mf_auth_token"))
+  // currentUser from store flips on logout without waiting for local session state.
+  const authenticated =
+    Boolean(currentUser) && hasAuthToken && sessionReady && Boolean(session)
 
   const getPageName = (path) => {
     if (path.includes("/dashboard")) return "Dashboard"
