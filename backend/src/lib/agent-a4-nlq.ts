@@ -248,6 +248,18 @@ export function questionSupportsIntent(
 }
 
 /**
+ * True when the question already carries lexical evidence for a v1 count tool.
+ * Used to decide whether to run a4-intent-v2 Ollama classification (fail closed:
+ * without these cues we never invent DB counts via NLQ).
+ */
+export function questionSuggestsNlqCountIntent(question: string): boolean {
+  return (
+    questionSupportsIntent(question, "count_pending_tier3") ||
+    questionSupportsIntent(question, "count_actions_window")
+  )
+}
+
+/**
  * Parse model JSON, then downgrade supported intents that lack question evidence.
  */
 export function resolveNlqIntentFromModel(
