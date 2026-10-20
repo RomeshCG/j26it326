@@ -21,16 +21,27 @@ const TIER3_DECIDER_ROLES = ["admin", "executive", "branch_manager"]
 
 const FEED_LIMIT = 8
 
-const formatLKR = (amount) => {
-  return new Intl.NumberFormat("en-LK", {
-    style: "currency",
-    currency: "LKR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
+/** Honest placeholder for metrics with no tenant API wired to this dashboard. */
+function UnavailableMetric() {
+  return (
+    <>
+      <div className="text-xl font-semibold tabular-nums text-muted-foreground">-</div>
+      <div className="mt-1 text-[10px] leading-snug text-muted-foreground">
+        Not connected
+      </div>
+    </>
+  )
 }
 
-/** Relative time — same approach as Agent Log (API `createdAt` only). */
+function UnavailablePanel({ label }) {
+  return (
+    <div className="flex min-h-[3rem] items-center justify-center rounded-md border border-dashed border-border/80 bg-muted/30 px-3 py-4 text-center text-xs text-muted-foreground">
+      {label}
+    </div>
+  )
+}
+
+/** Relative time - same approach as Agent Log (API `createdAt` only). */
 function getRelativeTime(timestamp) {
   if (!timestamp) return "—"
   try {
@@ -99,11 +110,12 @@ function getTierBadgeClass(tier) {
   }
 }
 
-const RECENT_STAFF_ACT = [
-  { id: 1, text: "Payroll processed — Dec 2024", time: "2 hours ago" },
-  { id: 2, text: "2 leave requests approved", time: "5 hours ago" },
-  { id: 3, text: "1 new staff added — Kandy branch", time: "1 day ago" },
-]
+function greetingPrefix() {
+  const hour = new Date().getHours()
+  if (hour < 12) return "Good morning"
+  if (hour < 17) return "Good afternoon"
+  return "Good evening"
+}
 
 export default function ExecutiveDashboard() {
   const openAgentPanel = useStore((state) => state.openAgentPanel)
@@ -111,6 +123,20 @@ export default function ExecutiveDashboard() {
   const userRole =
     currentUser?.backendRole || toBackendRole(currentUser?.role)
   const canDecideTier3 = TIER3_DECIDER_ROLES.includes(userRole)
+
+  const firstName =
+    (typeof currentUser?.firstName === "string" && currentUser.firstName.trim()) ||
+    (typeof currentUser?.name === "string" &&
+      currentUser.name.trim().split(/\s+/)[0]) ||
+    ""
+  const greeting = firstName
+    ? `${greetingPrefix()}, ${firstName}`
+    : greetingPrefix()
+  // Authenticated tenant name from login response only - never demo store.institution.
+  const institutionLabel =
+    (typeof currentUser?.institutionName === "string" &&
+      currentUser.institutionName.trim()) ||
+    "Your institution"
   const [actions, setActions] = useState([])
   const [feedLoading, setFeedLoading] = useState(true)
   const [feedError, setFeedError] = useState(null)
@@ -175,10 +201,10 @@ export default function ExecutiveDashboard() {
       <header className="z-10 flex shrink-0 flex-col items-start justify-between gap-4 border-b border-border bg-background/80 px-8 py-6 backdrop-blur-md sm:flex-row sm:items-center">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground lg:text-3xl">
-            Good morning, Jane
+            {greeting}
           </h1>
           <div className="mt-1 flex items-center gap-2 text-muted-foreground">
-            <span>Apex Microfinance</span>
+            <span>{institutionLabel}</span>
             <span className="text-muted-foreground/60">•</span>
             <span>
               {new Date().toLocaleDateString("en-GB", {
@@ -189,11 +215,6 @@ export default function ExecutiveDashboard() {
               })}
             </span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/10 px-4 py-2 text-sm font-medium text-green-700 dark:text-green-400">
-          <span className="size-2 animate-pulse rounded-full bg-green-500" />
-          All agents active
         </div>
       </header>
 
@@ -210,31 +231,23 @@ export default function ExecutiveDashboard() {
                 <div className="mb-1 text-xs text-muted-foreground">
                   Total Active Loans
                 </div>
-                <div className="text-xl font-semibold tabular-nums text-foreground">
-                  1,247
-                </div>
+                <UnavailableMetric />
               </div>
               <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
                 <div className="mb-1 text-xs text-muted-foreground">
                   Total Disbursed
                 </div>
-                <div className="text-xl font-semibold tabular-nums text-foreground">
-                  {formatLKR(48300000)}
-                </div>
+                <UnavailableMetric />
               </div>
               <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
                 <div className="mb-1 text-xs text-muted-foreground">PAR30</div>
-                <div className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">
-                  4.2%
-                </div>
+                <UnavailableMetric />
               </div>
               <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
                 <div className="mb-1 text-xs text-muted-foreground">
                   Collection Rate
                 </div>
-                <div className="text-xl font-semibold tabular-nums text-foreground">
-                  91.3%
-                </div>
+                <UnavailableMetric />
               </div>
             </div>
 
@@ -242,35 +255,16 @@ export default function ExecutiveDashboard() {
               <div className="mb-2 text-xs text-muted-foreground">
                 Portfolio by Product
               </div>
-              <div className="flex h-6 w-full overflow-hidden rounded-md">
-                <div className="h-full w-[45%] bg-blue-500" title="Group Loan: 45%" />
-                <div className="h-full w-[30%] bg-emerald-500" title="Individual: 30%" />
-                <div className="h-full w-[15%] bg-amber-500" title="Agri: 15%" />
-                <div className="h-full w-[10%] bg-purple-500" title="SME: 10%" />
-              </div>
-              <div className="mt-2 flex gap-4 text-[10px] text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-blue-500" /> Group
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-emerald-500" /> Individual
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-amber-500" /> Agri
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-purple-500" /> SME
-                </div>
-              </div>
+              <UnavailablePanel label="Product mix not connected to live loan data." />
             </div>
 
             <div className="mt-6 flex justify-end">
-              <button
-                type="button"
+              <Link
+                to="/loan-officer"
                 className="flex items-center gap-1 text-sm font-medium text-blue-600 transition-colors hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
               >
-                View Full Report <ChevronRight size={16} />
-              </button>
+                Loan workspace <ChevronRight size={16} />
+              </Link>
             </div>
           </div>
 
@@ -280,7 +274,7 @@ export default function ExecutiveDashboard() {
                 className="text-emerald-600 dark:text-emerald-400"
                 size={20}
               />
-              Finance — December 2024
+              Finance
             </h2>
 
             <div className="mb-6 grid grid-cols-2 gap-4">
@@ -288,74 +282,40 @@ export default function ExecutiveDashboard() {
                 <div className="mb-1 text-xs text-muted-foreground">
                   P&L This Month
                 </div>
-                <div className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">
-                  +{formatLKR(1250000)}
-                </div>
+                <UnavailableMetric />
               </div>
               <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
                 <div className="mb-1 text-xs text-muted-foreground">OSS</div>
-                <div className="text-xl font-semibold tabular-nums text-green-600 dark:text-green-400">
-                  112%
-                </div>
+                <UnavailableMetric />
               </div>
               <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
                 <div className="mb-1 text-xs text-muted-foreground">
                   Cash Position
                 </div>
-                <div className="text-xl font-semibold tabular-nums text-foreground">
-                  {formatLKR(8400000)}
-                </div>
+                <UnavailableMetric />
               </div>
               <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
                 <div className="mb-1 text-xs text-muted-foreground">
                   Accounts Payable
                 </div>
-                <div className="text-xl font-semibold tabular-nums text-foreground">
-                  {formatLKR(410000)}
-                </div>
+                <UnavailableMetric />
               </div>
             </div>
 
             <div className="mt-auto">
               <div className="mb-2 text-xs text-muted-foreground">
-                P&L Trend (Last 6 Months)
+                P&L Trend
               </div>
-              <div className="flex h-12 w-full items-end gap-1 opacity-80">
-                <svg
-                  className="h-full w-full"
-                  viewBox="0 0 100 30"
-                  preserveAspectRatio="none"
-                >
-                  <polyline
-                    fill="none"
-                    stroke="#34d399"
-                    strokeWidth="2"
-                    points="0,20 20,15 40,25 60,10 80,15 100,5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <polygon
-                    fill="url(#gradient)"
-                    points="0,30 0,20 20,15 40,25 60,10 80,15 100,5 100,30"
-                    opacity="0.2"
-                  />
-                  <defs>
-                    <linearGradient id="gradient" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#34d399" />
-                      <stop offset="100%" stopColor="transparent" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
+              <UnavailablePanel label="Finance trend not connected to live ledger data." />
             </div>
 
             <div className="mt-6 flex justify-end">
-              <button
-                type="button"
+              <Link
+                to="/finance-manager"
                 className="flex items-center gap-1 text-sm font-medium text-emerald-600 transition-colors hover:text-emerald-500 dark:text-emerald-400 dark:hover:text-emerald-300"
               >
-                View P&L Report <ChevronRight size={16} />
-              </button>
+                Finance workspace <ChevronRight size={16} />
+              </Link>
             </div>
           </div>
 
@@ -370,34 +330,23 @@ export default function ExecutiveDashboard() {
                 <div className="mb-1 text-xs text-muted-foreground">
                   Total Headcount
                 </div>
-                <div className="text-xl font-semibold tabular-nums text-foreground">
-                  42
-                </div>
+                <UnavailableMetric />
               </div>
               <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
                 <div className="mb-1 text-xs text-muted-foreground">
                   Payroll This Month
                 </div>
-                <div className="text-xl font-semibold tabular-nums text-foreground">
-                  {formatLKR(2150000)}
-                </div>
+                <UnavailableMetric />
               </div>
-              <div className="relative rounded-xl border border-border/60 bg-muted/50 p-4">
-                <div className="absolute -top-2 -right-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg">
-                  2
-                </div>
+              <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
                 <div className="mb-1 text-xs text-muted-foreground">
                   Leave Requests
                 </div>
-                <div className="text-xl font-semibold text-amber-600 dark:text-amber-400">
-                  Pending
-                </div>
+                <UnavailableMetric />
               </div>
               <div className="rounded-xl border border-border/60 bg-muted/50 p-4">
                 <div className="mb-1 text-xs text-muted-foreground">New Joiners</div>
-                <div className="text-xl font-semibold tabular-nums text-foreground">
-                  1
-                </div>
+                <UnavailableMetric />
               </div>
             </div>
 
@@ -405,19 +354,7 @@ export default function ExecutiveDashboard() {
               <div className="mb-3 text-xs text-muted-foreground">
                 Recent HR Activity
               </div>
-              <div className="space-y-3">
-                {RECENT_STAFF_ACT.map((act) => (
-                  <div
-                    key={act.id}
-                    className="flex items-start justify-between gap-4"
-                  >
-                    <div className="text-sm text-foreground/80">{act.text}</div>
-                    <div className="whitespace-nowrap text-xs text-muted-foreground">
-                      {act.time}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <UnavailablePanel label="HR activity feed not connected." />
             </div>
 
             <div className="mt-6 flex justify-end">
@@ -595,12 +532,12 @@ export default function ExecutiveDashboard() {
             <span className="flex size-6 items-center justify-center rounded bg-blue-500 text-xs font-bold text-white">
               A4
             </span>
-            Ask MicroFlow — Agent 4
+            Ask MicroFlow - Agent 4
           </h2>
           <p className="relative z-10 mb-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
             Agent 4 answers grounded Graduated Trust questions via the shared Ask
-            Agent 4 panel (tenant API). This dashboard no longer simulates
-            PAR, collection, or EPF replies.
+            Agent 4 panel (tenant API). Loan, finance, and HR figures on this
+            page are shown only when connected to live data.
           </p>
           <button
             type="button"

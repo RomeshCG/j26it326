@@ -167,8 +167,23 @@ export const useStore = create(
           const next = userIdentity(user)
           const switched = Boolean(prev && next && String(prev) !== String(next))
           const freshLogin = !prev
+          const sameUser = Boolean(prev && next && String(prev) === String(next))
+          // /auth/me omits institutionName; keep login-scoped name for the same user only.
+          // Never fall back to demo institution.name in the store.
+          const incomingName =
+            typeof user?.institutionName === "string"
+              ? user.institutionName.trim()
+              : ""
+          const retainedName =
+            sameUser && typeof state.currentUser?.institutionName === "string"
+              ? state.currentUser.institutionName.trim()
+              : ""
+          const institutionName = incomingName || retainedName || undefined
           return {
-            currentUser: user,
+            currentUser: {
+              ...user,
+              ...(institutionName ? { institutionName } : {}),
+            },
             ...((switched || freshLogin) ? EMPTY_AGENT_NLQ : {}),
           }
         }),
