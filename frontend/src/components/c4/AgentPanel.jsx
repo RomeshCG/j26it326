@@ -210,7 +210,7 @@ export default function AgentPanel() {
           const disclaimer =
             typeof result.disclaimer === "string" && result.disclaimer.trim()
               ? result.disclaimer.trim()
-              : "General educational information — not live institution data."
+              : "General educational information (not live institution data)."
           agentText = `${body}\n\n${disclaimer}`
           meta = { kind: "knowledge" }
         } else if (result?.supported === false || result?.kind === "unsupported") {
@@ -241,7 +241,7 @@ export default function AgentPanel() {
           meta = { kind: "no_dispatch" }
         } else {
           agentText =
-            "Unexpected response from Agent 4. No answer was invented — please try again."
+            "Unexpected response from Agent 4. No answer was invented. Please try again."
           meta = { kind: "unexpected" }
         }
 
@@ -290,16 +290,22 @@ export default function AgentPanel() {
       minute: "2-digit",
     })
     if (!meta || meta.kind === "error" || meta.kind === "unsupported") {
+      const label =
+        meta?.kind === "error"
+          ? "Error"
+          : meta?.kind === "unsupported"
+            ? "Unsupported"
+            : "Reply"
       return (
         <span>
-          Agent 4 — {meta?.kind === "error" ? "Error" : meta?.kind === "unsupported" ? "Unsupported" : "Reply"} — {time}
+          Agent 4 · {label} · {time}
         </span>
       )
     }
     if (meta.kind === "knowledge") {
       return (
         <span>
-          Agent 4 — General education (not live institution data) — {time}
+          Agent 4 · General education (not live institution data) · {time}
         </span>
       )
     }
@@ -308,12 +314,16 @@ export default function AgentPanel() {
       const fallback = meta.isFallback ? " · fallback policy" : ""
       return (
         <span>
-          Answered by Agent 4 — Tier {meta.tier} — {status}
-          {fallback} — {time}
+          Agent 4 · Tier {meta.tier} · {status}
+          {fallback} · {time}
         </span>
       )
     }
-    return <span>Agent 4 — {time}</span>
+    return (
+      <span>
+        Agent 4 · {time}
+      </span>
+    )
   }
 
   // Do not show FAB/panel without a verified session (avoids demo store / token-only false positives).
@@ -364,7 +374,7 @@ export default function AgentPanel() {
                 A4
               </div>
               <h2 className="text-lg font-bold tracking-tight text-foreground">
-                Agent 4 — NLQ Interface
+                Agent 4 · Ask
               </h2>
             </div>
 
@@ -433,7 +443,7 @@ export default function AgentPanel() {
                 <Sparkles size={32} />
               </div>
               <h3 className="mb-2 text-xl font-bold text-foreground">
-                Agent 4 — NLQ Interface
+                Agent 4 · Ask
               </h3>
               <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
                 Ask about agent activity in your institution. v1 answers grounded
@@ -468,14 +478,7 @@ export default function AgentPanel() {
                       className="flex justify-end animate-in slide-in-from-right-4 duration-300"
                     >
                       <div className="flex max-w-[85%] flex-col items-end">
-                        <div
-                          className="px-4 py-3 text-sm shadow-sm"
-                          style={{
-                            background: "#1E3A5F",
-                            color: "#F1F5F9",
-                            borderRadius: "12px 12px 2px 12px",
-                          }}
-                        >
+                        <div className="rounded-xl rounded-br-sm bg-teal-600 px-4 py-3 text-sm text-white shadow-sm dark:bg-teal-600">
                           {msg.text}
                         </div>
                         <span className="mt-1.5 text-[10px] font-medium text-muted-foreground">
@@ -498,21 +501,13 @@ export default function AgentPanel() {
                       A4
                     </div>
                     <div className="relative flex max-w-[85%] flex-col items-start">
-                      <div
-                        className="relative px-4 py-3 pr-10 text-sm leading-relaxed"
-                        style={{
-                          background: "#1E293B",
-                          border: "1px solid #334155",
-                          color: "#F1F5F9",
-                          borderRadius: "12px 12px 12px 2px",
-                        }}
-                      >
+                      <div className="relative rounded-xl rounded-bl-sm border border-border bg-card px-4 py-3 pr-10 text-sm leading-relaxed text-foreground shadow-sm">
                         {msg.text}
 
                         <button
                           type="button"
                           onClick={() => copyToClipboard(msg.text, msg.id)}
-                          className="absolute top-2 right-2 rounded-md p-1.5 text-slate-400 opacity-0 transition-opacity hover:bg-slate-700 hover:text-white group-hover:opacity-100"
+                          className="absolute top-2 right-2 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
                           title="Copy to clipboard"
                         >
                           {copiedId === msg.id ? (
@@ -535,14 +530,7 @@ export default function AgentPanel() {
                   <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-500/20 text-xs font-bold text-teal-600">
                     A4
                   </div>
-                  <div
-                    className="flex items-center px-4 py-4"
-                    style={{
-                      background: "#1E293B",
-                      border: "1px solid #334155",
-                      borderRadius: "12px 12px 12px 2px",
-                    }}
-                  >
+                  <div className="flex items-center rounded-xl rounded-bl-sm border border-border bg-card px-4 py-4 shadow-sm">
                     <div className="flex gap-1.5">
                       <div
                         className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500"

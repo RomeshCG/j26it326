@@ -432,7 +432,7 @@ Component 4 provides the Graduated Trust engine and governance APIs for AI agent
 - **Auth**: JWT + tenant context. Endpoint gate: `agents:query_nlq` (all six roles).
 - **Body**: `{ "question": string }` (3–500 chars after trim).
 - **Count NLQ flow**: optional lexical cue check → private Ollama intent JSON (`a4-intent-v2`) → Node **per-tool RBAC** → Prisma `count` on `agent_actions` → `dispatchAgentAction(nlq_query)` → Tier 1 `executed`. **Counts never come from the model.**
-- **Knowledge flow** (when count NLQ unsupported / no lexical cues): Ollama educational JSON (`a4-knowledge-v1.2`) → **no** `AgentAction` row. Not a substitute for M1/M2/M3 KPIs.
+- **Knowledge flow** (when count NLQ unsupported / no lexical cues): grounded MicroFlow card (no Ollama) → **domain gate** → optional Ollama educational JSON → **no** `AgentAction` row. **Local MicroFlow (2026-10-21):** `A4_DOMAIN_ML_MODE=enforce`, `A4_DOMAIN_ML_POLICY=ml_tau`, `A4_DOMAIN_ML_TAU=0.45`, `A4_KNOWLEDGE_STRICT_PROMPT=1`, improve-v1 JSON. Gate refuse → `200` `{ reason: "off_topic" }` (+ `domainGate` when mode≠off). ML never grants NLQ/RBAC/live tools. Deploy state/rollback: [`DEPLOYMENT_LOCAL.md`](../agents/ml/data/a4_domain/DEPLOYMENT_LOCAL.md). Shared/cloud: keep mode `off` until artifact is packaged and promotion approved.
 - **Timeout**: `OLLAMA_TIMEOUT_MS` (optional; default **30000**). Knowledge stage budget ~45s with one length-only retry. Knowledge `num_predict` default **1024** (`A4_KNOWLEDGE_NUM_PREDICT` override).
 - **Supported count intents**:
   - `count_pending_tier3` — requires `agents:decide_tier3` (admin, executive, branch_manager). Mirrors `GET …/pending`.

@@ -214,6 +214,12 @@ Leader task list mentioned LangChain for A1–A4. **Current design defers it:** 
 
 **Lab decision (num_predict):** 512 reduced some timeouts but degraded long-form JSON; **1024 restored** as default.
 
+**Domain boundary — Stage 0 shipped (2026-10-20, local uncommitted):** Root cause was fail-**open** generative knowledge: narrow `hardRefuse` denylist missed cooking “how to make …”, and `qwen2.5:1.5b` often set `in_scope: true` for food. **Implemented:** (1) expand `hardRefuse` with cooking/food how-tos via `looksLikeUnrelatedHowToOrFood`; (2) **fail-closed allowlist** `questionSuggestsA4KnowledgeTopic` / `hasFinanceOrProductSubstanceCue` in `handleNlqQuery` **after** NLQ + grounded MicroFlow, **before** knowledge Ollama — no finance/product substance → `200` `{ reason: "off_topic" }` (same unsupported contract). Interrogative openers alone are not enough (“what is ice cream”). **NLQ count classification and GT/auth unchanged.** Offline: `npm run verify:a4-knowledge` **225/225** (fixtures K19, K21–K23 + Stage-0 section).
+
+**Limitations (Stage 0):** Lexical allowlist can false-refuse legitimate finance paraphrases that omit cue terms (e.g. colloquial delinquency without “PAR/NPL/loan”). Ambiguous finance is **not** auto-labeled off_topic beyond missing cues. Stage 0 remains the production gate.
+
+**Domain ML (2026-10-21):** Improve-v1 TF-IDF+LR JSON + Node gate. Policy **`ml_tau` τ=0.45** + `A4_KNOWLEDGE_STRICT_PROMPT=1`. **Deployed on local MicroFlow** (Vite `5173` → API `4000`): live `domainGate.mode=enforce`, knowledge `knowledgeStrictPrompt:true`; deploy checks **11/11**. Known limitation: PAR30-class FR — threshold not changed. Shared/cloud **not** promoted (JSON artifact gitignored). [`DEPLOYMENT_LOCAL.md`](../agents/ml/data/a4_domain/DEPLOYMENT_LOCAL.md).
+
 ---
 
 ## 4. A2 Workflow (budget threshold) v1

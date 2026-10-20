@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import {
-  ArrowRight,
-  Bot,
   Loader2,
   Pencil,
   Shield,
@@ -573,31 +571,6 @@ export default function GraduatedTrust() {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      <Card className="rounded-xl border border-primary/20 bg-primary/5 shadow-sm">
-        <CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <Bot className="size-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium text-foreground">
-                Demonstrate graduated trust in action
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Open the Tier 3 approval queue to review prepared agent actions
-                with full audit logging.
-              </p>
-            </div>
-          </div>
-          <Button asChild className="shrink-0 cursor-pointer">
-            <Link to="/tier-approval">
-              Open Tier Approvals
-              <ArrowRight className="ml-2 size-4" />
-            </Link>
-          </Button>
         </CardContent>
       </Card>
 

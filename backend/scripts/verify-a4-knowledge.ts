@@ -29,6 +29,7 @@ import {
   isEligibleForKnowledgeLengthRetry,
   knowledgeGenerationMetaFromOutcome,
   matchMicroFlowProductTopic,
+  questionSuggestsA4KnowledgeTopic,
   resolveA4KnowledgeFromModel,
   resolveA4KnowledgeNumPredict,
   resolveGroundedMicroFlowKnowledge,
@@ -192,6 +193,45 @@ for (const c of pack.cases) {
   )
 }
 
+section("Stage-0 knowledge topic allowlist")
+for (const c of pack.cases) {
+  const suggests = questionSuggestsA4KnowledgeTopic(c.question)
+  if (c.expect.stage === "knowledge_eligible") {
+    assert(suggests, `${c.id} knowledge_eligible has finance/product cues`)
+  }
+  if (c.expect.stage === "knowledge_topic_gate") {
+    assert(!suggests, `${c.id} topic gate blocks generative knowledge`)
+    assert(
+      hardRefuseA4Question(c.question) === null,
+      `${c.id} topic-gate cases are not hardRefuse (route uses allowlist)`
+    )
+  }
+  if (
+    c.expect.stage === "hard_refuse" &&
+    c.expect.hardRefuse === "off_topic" &&
+    /ice\s*cream|salad|recipe|dinner/.test(c.question.toLowerCase())
+  ) {
+    assert(!suggests, `${c.id} off-topic food also fails knowledge allowlist`)
+  }
+}
+{
+  const cooking = ["how to make ice cream", "how to make a salad", "what is ice cream"]
+  for (const q of cooking) {
+    assert(
+      !questionSuggestsA4KnowledgeTopic(q),
+      `cooking/off-domain blocked: ${q}`
+    )
+  }
+  assert(
+    questionSuggestsA4KnowledgeTopic("What is PAR30 in microfinance?"),
+    "PAR30 still knowledge-eligible"
+  )
+  assert(
+    questionSuggestsA4KnowledgeTopic("Explain operational self-sufficiency (OSS)"),
+    "OSS paraphrase still eligible"
+  )
+}
+
 section("NLQ regression — count question not hard-refused / gate still works")
 {
   const q = "How many Tier 3 actions are awaiting approval?"
@@ -199,6 +239,10 @@ section("NLQ regression — count question not hard-refused / gate still works")
   assert(
     questionSupportsIntent(q, "count_pending_tier3"),
     "lexical gate still accepts pending count"
+  )
+  assert(
+    questionSuggestsNlqCountIntent(q),
+    "NLQ count cue still true for pending (unchanged path)"
   )
   const resolved = resolveNlqIntentFromModel(
     q,

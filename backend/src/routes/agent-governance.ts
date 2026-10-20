@@ -72,12 +72,17 @@ import {
   A4_KNOWLEDGE_MODEL_VERSION,
   A4_KNOWLEDGE_PROMPT_VERSION,
   hardRefuseA4Question,
+  isA4KnowledgeStrictPromptEnabled,
   knowledgeGenerationMetaFromOutcome,
   resolveGroundedMicroFlowKnowledge,
   resolveKnowledgeWithOptionalLengthRetry,
   unsupportedMessageForReason,
   type A4KnowledgeGenerationMeta,
 } from "../lib/agent-a4-knowledge.js"
+import {
+  domainGateTelemetry,
+  resolveA4KnowledgeDomainGate,
+} from "../lib/a4-domain-gate.js"
 import {
   OllamaUnavailableError,
   ollamaChatJson,
@@ -852,6 +857,7 @@ function knowledgeResponseBody(
     ollamaModel?: string
     groundedTopic?: string
     knowledgeGeneration?: A4KnowledgeGenerationMeta
+    domainGate?: Record<string, unknown>
   }
 ) {
   return {
@@ -862,6 +868,9 @@ function knowledgeResponseBody(
     disclaimer: A4_KNOWLEDGE_DISCLAIMER,
     modelVersion: A4_KNOWLEDGE_MODEL_VERSION,
     promptVersion: A4_KNOWLEDGE_PROMPT_VERSION,
+    ...(isA4KnowledgeStrictPromptEnabled()
+      ? { knowledgeStrictPrompt: true }
+      : {}),
     ...(extras?.ollamaModel ? { ollamaModel: extras.ollamaModel } : {}),
     ...(extras?.groundedTopic
       ? { groundedTopic: extras.groundedTopic, grounded: true }
@@ -869,6 +878,7 @@ function knowledgeResponseBody(
     ...(extras?.knowledgeGeneration
       ? { knowledgeGeneration: extras.knowledgeGeneration }
       : {}),
+    ...(extras?.domainGate ? { domainGate: extras.domainGate } : {}),
   }
 }
 
@@ -1018,6 +1028,29 @@ export async function handleNlqQuery(
       return
     }
 
+    // Domain gate: Stage-0 (mode=off) or Stage-0+ML shadow/enforce.
+    // ML never runs on NLQ/RBAC/hardRefuse paths above. Enforce default off.
+    // Hybrid/ml_tau can rescue Stage-0 false refuses; never grants live data tools.
+    const domainGate = resolveA4KnowledgeDomainGate(question)
+    const gateMeta = domainGateTelemetry(domainGate)
+    if (domainGate.mode === "shadow") {
+      console.info(
+        "[a4-domain-gate:shadow]",
+        JSON.stringify(gateMeta)
+      )
+    }
+    if (!domainGate.allowKnowledge) {
+      res.status(200).json({
+        kind: "unsupported",
+        supported: false,
+        dispatched: false,
+        reason: "off_topic",
+        message: unsupportedMessageForReason("off_topic"),
+        ...(domainGate.mode !== "off" ? { domainGate: gateMeta } : {}),
+      })
+      return
+    }
+
     // Generative knowledge (no agent_actions dispatch). At most one length retry.
     const knowledgeStarted = Date.now()
     let partialKnowledgeMeta: A4KnowledgeGenerationMeta | undefined
@@ -1059,6 +1092,7 @@ export async function handleNlqQuery(
         knowledgeResponseBody(knowledge.answer, {
           ollamaModel: knowledgeOutcome.model,
           knowledgeGeneration: knowledgeMeta,
+          ...(domainGate.mode !== "off" ? { domainGate: gateMeta } : {}),
         })
       )
       return
@@ -1075,6 +1109,7 @@ export async function handleNlqQuery(
       reason,
       message: unsupportedMessageForReason(reason),
       knowledgeGeneration: knowledgeMeta,
+      ...(domainGate.mode !== "off" ? { domainGate: gateMeta } : {}),
     })
   } catch (err: unknown) {
     logSafeError("[agent-governance] NLQ query error", err)

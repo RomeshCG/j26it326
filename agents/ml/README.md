@@ -87,3 +87,24 @@ Sanitized held-out summary (no weights, no absolute paths):
 [`docs/M4_A3_IFOREST_V2_EVAL_SUMMARY.json`](../../docs/M4_A3_IFOREST_V2_EVAL_SUMMARY.json)
 
 Regenerate locally with the commands above, then compare against that summary if citing results.
+
+## A4 domain classifier (Node JSON; enforce OFF by default)
+
+```powershell
+cd agents
+$env:ALLOW_A4_DOMAIN_TRAIN='1'
+$env:A4_DOMAIN_CANDIDATE='improve-v1'
+$env:A4_DOMAIN_VARIANT='lr_mindf1'
+python -m ml.train_a4_domain
+python -m ml.evaluate_a4_domain
+python -m ml.export_a4_domain_json
+python -m ml.threshold_sweep_a4_domain
+
+cd ..\backend
+npm run verify:a4-domain-clf
+npm run verify:a4-knowledge
+```
+
+- Integration: [`data/a4_domain/INTEGRATION_EXPERIMENT.md`](./data/a4_domain/INTEGRATION_EXPERIMENT.md)
+- Artifacts: `artifacts/a4_domain/a4-domain-clf-improve-v1-lr_mindf1.{joblib,json}` (gitignored locally)
+- Backend: `A4_DOMAIN_ML_MODE=off|shadow|enforce` (default **off**)
