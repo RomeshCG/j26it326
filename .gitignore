@@ -4,6 +4,14 @@
 !.env.example
 backend/.zz-test-credentials.local
 **/.zz-test-credentials.local
+backend/scripts/.zz-viva-prep-manifest.local.json
+**/.zz-viva-prep-manifest.local.json
+backend/scripts/.zz-viva-inventory-readonly.json
+**/.zz-viva-inventory-readonly.json
+
+# Generated A4 live/lab result dumps under scripts/ (not fixtures or verify sources)
+backend/scripts/.a4-*.json
+**/backend/scripts/.a4-*.json
 
 # Dependencies / build
 node_modules/
