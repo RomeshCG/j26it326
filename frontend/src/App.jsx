@@ -206,7 +206,14 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<ExecutiveDashboard />} />
-            <Route path="/branch-manager" element={<BranchManagerDashboard />} />
+            <Route
+              path="/branch-manager"
+              element={
+                <RequireRole allowedRoles={["branch_manager"]}>
+                  <BranchManagerDashboard />
+                </RequireRole>
+              }
+            />
             <Route path="/borrowers" element={<BorrowerManagementPage />} />
             <Route path="/hr" element={<HRManagement />} />
             <Route path="/payroll" element={<Payroll />} />
