@@ -19,9 +19,21 @@ import {
 import {
   LOAN_DETAILS,
   formatLkr,
-  scheduleStatusBadge,
 } from "./mock-data"
 import { getLoan } from "@/lib/m3-api"
+
+function scheduleStatusBadge(status) {
+  switch (status) {
+    case "paid":
+      return { variant: "secondary", label: "Paid" }
+    case "overdue":
+      return { variant: "destructive", label: "Overdue" }
+    case "partially_paid":
+      return { variant: "outline", label: "Partial" }
+    default:
+      return { variant: "outline", label: "Pending" }
+  }
+}
 
 function loanStatusBadge(status) {
   if (status === "ews") return <Badge variant="destructive">EWS</Badge>

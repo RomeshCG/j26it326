@@ -2,6 +2,8 @@ import "dotenv/config"
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
+import { exec } from "child_process"
+import cron from "node-cron"
 import cors from "cors"
 import express from "express"
 import helmet from "helmet"
@@ -144,6 +146,12 @@ app.use("/api/risk", riskRouter)
 // Internal agent → Node dispatch (shared service key; not user JWT)
 app.use("/api/internal", internalAgentDispatchRouter)
 
+// M2 — Ledger & Dual-Mission event receiver webhook
+app.post("/api/m2/events/loan-lifecycle", (req, res) => {
+  console.log("[M2 Webhook Received Event]", JSON.stringify(req.body))
+  res.status(200).json({ ok: true, status: "event_processed", payload: req.body, receivedAt: new Date().toISOString() })
+})
+
 // Integration example router for teammates (non-production only)
 if (isDev) {
   app.use("/api/example", exampleRouter)
@@ -241,6 +249,30 @@ app.get("/api/institutions/:institutionId/tenant-health", authenticate, resolveT
 
 // ── M3 — Loan Lifecycle & EWS ────────────────────────────────────────────────
 app.use("/api/m3", m3Router)
+
+// Nightly 2:00 AM EWS Batch Scoring Trigger
+const repoRoot = path.resolve(__dirname, "../../")
+const venvPyWindows = path.join(repoRoot, "ml", ".venv", "Scripts", "python.exe")
+const venvPyUnix = path.join(repoRoot, "ml", ".venv", "bin", "python")
+const pyExecutable = fs.existsSync(venvPyWindows)
+  ? venvPyWindows
+  : fs.existsSync(venvPyUnix)
+  ? venvPyUnix
+  : "python"
+const batchScoreScript = path.join(repoRoot, "ml", "m3_ews", "serve", "batch_score.py")
+
+cron.schedule("0 2 * * *", () => {
+  console.log(`[M3 Cron] Initiating nightly EWS batch scoring (${new Date().toISOString()})...`)
+  exec(`"${pyExecutable}" "${batchScoreScript}"`, { cwd: repoRoot }, (err, stdout, stderr) => {
+    if (err) {
+      console.error("[M3 Cron] EWS batch scoring error:", err.message)
+      if (stderr) console.error("[M3 Cron] Stderr:", stderr)
+      return
+    }
+    console.log("[M3 Cron] Nightly EWS batch scoring completed successfully.")
+    if (stdout) console.log("[M3 Cron] Output summary:", stdout.slice(0, 300))
+  })
+})
 
 async function shutdown() {
   await centralPrisma.$disconnect()

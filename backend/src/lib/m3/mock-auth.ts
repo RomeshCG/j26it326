@@ -1,20 +1,37 @@
 /**
- * M3 — Mock auth middleware
- * Until M4 JWT is wired, reads:
- *   x-mock-user-id  : UUID of the acting user (soft ref → central.users)
- *   x-mock-role     : one of the 6 system roles
+ * M3 — Real JWT auth adapter (replaces mock-auth.ts)
+ * ====================================================
+ * Delegates authentication and tenant resolution to M4's middleware:
+ *   authenticate        → verifies Bearer JWT, attaches req.user (JWTPayload)
+ *   resolveTenantContext → validates user/institution in central DB,
+ *                          attaches req.tenantPrisma (tenant PrismaClient)
+ *   requireRole         → RBAC guard identical to the M4 interface
  *
- * Replace this entire file with M4's real JWT middleware once available.
+ * M3 routes that previously imported from "./mock-auth.js" now import from
+ * this file with the same symbol names so the route files need NO changes
+ * beyond the import path.
+ *
+ * req.auth (legacy mock shape) is populated here for backwards compatibility
+ * with any existing handler that reads req.auth.userId / req.auth.role.
  */
 import type { Request, Response, NextFunction } from "express"
+import {
+  authenticate as _authenticate,
+  resolveTenantContext as _resolveTenantContext,
+  requireRole as _requireRole,
+} from "../../middleware/auth.js"
+import type { RoleName } from "../../lib/permissions.js"
 
+// Re-export the standard M4 type so route files can import it
+export type { RoleName }
+
+// Backwards-compatible legacy shape used by older handler code (req.auth)
 export interface AuthContext {
   userId: string
   role: string
 }
 
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       auth?: AuthContext
@@ -22,52 +39,41 @@ declare global {
   }
 }
 
-const VALID_ROLES = new Set([
-  "admin",
-  "executive",
-  "finance_officer",
-  "hr_officer",
-  "branch_manager",
-  "loan_officer",
-])
-
 /**
- * Attaches req.auth from mock headers. Returns 401 when headers are absent.
+ * Step 1 — verify JWT Bearer token.
+ * Attaches req.user (JWTPayload) on success.
+ * Also back-fills req.auth for any handler still reading the legacy shape.
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const userId = req.headers["x-mock-user-id"] as string | undefined
-  const role = req.headers["x-mock-role"] as string | undefined
-
-  if (!userId || !role) {
-    res.status(401).json({ error: "Missing x-mock-user-id or x-mock-role header (mock auth)" })
-    return
-  }
-
-  if (!VALID_ROLES.has(role)) {
-    res.status(403).json({ error: `Unknown role '${role}'` })
-    return
-  }
-
-  req.auth = { userId, role }
-  next()
+  _authenticate(req, res, () => {
+    // Back-fill legacy req.auth from the real JWT payload
+    if (req.user) {
+      req.auth = {
+        userId: req.user.userId,
+        role:   req.user.role,
+      }
+    }
+    next()
+  })
 }
 
 /**
- * Factory: requires the request role to be one of the allowed roles.
- * Usage: router.post("/approve", requireAuth, requireRole("branch_manager"), handler)
+ * Step 2 — resolve tenant Prisma client via M4 resolveTenantContext.
+ * Call this after requireAuth when you need DB access.
+ * req.tenantPrisma is attached on success.
+ */
+export async function resolveTenantContext(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  return _resolveTenantContext(req, res, next)
+}
+
+/**
+ * RBAC guard — thin wrapper so M3 routes can call requireRole() with the
+ * same string literals they used against the old mock-auth.
  */
 export function requireRole(...allowed: string[]) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.auth) {
-      res.status(401).json({ error: "Not authenticated" })
-      return
-    }
-    if (!allowed.includes(req.auth.role)) {
-      res
-        .status(403)
-        .json({ error: `Role '${req.auth.role}' is not allowed. Required: ${allowed.join(" | ")}` })
-      return
-    }
-    next()
-  }
+  return _requireRole(...(allowed as RoleName[]))
 }

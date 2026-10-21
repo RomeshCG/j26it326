@@ -46,11 +46,15 @@ ml/**/models/*.joblib
 ml/**/models/*.json
 ml/**/models/*.bst
 ml/**/models/*.bin
+ml/**/models/*.pt
+ml/**/models/*.pth
+ml/**/models/*.keras
 ml/**/*.csv
 ml/**/*.parquet
 ml/**/*.feather
 ml/**/*.xlsx
 !ml/**/.keep
+!ml/**/data/private/README.md
 
 # Allow tiny tracked samples if you ever add them explicitly under samples/
 !ml/**/data/samples/**
