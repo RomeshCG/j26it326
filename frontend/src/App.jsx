@@ -31,6 +31,7 @@ import TierApproval from "@/components/c4/tier-approval"
 import Settings from "@/components/c4/settings"
 import FinanceManagerDashboard from "@/components/c2/FinanceManagerDashboard"
 import MissionDriftAlerts from "@/components/c2/MissionDriftAlerts"
+import MissionDriftDashboard from "@/components/c2/MissionDriftDashboard"
 import MissionDriftDetail from "@/components/c2/MissionDriftDetail"
 import BalanceSheetReport from "@/components/c2/BalanceSheetReport"
 import CashFlowReport from "@/components/c2/CashFlowReport"
@@ -244,6 +245,7 @@ function App() {
             />
             <Route path="/settings" element={<Settings />} />
             <Route path="/finance-manager" element={<FinanceManagerDashboard />} />
+            <Route path="/mission-drift" element={<MissionDriftDashboard />} />
             <Route path="/alerts" element={<MissionDriftAlerts />} />
             <Route path="/mission-drift/detail" element={<MissionDriftDetail />} />
             <Route path="/pl-report" element={<PAndLReport />} />

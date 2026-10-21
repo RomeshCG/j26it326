@@ -15,6 +15,8 @@ import {
   resolveTenantByInstitutionId,
 } from "./lib/tenant-context.js"
 import { m3Router } from "./routes/m3/index.js"
+import { m2Router } from "./routes/m2.js"
+import { m2EventsRouter } from "./routes/m2-events.js"
 import { getJwtSecret, logSafeError } from "./lib/auth.js"
 import { authRouter } from "./routes/auth.js"
 import { publicDomainRouter, tenantDomainRouter } from "./routes/domains.js"
@@ -250,6 +252,9 @@ app.get("/api/institutions/:institutionId/tenant-health", authenticate, resolveT
 // ── M3 — Loan Lifecycle & EWS ────────────────────────────────────────────────
 app.use("/api/m3", m3Router)
 
+// M2 - Finance & Mission (events webhook uses a shared secret, so it is mounted before the JWT-protected router)
+app.use("/api/m2/events", m2EventsRouter)
+app.use("/api/m2", m2Router)
 // Nightly 2:00 AM EWS Batch Scoring Trigger
 const repoRoot = path.resolve(__dirname, "../../")
 const venvPyWindows = path.join(repoRoot, "ml", ".venv", "Scripts", "python.exe")
