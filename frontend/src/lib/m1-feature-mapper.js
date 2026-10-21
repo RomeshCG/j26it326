@@ -73,8 +73,8 @@ export function mapConsumerFormToM1Features(form, summary = {}) {
     contract_amount: contractAmount,
     tenure,
     installment,
-    branch: form.branch || form.assignedBranch || "Colombo Head Office",
-    product: form.facilityType || "Consumer loan",
+    branch: form.branch || form.assignedBranch || "unknown", // unknown → M1 averages over known branches
+    product: form.facilityType || "unknown",
 
     // P1 — Financial Parameters
     interest_amount: interestAmount,
@@ -117,8 +117,8 @@ export function mapVehicleFormToM1Features(form, summary = {}) {
     contract_amount: contractAmount,
     tenure,
     installment: computedInstallment,
-    branch: form.branch || form.assignedBranch || "Colombo Head Office",
-    product: form.productCode || "Hire Purchase",
+    branch: form.branch || form.assignedBranch || "unknown", // unknown → M1 averages over known branches
+    product: form.productCode || "unknown",
 
     // P1 — Financial Parameters
     interest_amount: interestAmount,

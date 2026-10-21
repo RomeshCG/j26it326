@@ -38,6 +38,14 @@ test("valid input returns score and maps recommendation", async () => {
   assert.deepEqual(r.json.borrower_fields_ignored, [])
 })
 
+test("unseen branch/product never auto-approves or rejects", async () => {
+  const low = { ...MODEL_OUT, overdue_prob: 0.1, risk_band: "low", unseen_categories: ["branch"] }
+  globalThis.fetch = (async () => new Response(JSON.stringify(low))) as any
+  const r = await call({ features: { ...FEATURES, branch: "Colombo Head Office" } })
+  assert.equal(r.json.recommendation, "review")
+  assert.equal(r.json.reliability, "reduced")
+})
+
 test("borrower fields are accepted and reported as ignored by v2", async () => {
   mockModel(true)
   const r = await call({ features: { ...FEATURES, monthly_income: 60000, occupation: "Trader" } })

@@ -37,7 +37,7 @@ body:json {
 docs {
   # Assess Risk
   Scores origination-time loan terms -> overdue_prob, risk_band, recommendation, top_factors (SHAP log-odds).
-  Requires the FastAPI model service (M1_MODEL_URL, default http://127.0.0.1:8001); returns 503 if it is down.
+  Requires the FastAPI model service (M1_MODEL_URL, default http://127.0.0.1:8002); returns 503 if it is down.
   Roles: loan_officer, branch_manager, executive, admin.
   Set persist=true and loanApplicationId (UUID) to write risk_assessments + shap_explanations.
 }

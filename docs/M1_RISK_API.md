@@ -13,9 +13,9 @@ Base path: `/api/risk`
 ```powershell
 # 1) model service (from ml/, after training: python m1_credit_risk/train/train_xgb.py)
 pip install -r m1_credit_risk/requirements-serve.txt
-uvicorn app:app --app-dir m1_credit_risk/serve --port 8001
+uvicorn app:app --app-dir m1_credit_risk/serve --port 8002
 
-# 2) backend (M1_MODEL_URL defaults to http://127.0.0.1:8001)
+# 2) backend (M1_MODEL_URL defaults to http://127.0.0.1:8002)
 cd ../backend; npm run dev
 ```
 
@@ -59,6 +59,7 @@ Origination-time loan terms only. Arrears / paid fields are NOT inputs (they def
   "risk_pct": 72.93,
   "risk_band": "high",
   "recommendation": "reject",
+  "reliability": "normal",
   "model_version": "m1-overdue-xgb-v2",
   "explanation": {
     "top_factors": [
@@ -74,7 +75,10 @@ Origination-time loan terms only. Arrears / paid fields are NOT inputs (they def
 - `overdue_prob` = P(arrears age > 1 period) as seen in the partner PAR snapshot. `risk_pct` is the same value x 100 (kept so existing UI code keeps working).
 - Bands (provisional): `<0.33` low, `<0.66` medium, else high. `recommendation` is a hint: low=approve, medium=review, high=reject.
 - `shap_logodds` is in log-odds. One factor per input field (branch, product, installment, ...) with the value that was scored; one-hot columns are summed back to their field.
-- `unseen_categories` lists branch/product values the model never saw; they have no effect on the score. Treat the score as weaker when this is non-empty.
+- **Any branch / product value is accepted** (new tenants have their own branch names). The model service first matches spelling loosely (case, spaces) and by product code, so `"kandy "` and `"Sasiri loan (SL01)"` count as known.
+- A value that still does not match is listed in `unseen_categories`. The model has no learned effect for it, so its effect is **averaged over the values in the training data, weighted by how often they occur** (in log-odds, so the SHAP factors still add up to the score). Such factors carry `"averaged": true`. With every field unknown the score comes out near the portfolio base rate (~0.35).
+- `reliability` is `"reduced"` when `unseen_categories` is non-empty, and the `recommendation` is then always `review`: the system never auto-approves or rejects on averaged evidence. Send `"unknown"` for a field the application does not have rather than guessing a value.
+- The averaging needs `artifacts/category_freq.json` (written by `train_xgb.py`, or `train_xgb.py --freq-only` without retraining). Without it, unseen values fall back to an all-zero one-hot, which is out of distribution, so the flag and the `review` recommendation still apply.
 - With `persist=true`, `risk_score` is stored as 0-100 and `shap_explanations.contribution` holds the log-odds value.
 
 ## Decisions
@@ -89,9 +93,9 @@ Errors: `400` invalid body, `503` model service down/unreachable, `500` generic 
 
 ## Demo runbook
 
-1. Start Postgres, the model service (`cd ml && uvicorn app:app --app-dir m1_credit_risk/serve --port 8001`), then the backend (`cd backend && npm run dev`).
-2. Check `GET http://127.0.0.1:8001/health` returns `"ok": true`, then Bruno `01 Login Success` -> `10 M1 Risk / 02 Assess Risk`.
-3. Use real PAR values in the demo: branches such as Kandy, Kegalle, Hatton, Anuradhapura; product categories `Micro Loan`, `Business Loan`, `Personal Loan`; product types Daily / Weekly / Monthly. An unknown branch/product still scores but shows `unseen_categories`.
+1. Start Postgres, the model service (`cd ml && uvicorn app:app --app-dir m1_credit_risk/serve --port 8002`), then the backend (`cd backend && npm run dev`).
+2. Check `GET http://127.0.0.1:8002/health` returns `"ok": true`, then Bruno `01 Login Success` -> `10 M1 Risk / 02 Assess Risk`.
+3. Use real PAR values in the demo: branches such as Kandy, Kegalle, Hatton, Anuradhapura; product categories `Micro Loan`, `Business Loan`, `Personal Loan`; product types Daily / Weekly / Monthly. An unknown branch/product (e.g. `Colombo Head Office`) still scores, averaged, with `reliability: "reduced"` and `recommendation: "review"`.
 4. **If the model service is down:** the API returns 503. Say so, restart it (step 1), or show the saved `ml/m1_credit_risk/artifacts/sample_explanation.json` and the Bruno response from a previous run. Never show a made-up score.
 5. Backend route tests: `cd backend && npm test`. Model service tests: `cd ml && python m1_credit_risk/tests/test_app.py`.
 

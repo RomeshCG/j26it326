@@ -44,7 +44,7 @@ export default function AiRecommendationCard({ report, trustStatus }) {
             </p>
             <Badge
               className={
-                recommendation.recommendation === "REVIEW REQUIRED"
+                recommendation.recommendation.startsWith("REVIEW")
                   ? "mt-1 border-transparent bg-amber-500/15 text-amber-800 dark:text-amber-300"
                   : recommendation.recommendation === "APPROVE"
                     ? "mt-1 border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
@@ -56,10 +56,16 @@ export default function AiRecommendationCard({ report, trustStatus }) {
           </div>
           <div className="rounded-lg border bg-muted/30 p-3">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Confidence
+              {recommendation.confidence != null ? "Confidence" : "Reliability"}
             </p>
             <p className="mt-1 text-xl font-semibold tabular-nums">
-              {recommendation.confidence}%
+              {recommendation.confidence != null
+                ? `${recommendation.confidence}%`
+                : recommendation.reliability === "reduced"
+                  ? "Reduced"
+                  : recommendation.reliability === "normal"
+                    ? "Normal"
+                    : "—"}
             </p>
           </div>
         </div>

@@ -79,7 +79,8 @@ export default function OfficerDecisionPanel({
       explanationStyle: trustStatus,
       matchedAi:
         (effectiveDecision === "approve" && recommendation.recommendation === "APPROVE") ||
-        (effectiveDecision === "reject" && recommendation.recommendation === "REJECT"),
+        (effectiveDecision === "reject" && recommendation.recommendation === "REJECT") ||
+        (effectiveDecision === "request-review" && recommendation.recommendation.startsWith("REVIEW")),
     })
 
     try {

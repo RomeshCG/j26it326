@@ -21,6 +21,7 @@ const FEATURE_LABELS = {
 
 function humanize(f) {
   const label = FEATURE_LABELS[f.feature] || f.feature.replace(/_/g, " ")
+  if (f.averaged) return `${label}: ${f.value} (not in training data, averaged)`
   return typeof f.value === "string" ? `${label}: ${f.value}` : label
 }
 
@@ -33,15 +34,16 @@ function impactLevel(shap) {
   return { impact: 1, level: "Low" }
 }
 
-// Typical values from the partner PAR snapshot (weekly micro loans). Used ONLY for fields
-// the application does not provide; the report tells the officer which ones were assumed.
+// Typical loan terms from the partner PAR snapshot. Used ONLY for fields the application does
+// not provide; the report tells the officer which ones were assumed. Categories are never
+// guessed: "unknown" makes the model service average over the values it was trained on.
 const DEMO_DEFAULTS = {
   interest_ratio: 0.4,
   tenure: 36,
-  branch: "Kandy",
-  product_category: "Micro Loan",
-  product_type: "Weekly",
-  product: "SASIRI LOAN 01 (sl01)",
+  branch: "unknown",
+  product_category: "unknown",
+  product_type: "unknown",
+  product: "unknown",
 }
 
 /** Build the 8 origination-time loan terms the model needs. Returns { features, assumed }. */
@@ -71,7 +73,7 @@ export function buildAssessFeatures(state = {}) {
     branch: pick("branch", given.branch ?? state.branch, DEMO_DEFAULTS.branch),
     product_category: pick("product_category", given.product_category, DEMO_DEFAULTS.product_category),
     product_type: pick("product_type", given.product_type, DEMO_DEFAULTS.product_type),
-    product: pick("product", state.product ?? given.product, DEMO_DEFAULTS.product),
+    product: pick("product", given.product ?? state.product, DEMO_DEFAULTS.product),
   }
   return { features, assumed }
 }
@@ -107,6 +109,8 @@ export function mapAssessResponseToReport(api, state = {}, assumed = []) {
     keyFactors: keyFactors.length ? keyFactors : RISK_REPORT.keyFactors,
     shapContributors: shapContributors.length ? shapContributors : RISK_REPORT.shapContributors,
     recommendation: api.recommendation || null,
+    reliability: api.reliability || null,
+    confidence: null, // the model gives no calibrated confidence; reliability is shown instead
     modelVersion: api.model_version || null,
     assessmentId: api.assessmentId || null,
     assumedFields: assumed,

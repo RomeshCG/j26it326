@@ -303,7 +303,8 @@ export function getAiRecommendation(report, trustStatus = "OVER-RELIANT") {
     risk: report.defaultProbability,
     riskLevel: classMeta.shortLabel,
     recommendation,
-    confidence: report.confidence ?? 78,
+    confidence: report.confidence ?? null, // live reports have none; mock reports keep their 78
+    reliability: report.reliability ?? null,
     keyFactors: report.keyFactors ?? RISK_REPORT.keyFactors,
   }
 }

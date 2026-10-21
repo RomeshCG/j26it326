@@ -14,7 +14,7 @@ import RiskAssessmentHero from "./RiskAssessmentHero"
 import ShapContributors from "./ShapContributors"
 import ShapInteractionMatrix from "./ShapInteractionMatrix"
 import { useOfficerExplanationStyle } from "./useOfficerExplanationStyle"
-import { buildRiskReport } from "./mock-data"
+import { buildRiskReport, getAiRecommendation } from "./mock-data"
 import { buildAssessFeatures, mapAssessResponseToReport } from "./map-api-report"
 import { buildDisbursementApplication } from "@/components/c3/build-disbursement-application"
 
@@ -121,15 +121,31 @@ export default function RiskReportPage() {
     evidenceRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
+  // Accept/override are relative to what the system recommended, not fixed to approve/reject.
+  const systemRecommendation = getAiRecommendation(report, trust.status).recommendation
+
   function handleAcceptRecommendation() {
     setAdaptiveAction("accept")
-    setDecision("approve")
+    setDecision(
+      systemRecommendation === "APPROVE"
+        ? "approve"
+        : systemRecommendation === "REJECT"
+          ? "reject"
+          : "request-review"
+    )
     decisionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
   function handleOverrideFromExplanation() {
     setAdaptiveAction("override")
-    setDecision("reject")
+    // Overriding a "review" has no single opposite, so the officer picks approve or reject.
+    setDecision(
+      systemRecommendation === "APPROVE"
+        ? "reject"
+        : systemRecommendation === "REJECT"
+          ? "approve"
+          : null
+    )
     decisionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }
 
@@ -182,7 +198,7 @@ export default function RiskReportPage() {
       {error && usedFallback ? (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
           Live API unavailable ({error}). Showing offline mock report. Log in with a real
-          JWT, keep the backend on port 4000 and the M1 model service on port 8001.
+          JWT, keep the backend on port 4000 and the M1 model service on port 8002.
         </div>
       ) : null}
 
@@ -195,15 +211,17 @@ export default function RiskReportPage() {
 
       {!loading && !usedFallback && report.assumedFields?.length ? (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-800 dark:text-amber-200">
-          Not provided by the application, typical demo values used for:{" "}
-          {report.assumedFields.join(", ").replace(/_/g, " ")}.
+          Not provided by the application: {report.assumedFields.join(", ").replace(/_/g, " ")}.
+          Missing loan terms use typical PAR values; a missing branch or product is treated as
+          unknown and averaged by the model.
         </div>
       ) : null}
 
       {!loading && !usedFallback && report.unseenCategories?.length ? (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-800 dark:text-amber-200">
-          The model has not seen this {report.unseenCategories.join(", ").replace(/_/g, " ")} before, so
-          the score is less reliable.
+          Reduced reliability: the model was not trained on this{" "}
+          {report.unseenCategories.join(", ").replace(/_/g, " ")}. Its effect is averaged over the
+          values in the partner data, so the system recommends review instead of approve or reject.
         </div>
       ) : null}
 

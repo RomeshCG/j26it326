@@ -95,6 +95,7 @@ export async function assessHandler(req: Request, res: Response): Promise<void> 
           explanationPayload: {
             top_factors: result.top_factors,
             unseen_categories: result.unseen_categories,
+            reliability: result.reliability,
             features,
             scored_by: req.user!.userId,
           },
@@ -122,6 +123,7 @@ export async function assessHandler(req: Request, res: Response): Promise<void> 
     risk_pct: Math.round(result.overdue_prob * 10000) / 100, // 0-100, kept for existing UI
     risk_band: result.risk_band,
     recommendation: result.recommendation,
+    reliability: result.reliability,
     model_version: result.model_version,
     explanation: {
       top_factors: result.top_factors,

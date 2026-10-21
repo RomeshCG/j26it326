@@ -18,6 +18,7 @@
     "prisma:migrate:tenant:deploy": "prisma migrate deploy --schema prisma/tenant/schema.prisma",
     "prisma:studio:central": "prisma studio --schema prisma/central/schema.prisma",
     "prisma:studio:tenant": "prisma studio --schema prisma/tenant/schema.prisma",
+    "db:migrate:integration": "tsx scripts/migrate-integration.ts",
     "db:seed:central": "tsx prisma/central/seed.ts",
     "db:seed:tenant": "tsx prisma/tenant/seed.ts",
     "seed:zz-test-users": "tsx scripts/seed-zz-test-users.ts",

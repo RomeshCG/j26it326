@@ -43,6 +43,16 @@ DATA_DEFAULT = ROOT / "data" / "private" / "par30_clean_no_pii.csv"
 MODEL_DIR = ROOT / "artifacts"
 MODEL_PATH = MODEL_DIR / "overdue_xgb.joblib"
 METRICS_PATH = MODEL_DIR / "metrics.json"
+# Joint counts of the categorical fields; the model service averages over these for unseen values.
+FREQ_PATH = MODEL_DIR / "category_freq.json"
+
+
+def write_category_freq(df: pd.DataFrame) -> None:
+    counts = df.groupby(V2_CATEGORICAL).size()
+    rows = [[*keys, int(n)] for keys, n in counts.items()]
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    FREQ_PATH.write_text(json.dumps({"columns": V2_CATEGORICAL, "rows": rows}), encoding="utf-8")
+    print(f"Category frequencies ({len(rows)} combinations) -> {FREQ_PATH}")
 
 
 def build_pipeline(kind: str = "xgb") -> Pipeline:
@@ -81,11 +91,15 @@ def cross_validate(x: pd.DataFrame, y: pd.Series, groups: pd.Series, kind: str) 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", type=Path, default=DATA_DEFAULT)
+    ap.add_argument("--freq-only", action="store_true", help="only rewrite category_freq.json, no retrain")
     args = ap.parse_args()
     if not args.data.exists():
         raise SystemExit(f"Missing data: {args.data}")
 
     df = add_overdue_label(add_v2_features(pd.read_csv(args.data)))
+    write_category_freq(df)
+    if args.freq_only:
+        return
     x, y, groups = df[V2_FEATURES], df[OVERDUE_TARGET], df["center"]
 
     metrics = {
