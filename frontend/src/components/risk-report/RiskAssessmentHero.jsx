@@ -29,7 +29,7 @@ export default function RiskAssessmentHero({ report }) {
     "Credit Risk Assessment",
     `Applicant: ${report.applicant.name}`,
     `Loan: ${formatLkr(report.loanAmount)}`,
-    `Default risk: ${report.defaultProbability}%`,
+    `Overdue risk: ${report.defaultProbability}%`,
     `Classification: ${classMeta.shortLabel}`,
   ].join("\n")
 
@@ -92,14 +92,14 @@ export default function RiskAssessmentHero({ report }) {
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border bg-card p-5 text-center">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Default risk
+              Overdue risk
             </p>
             <p className="mt-2 text-4xl font-semibold tabular-nums tracking-tight">
               {report.defaultProbability}
               <span className="text-xl text-muted-foreground">%</span>
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Estimated probability of default
+              Estimated chance of serious arrears
             </p>
           </div>
 

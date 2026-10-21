@@ -29,7 +29,9 @@
             "example": "Missing or invalid Authorization header"
           }
         },
-        "required": ["error"]
+        "required": [
+          "error"
+        ]
       },
       "LoginRequest": {
         "type": "object",
@@ -45,7 +47,10 @@
             "example": "YourSecretPassword123!"
           }
         },
-        "required": ["email", "password"]
+        "required": [
+          "email",
+          "password"
+        ]
       },
       "LoginResponse": {
         "type": "object",
@@ -62,9 +67,16 @@
           "user": {
             "type": "object",
             "properties": {
-              "id": { "type": "string", "format": "uuid" },
-              "email": { "type": "string" },
-              "fullName": { "type": "string" },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "email": {
+                "type": "string"
+              },
+              "fullName": {
+                "type": "string"
+              },
               "role": {
                 "type": "string",
                 "enum": [
@@ -76,21 +88,47 @@
                   "loan_officer"
                 ]
               },
-              "institutionId": { "type": "string", "format": "uuid" },
-              "institutionName": { "type": "string" }
+              "institutionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "institutionName": {
+                "type": "string"
+              }
             },
-            "required": ["id", "email", "fullName", "role", "institutionId", "institutionName"]
+            "required": [
+              "id",
+              "email",
+              "fullName",
+              "role",
+              "institutionId",
+              "institutionName"
+            ]
           }
         },
-        "required": ["token", "expiresIn", "user"]
+        "required": [
+          "token",
+          "expiresIn",
+          "user"
+        ]
       },
       "MeResponse": {
         "type": "object",
         "properties": {
-          "userId": { "type": "string", "format": "uuid" },
-          "email": { "type": "string" },
-          "fullName": { "type": "string" },
-          "institutionId": { "type": "string", "format": "uuid" },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "institutionId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "role": {
             "type": "string",
             "enum": [
@@ -104,52 +142,109 @@
           },
           "capabilities": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Permissions map for UI and application enforcement"
           }
         },
-        "required": ["userId", "email", "fullName", "institutionId", "role", "capabilities"]
+        "required": [
+          "userId",
+          "email",
+          "fullName",
+          "institutionId",
+          "role",
+          "capabilities"
+        ]
       },
       "TenantInfoResponse": {
         "type": "object",
         "properties": {
-          "institutionId": { "type": "string", "format": "uuid" },
-          "institutionName": { "type": "string" },
-          "databaseIdentifier": { "type": "string" },
+          "institutionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "institutionName": {
+            "type": "string"
+          },
+          "databaseIdentifier": {
+            "type": "string"
+          },
           "info": {
             "type": "object",
             "properties": {
-              "id": { "type": "integer" },
-              "institutionId": { "type": "string" },
-              "institutionName": { "type": "string" },
-              "createdAt": { "type": "string", "format": "date-time" }
+              "id": {
+                "type": "integer"
+              },
+              "institutionId": {
+                "type": "string"
+              },
+              "institutionName": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
             }
           }
         },
-        "required": ["institutionId", "institutionName", "databaseIdentifier"]
+        "required": [
+          "institutionId",
+          "institutionName",
+          "databaseIdentifier"
+        ]
       },
       "Branch": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string" },
-          "location": { "type": "string", "nullable": true },
-          "district": { "type": "string", "nullable": true },
-          "isActive": { "type": "boolean" },
-          "createdAt": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "district": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         },
-        "required": ["id", "name", "isActive", "createdAt"]
+        "required": [
+          "id",
+          "name",
+          "isActive",
+          "createdAt"
+        ]
       },
       "BranchesResponse": {
         "type": "object",
         "properties": {
           "data": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/Branch" }
+            "items": {
+              "$ref": "#/components/schemas/Branch"
+            }
           },
-          "count": { "type": "integer" }
+          "count": {
+            "type": "integer"
+          }
         },
-        "required": ["data", "count"]
+        "required": [
+          "data",
+          "count"
+        ]
       },
       "ValidateUserResponse": {
         "type": "object",
@@ -159,7 +254,9 @@
             "description": "Strict boolean indicating whether the userId exists, is active, and belongs to caller's institution."
           }
         },
-        "required": ["valid"]
+        "required": [
+          "valid"
+        ]
       },
       "VerifyDomainRequest": {
         "type": "object",
@@ -169,84 +266,205 @@
             "description": "64-character hex verification token sent to mailbox"
           }
         },
-        "required": ["token"]
+        "required": [
+          "token"
+        ]
       },
       "VerifyDomainResponse": {
         "type": "object",
         "properties": {
-          "message": { "type": "string" },
-          "domain": { "type": "string" },
-          "institutionId": { "type": "string", "format": "uuid" },
-          "verifiedAt": { "type": "string", "format": "date-time" }
+          "message": {
+            "type": "string"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "institutionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "verifiedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         },
-        "required": ["message", "domain", "institutionId", "verifiedAt"]
+        "required": [
+          "message",
+          "domain",
+          "institutionId",
+          "verifiedAt"
+        ]
       },
       "SignupRequest": {
         "type": "object",
         "properties": {
-          "email": { "type": "string", "format": "email" },
-          "password": { "type": "string", "format": "password", "minLength": 8 },
-          "fullName": { "type": "string" }
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 8
+          },
+          "fullName": {
+            "type": "string"
+          }
         },
-        "required": ["email", "password", "fullName"]
+        "required": [
+          "email",
+          "password",
+          "fullName"
+        ]
       },
       "SignupResponse": {
         "type": "object",
         "properties": {
-          "message": { "type": "string" },
-          "email": { "type": "string", "format": "email" }
+          "message": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
         },
-        "required": ["message", "email"]
+        "required": [
+          "message",
+          "email"
+        ]
       },
       "RegisterDomainRequest": {
         "type": "object",
         "properties": {
-          "domain": { "type": "string", "example": "apex.lk" },
-          "verificationMailbox": { "type": "string", "example": "admin" },
-          "defaultRoleId": { "type": "integer", "example": 6 }
+          "domain": {
+            "type": "string",
+            "example": "apex.lk"
+          },
+          "verificationMailbox": {
+            "type": "string",
+            "example": "admin"
+          },
+          "defaultRoleId": {
+            "type": "integer",
+            "example": 6
+          }
         },
-        "required": ["domain", "verificationMailbox", "defaultRoleId"]
+        "required": [
+          "domain",
+          "verificationMailbox",
+          "defaultRoleId"
+        ]
       },
       "InstitutionDomain": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "institutionId": { "type": "string", "format": "uuid" },
-          "domain": { "type": "string" },
-          "status": { "type": "string", "enum": ["pending", "verified", "revoked"] },
-          "verificationExpiresAt": { "type": "string", "format": "date-time", "nullable": true },
-          "verifiedAt": { "type": "string", "format": "date-time", "nullable": true },
-          "verifiedByUserId": { "type": "string", "format": "uuid", "nullable": true },
-          "defaultRoleId": { "type": "integer" },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "institutionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "domain": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "verified",
+              "revoked"
+            ]
+          },
+          "verificationExpiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "verifiedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "verifiedByUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "defaultRoleId": {
+            "type": "integer"
+          },
           "defaultRole": {
             "type": "object",
             "properties": {
-              "id": { "type": "integer" },
-              "name": { "type": "string" }
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
             }
           },
-          "autoApprove": { "type": "boolean" },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
+          "autoApprove": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
         },
-        "required": ["id", "institutionId", "domain", "status", "defaultRoleId", "autoApprove", "createdAt", "updatedAt"]
+        "required": [
+          "id",
+          "institutionId",
+          "domain",
+          "status",
+          "defaultRoleId",
+          "autoApprove",
+          "createdAt",
+          "updatedAt"
+        ]
       },
       "PendingUser": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "email": { "type": "string" },
-          "fullName": { "type": "string" },
-          "createdAt": { "type": "string", "format": "date-time" },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
           "role": {
             "type": "object",
             "properties": {
-              "id": { "type": "integer" },
-              "name": { "type": "string" }
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
             }
           }
         },
-        "required": ["id", "email", "fullName", "createdAt", "role"]
+        "required": [
+          "id",
+          "email",
+          "fullName",
+          "createdAt",
+          "role"
+        ]
       },
       "ApprovePendingUserRequest": {
         "type": "object",
@@ -260,47 +478,133 @@
       "RegisterInstitutionRequest": {
         "type": "object",
         "properties": {
-          "institutionName": { "type": "string", "example": "Apex Microfinance Ltd", "minLength": 3, "maxLength": 100 },
-          "licenseNumber": { "type": "string", "example": "MFI-LK-001", "nullable": true },
-          "adminFullName": { "type": "string", "example": "Anura Perera", "minLength": 2, "maxLength": 100 },
-          "adminEmail": { "type": "string", "format": "email", "example": "admin@apex.lk" },
-          "adminPassword": { "type": "string", "format": "password", "example": "SecurePassword123!" },
+          "institutionName": {
+            "type": "string",
+            "example": "Apex Microfinance Ltd",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "licenseNumber": {
+            "type": "string",
+            "example": "MFI-LK-001",
+            "nullable": true
+          },
+          "adminFullName": {
+            "type": "string",
+            "example": "Anura Perera",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "adminEmail": {
+            "type": "string",
+            "format": "email",
+            "example": "admin@apex.lk"
+          },
+          "adminPassword": {
+            "type": "string",
+            "format": "password",
+            "example": "SecurePassword123!"
+          },
           "institutionType": {
             "type": "string",
-            "enum": ["licensed_finance_company", "microfinance_ngo", "rural_development_bank", "cooperative_society"],
+            "enum": [
+              "licensed_finance_company",
+              "microfinance_ngo",
+              "rural_development_bank",
+              "cooperative_society"
+            ],
             "default": "microfinance_ngo"
           },
-          "district": { "type": "string", "example": "Colombo", "nullable": true },
-          "planName": { "type": "string", "enum": ["Starter", "Standard", "Professional", "Enterprise"], "default": "Starter" },
-          "billingCycle": { "type": "string", "enum": ["monthly", "annual"], "default": "monthly" }
+          "district": {
+            "type": "string",
+            "example": "Colombo",
+            "nullable": true
+          },
+          "planName": {
+            "type": "string",
+            "enum": [
+              "Starter",
+              "Standard",
+              "Professional",
+              "Enterprise"
+            ],
+            "default": "Starter"
+          },
+          "billingCycle": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "annual"
+            ],
+            "default": "monthly"
+          }
         },
-        "required": ["institutionName", "adminFullName", "adminEmail", "adminPassword"]
+        "required": [
+          "institutionName",
+          "adminFullName",
+          "adminEmail",
+          "adminPassword"
+        ]
       },
       "RegisterInstitutionResponse": {
         "type": "object",
         "properties": {
-          "message": { "type": "string", "example": "Institution registered and provisioned successfully" },
+          "message": {
+            "type": "string",
+            "example": "Institution registered and provisioned successfully"
+          },
           "institution": {
             "type": "object",
             "properties": {
-              "id": { "type": "string", "format": "uuid" },
-              "name": { "type": "string" },
-              "status": { "type": "string", "example": "active" }
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "example": "active"
+              }
             },
-            "required": ["id", "name", "status"]
+            "required": [
+              "id",
+              "name",
+              "status"
+            ]
           },
           "admin": {
             "type": "object",
             "properties": {
-              "id": { "type": "string", "format": "uuid" },
-              "email": { "type": "string" },
-              "fullName": { "type": "string" },
-              "role": { "type": "string", "example": "admin" }
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "email": {
+                "type": "string"
+              },
+              "fullName": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "example": "admin"
+              }
             },
-            "required": ["id", "email", "fullName", "role"]
+            "required": [
+              "id",
+              "email",
+              "fullName",
+              "role"
+            ]
           }
         },
-        "required": ["message", "institution", "admin"]
+        "required": [
+          "message",
+          "institution",
+          "admin"
+        ]
       }
     }
   },
@@ -313,7 +617,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
             }
           }
         },
@@ -322,7 +628,9 @@
             "description": "Login successful",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
               }
             }
           },
@@ -330,7 +638,9 @@
             "description": "Missing email or password",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -338,7 +648,9 @@
             "description": "Invalid credentials or account disabled (uniform error prevents user enumeration)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -346,7 +658,9 @@
             "description": "Account pending approval or institution is not active",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -354,13 +668,17 @@
             "description": "Too many requests or temporary account lockout. Includes Retry-After header with backoff duration in seconds.",
             "headers": {
               "Retry-After": {
-                "schema": { "type": "integer" },
+                "schema": {
+                  "type": "integer"
+                },
                 "description": "Number of seconds to wait before retrying"
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -375,7 +693,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RegisterInstitutionRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/RegisterInstitutionRequest"
+              }
             }
           }
         },
@@ -384,7 +704,9 @@
             "description": "Institution registered and provisioned successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RegisterInstitutionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterInstitutionResponse"
+                }
               }
             }
           },
@@ -392,7 +714,9 @@
             "description": "Validation error or registration request conflict (timing-parity protected)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -400,7 +724,9 @@
             "description": "Public registration disabled or invalid setup key",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -408,13 +734,17 @@
             "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
             "headers": {
               "Retry-After": {
-                "schema": { "type": "integer" },
+                "schema": {
+                  "type": "integer"
+                },
                 "description": "Number of seconds to wait before retrying"
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -422,7 +752,9 @@
             "description": "Service temporarily busy (concurrency limit reached)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -433,13 +765,19 @@
       "get": {
         "summary": "Current user profile & capabilities",
         "description": "Returns current user details, role, and permissions map. Allowed roles: all 6 authenticated roles.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Authenticated user profile",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MeResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
               }
             }
           },
@@ -447,7 +785,9 @@
             "description": "Missing, invalid, or expired Bearer token",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -455,7 +795,9 @@
             "description": "Institution is not active",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -466,13 +808,19 @@
       "get": {
         "summary": "Get current tenant metadata",
         "description": "Returns cached tenant_info from caller's dedicated tenant database. Allowed roles: all 6 authenticated roles.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Tenant metadata",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TenantInfoResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TenantInfoResponse"
+                }
               }
             }
           },
@@ -480,7 +828,9 @@
             "description": "Unauthorized",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -488,7 +838,9 @@
             "description": "Forbidden",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -499,13 +851,19 @@
       "get": {
         "summary": "List active branches",
         "description": "Returns active branch records for the caller's tenant institution. Allowed roles: all 6 authenticated roles.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "List of active branches",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/BranchesResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/BranchesResponse"
+                }
               }
             }
           },
@@ -513,7 +871,9 @@
             "description": "Unauthorized",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -521,7 +881,9 @@
             "description": "Forbidden",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -532,14 +894,21 @@
       "get": {
         "summary": "Validate soft user_id reference",
         "description": "Verifies whether a user_id exists in central.users, has active status, and belongs to caller's institution. Returns strictly { valid: boolean } with no other user details to prevent enumeration. Allowed roles: all 6 authenticated roles.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "userId",
             "in": "path",
             "required": true,
             "description": "UUID of the user to validate",
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -547,7 +916,9 @@
             "description": "Validation result",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ValidateUserResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateUserResponse"
+                }
               }
             }
           },
@@ -555,7 +926,9 @@
             "description": "Unauthorized",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -563,7 +936,9 @@
             "description": "Forbidden",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -578,7 +953,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/VerifyDomainRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/VerifyDomainRequest"
+              }
             }
           }
         },
@@ -587,7 +964,9 @@
             "description": "Domain successfully verified",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/VerifyDomainResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyDomainResponse"
+                }
               }
             }
           },
@@ -595,7 +974,9 @@
             "description": "Invalid, expired, or already used verification token",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -603,7 +984,9 @@
             "description": "Domain has already been claimed and verified by another institution",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -611,13 +994,17 @@
             "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
             "headers": {
               "Retry-After": {
-                "schema": { "type": "integer" },
+                "schema": {
+                  "type": "integer"
+                },
                 "description": "Number of seconds to wait before retrying"
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -632,7 +1019,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SignupRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
             }
           }
         },
@@ -641,7 +1030,9 @@
             "description": "Registration received, awaiting administrator approval",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SignupResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/SignupResponse"
+                }
               }
             }
           },
@@ -649,7 +1040,9 @@
             "description": "Validation error or unverified/blocked domain",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -657,13 +1050,17 @@
             "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
             "headers": {
               "Retry-After": {
-                "schema": { "type": "integer" },
+                "schema": {
+                  "type": "integer"
+                },
                 "description": "Number of seconds to wait before retrying"
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -674,7 +1071,11 @@
       "get": {
         "summary": "List institution domains",
         "description": "Returns all domains registered to caller's institution. Admin only.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "List of domains",
@@ -685,27 +1086,41 @@
                   "properties": {
                     "data": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/InstitutionDomain" }
+                      "items": {
+                        "$ref": "#/components/schemas/InstitutionDomain"
+                      }
                     }
                   },
-                  "required": ["data"]
+                  "required": [
+                    "data"
+                  ]
                 }
               }
             }
           },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "Forbidden - admin only" }
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - admin only"
+          }
         }
       },
       "post": {
         "summary": "Register email domain claim",
         "description": "Registers a new domain claim or refreshes an expired pending claim for caller's institution. Sends verification email. Admin only.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RegisterDomainRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDomainRequest"
+              }
             }
           }
         },
@@ -717,27 +1132,42 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": { "type": "string" },
-                    "domain": { "$ref": "#/components/schemas/InstitutionDomain" }
+                    "message": {
+                      "type": "string"
+                    },
+                    "domain": {
+                      "$ref": "#/components/schemas/InstitutionDomain"
+                    }
                   },
-                  "required": ["message", "domain"]
+                  "required": [
+                    "message",
+                    "domain"
+                  ]
                 }
               }
             }
           },
-          "400": { "description": "Invalid domain format, blocked free-mail provider, or invalid default role" },
-          "409": { "description": "Domain already verified or active pending claim exists" },
+          "400": {
+            "description": "Invalid domain format, blocked free-mail provider, or invalid default role"
+          },
+          "409": {
+            "description": "Domain already verified or active pending claim exists"
+          },
           "429": {
             "description": "Rate limit exceeded. Includes Retry-After header with cooldown duration in seconds.",
             "headers": {
               "Retry-After": {
-                "schema": { "type": "integer" },
+                "schema": {
+                  "type": "integer"
+                },
                 "description": "Number of seconds to wait before retrying"
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -748,13 +1178,20 @@
       "post": {
         "summary": "Resend domain verification email",
         "description": "Generates a new verification token and resends verification email to the specified mailbox for a pending domain. Admin only.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "domainId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
@@ -770,7 +1207,9 @@
                     "description": "Local-part of mailbox on the claimed domain (^[a-z0-9._-]{1,64}$)"
                   }
                 },
-                "required": ["verificationMailbox"]
+                "required": [
+                  "verificationMailbox"
+                ]
               }
             }
           }
@@ -783,27 +1222,43 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": { "type": "string" },
-                    "expiresAt": { "type": "string", "format": "date-time" }
+                    "message": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
                   },
-                  "required": ["message", "expiresAt"]
+                  "required": [
+                    "message",
+                    "expiresAt"
+                  ]
                 }
               }
             }
           },
-          "400": { "description": "Missing/invalid verificationMailbox or domain is not pending verification" },
-          "404": { "description": "Domain not found" },
+          "400": {
+            "description": "Missing/invalid verificationMailbox or domain is not pending verification"
+          },
+          "404": {
+            "description": "Domain not found"
+          },
           "429": {
             "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
             "headers": {
               "Retry-After": {
-                "schema": { "type": "integer" },
+                "schema": {
+                  "type": "integer"
+                },
                 "description": "Number of seconds to wait before retrying"
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -814,13 +1269,20 @@
       "delete": {
         "summary": "Revoke institution domain",
         "description": "Revokes a domain. If the domain was verified, disables all active and pending users on that domain in a single transaction (blocked if it would remove caller's institution's last active admin). If the domain was pending, marks it revoked, clears the verification token, and disables no users (deactivatedUsersCount: 0). Admin only.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "domainId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -831,28 +1293,46 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": { "type": "string" },
-                    "domain": { "type": "string" },
-                    "disabledUsersCount": { "type": "integer" }
+                    "message": {
+                      "type": "string"
+                    },
+                    "domain": {
+                      "type": "string"
+                    },
+                    "disabledUsersCount": {
+                      "type": "integer"
+                    }
                   },
-                  "required": ["message", "domain", "disabledUsersCount"]
+                  "required": [
+                    "message",
+                    "domain",
+                    "disabledUsersCount"
+                  ]
                 }
               }
             }
           },
-          "404": { "description": "Domain not found" },
-          "409": { "description": "Cannot revoke domain: would disable the last active administrator" },
+          "404": {
+            "description": "Domain not found"
+          },
+          "409": {
+            "description": "Cannot revoke domain: would disable the last active administrator"
+          },
           "429": {
             "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
             "headers": {
               "Retry-After": {
-                "schema": { "type": "integer" },
+                "schema": {
+                  "type": "integer"
+                },
                 "description": "Number of seconds to wait before retrying"
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -863,7 +1343,11 @@
       "get": {
         "summary": "List pending self-registered users",
         "description": "Lists all users with pending status awaiting approval for caller's institution. Admin only.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "List of pending users",
@@ -874,16 +1358,24 @@
                   "properties": {
                     "data": {
                       "type": "array",
-                      "items": { "$ref": "#/components/schemas/PendingUser" }
+                      "items": {
+                        "$ref": "#/components/schemas/PendingUser"
+                      }
                     }
                   },
-                  "required": ["data"]
+                  "required": [
+                    "data"
+                  ]
                 }
               }
             }
           },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "Forbidden" }
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
         }
       }
     },
@@ -891,20 +1383,29 @@
       "post": {
         "summary": "Approve pending user",
         "description": "Approves a pending staff user, activating them and optionally assigning a custom non-admin role. Re-verifies domain status. Admin only.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "userId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
           "required": false,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/ApprovePendingUserRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/ApprovePendingUserRequest"
+              }
             }
           }
         },
@@ -916,29 +1417,52 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": { "type": "string" },
-                    "userId": { "type": "string", "format": "uuid" },
-                    "status": { "type": "string", "example": "active" },
-                    "role": { "type": "string" }
+                    "message": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "active"
+                    },
+                    "role": {
+                      "type": "string"
+                    }
                   },
-                  "required": ["message", "userId", "status", "role"]
+                  "required": [
+                    "message",
+                    "userId",
+                    "status",
+                    "role"
+                  ]
                 }
               }
             }
           },
-          "400": { "description": "Cannot assign admin role, or domain no longer verified" },
-          "404": { "description": "User not found or not pending" },
+          "400": {
+            "description": "Cannot assign admin role, or domain no longer verified"
+          },
+          "404": {
+            "description": "User not found or not pending"
+          },
           "429": {
             "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
             "headers": {
               "Retry-After": {
-                "schema": { "type": "integer" },
+                "schema": {
+                  "type": "integer"
+                },
                 "description": "Number of seconds to wait before retrying"
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -949,13 +1473,20 @@
       "post": {
         "summary": "Reject pending user",
         "description": "Rejects a pending staff user, transitioning their status to disabled. Admin only.",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "userId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -966,29 +1497,202 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": { "type": "string" },
-                    "userId": { "type": "string", "format": "uuid" },
-                    "status": { "type": "string", "example": "disabled" }
+                    "message": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "disabled"
+                    }
                   },
-                  "required": ["message", "userId", "status"]
+                  "required": [
+                    "message",
+                    "userId",
+                    "status"
+                  ]
                 }
               }
             }
           },
-          "404": { "description": "User not found or not pending" },
+          "404": {
+            "description": "User not found or not pending"
+          },
           "429": {
             "description": "Admin mutating rate limit exceeded (max 30 requests per 15 min per institution). Includes Retry-After header.",
             "headers": {
               "Retry-After": {
-                "schema": { "type": "integer" },
+                "schema": {
+                  "type": "integer"
+                },
                 "description": "Number of seconds to wait before retrying"
               }
             },
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/risk/health": {
+      "get": {
+        "summary": "M1 risk module health",
+        "description": "Confirms M1 risk router is mounted. Any authenticated role.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Module OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "model_version": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/risk/assess": {
+      "post": {
+        "summary": "Assess overdue risk for loan terms",
+        "description": "M1 scoring endpoint. Takes origination-time loan terms, calls the internal FastAPI model service, returns overdue_prob (0-1), risk_pct (0-100), band, recommendation and SHAP log-odds factors. Returns 503 if the model service is down. Optional persist writes tenant risk_assessments + shap_explanations. Roles: loan_officer, branch_manager, executive, admin.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "features"
+                ],
+                "properties": {
+                  "persist": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "loanApplicationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "features": {
+                    "type": "object",
+                    "required": [
+                      "contract_amount",
+                      "interest_amount",
+                      "installment",
+                      "tenure",
+                      "branch",
+                      "product_category",
+                      "product_type",
+                      "product"
+                    ],
+                    "properties": {
+                      "contract_amount": {
+                        "type": "number"
+                      },
+                      "interest_amount": {
+                        "type": "number"
+                      },
+                      "installment": {
+                        "type": "number"
+                      },
+                      "tenure": {
+                        "type": "integer"
+                      },
+                      "branch": {
+                        "type": "string"
+                      },
+                      "product_category": {
+                        "type": "string"
+                      },
+                      "product_type": {
+                        "type": "string"
+                      },
+                      "product": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Risk score result"
+          },
+          "400": {
+            "description": "Invalid body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Risk model service unavailable"
           }
         }
       }

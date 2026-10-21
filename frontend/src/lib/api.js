@@ -217,6 +217,30 @@ export async function loginUser(email, password) {
 }
 
 /**
+ * M1 credit risk assessment
+ * POST /api/risk/assess
+ * @param {{ features: Record<string, unknown>, persist?: boolean, loanApplicationId?: string }} body
+ */
+export async function assessRisk(body) {
+  return apiRequest("/api/risk/assess", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
+/**
+ * M1 officer decision (accept / override a persisted assessment)
+ * POST /api/risk/decisions
+ * @param {{ assessmentId: string, decision: 'accept' | 'override', reasoning?: string, explanationMode?: string }} body
+ */
+export async function saveRiskDecision(body) {
+  return apiRequest("/api/risk/decisions", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
+/**
  * Verify session with GET /auth/me ONCE per page load, cached in memory.
  * Does not re-fetch on every route change.
  */

@@ -1,0 +1,43 @@
+meta {
+  name: 02 Assess Risk
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/risk/assess
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "persist": false,
+    "features": {
+      "contract_amount": 50000,
+      "interest_amount": 20000,
+      "installment": 1950,
+      "tenure": 36,
+      "branch": "Kandy",
+      "product_category": "Micro Loan",
+      "product_type": "Weekly",
+      "product": "SASIRI LOAN 01 (sl01)"
+    }
+  }
+}
+
+docs {
+  # Assess Risk
+  Scores origination-time loan terms -> overdue_prob, risk_band, recommendation, top_factors (SHAP log-odds).
+  Requires the FastAPI model service (M1_MODEL_URL, default http://127.0.0.1:8001); returns 503 if it is down.
+  Roles: loan_officer, branch_manager, executive, admin.
+  Set persist=true and loanApplicationId (UUID) to write risk_assessments + shap_explanations.
+}

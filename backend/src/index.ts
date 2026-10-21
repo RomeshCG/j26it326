@@ -19,6 +19,7 @@ import { publicDomainRouter, tenantDomainRouter } from "./routes/domains.js"
 import { registrationRouter } from "./routes/registration.js"
 import { tenantRouter } from "./routes/tenant.js"
 import { exampleRouter } from "./routes/_example.js"
+import { riskRouter } from "./routes/risk.js"
 import { internalAgentDispatchRouter } from "./routes/internal-agent-dispatch.js"
 import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
 import { configureTrustProxy } from "./middleware/rate-limit.js"
@@ -138,6 +139,8 @@ app.use("/auth", registrationRouter)
 app.use("/api/tenant", tenantRouter)
 app.use("/api/tenant", tenantDomainRouter)
 
+// M1 — Credit risk (auth + tenant context required inside router)
+app.use("/api/risk", riskRouter)
 // Internal agent → Node dispatch (shared service key; not user JWT)
 app.use("/api/internal", internalAgentDispatchRouter)
 
@@ -250,7 +253,7 @@ process.on("SIGTERM", shutdown)
 
 app.listen(port, () => {
   console.log(`IMFS backend listening on http://localhost:${port}`)
-  console.log(`Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me`)
+  console.log(`Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me  POST /api/risk/assess`)
   console.log("M3 routes: /api/m3/products  /api/m3/borrowers  /api/m3/groups")
   console.log("           /api/m3/applications  /api/m3/loans  /api/m3/collections")
   console.log("           /api/m3/par  /api/m3/ews")

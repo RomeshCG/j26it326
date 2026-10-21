@@ -13,6 +13,8 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
+import { saveRiskDecision } from "@/lib/api"
+
 import { recordDecision } from "./decision-log"
 import { getAiRecommendation } from "./mock-data"
 
@@ -20,6 +22,16 @@ const DECISION_LABELS = {
   approve: "APPROVE",
   reject: "REJECT",
   "request-review": "REQUEST REVIEW",
+}
+
+/** Map UI choice to API accept/override relative to the model's recommendation. */
+function toApiDecision(officerDecision, apiRecommendation) {
+  const ai = String(apiRecommendation || "").toLowerCase()
+  const agrees =
+    (officerDecision === "approve" && ai === "approve") ||
+    (officerDecision === "reject" && ai === "reject") ||
+    (officerDecision === "request-review" && ai === "review")
+  return agrees ? "accept" : "override"
 }
 
 export default function OfficerDecisionPanel({
@@ -35,6 +47,8 @@ export default function OfficerDecisionPanel({
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [recordId, setRecordId] = useState(null)
+  const [submitError, setSubmitError] = useState(null)
+  const [savedViaApi, setSavedViaApi] = useState(false)
 
   const recommendation = getAiRecommendation(report, trustStatus)
   const effectiveDecision = decision ?? preselectDecision ?? null
@@ -43,31 +57,58 @@ export default function OfficerDecisionPanel({
     onDecisionChange(next)
     setSubmitted(false)
     setRecordId(null)
+    setSubmitError(null)
+    setSavedViaApi(false)
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!effectiveDecision || !reasoning.trim()) return
 
     setSubmitting(true)
-    window.setTimeout(() => {
-      const record = recordDecision({
-        applicationId: report.applicationId,
-        applicantName: report.applicant.name,
-        applicantNic: report.applicant.nic,
-        aiRecommendation: recommendation.recommendation,
-        aiRisk: recommendation.risk,
-        aiConfidence: recommendation.confidence,
-        officerDecision: DECISION_LABELS[effectiveDecision],
-        officerReasoning: reasoning.trim(),
-        explanationStyle: trustStatus,
-        matchedAi:
-          (effectiveDecision === "approve" && recommendation.recommendation === "APPROVE") ||
-          (effectiveDecision === "reject" && recommendation.recommendation === "REJECT"),
-      })
-      setSubmitting(false)
+    setSubmitError(null)
+
+    const localRecord = recordDecision({
+      applicationId: report.applicationId,
+      applicantName: report.applicant.name,
+      applicantNic: report.applicant.nic,
+      aiRecommendation: recommendation.recommendation,
+      aiRisk: recommendation.risk,
+      aiConfidence: recommendation.confidence,
+      officerDecision: DECISION_LABELS[effectiveDecision],
+      officerReasoning: reasoning.trim(),
+      explanationStyle: trustStatus,
+      matchedAi:
+        (effectiveDecision === "approve" && recommendation.recommendation === "APPROVE") ||
+        (effectiveDecision === "reject" && recommendation.recommendation === "REJECT"),
+    })
+
+    try {
+      if (report.assessmentId) {
+        const apiDecision = toApiDecision(effectiveDecision, report.recommendation)
+        const api = await saveRiskDecision({
+          assessmentId: report.assessmentId,
+          decision: apiDecision,
+          reasoning: reasoning.trim(),
+          explanationMode: trustStatus || undefined,
+        })
+        setRecordId(api.decisionId || localRecord.id)
+        setSavedViaApi(true)
+      } else {
+        setRecordId(localRecord.id)
+        setSavedViaApi(false)
+        setSubmitError(
+          "Live assessment was not persisted (no assessmentId). Decision saved locally only."
+        )
+      }
       setSubmitted(true)
-      setRecordId(record.id)
-    }, 700)
+    } catch (err) {
+      setRecordId(localRecord.id)
+      setSavedViaApi(false)
+      setSubmitError(err?.message || "API save failed; kept a local research log copy.")
+      setSubmitted(true)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const canSubmit = Boolean(effectiveDecision && reasoning.trim())
@@ -141,11 +182,17 @@ export default function OfficerDecisionPanel({
               onReasoningChange(event.target.value)
               setSubmitted(false)
               setRecordId(null)
+              setSubmitError(null)
+              setSavedViaApi(false)
             }}
             placeholder="Explain your decision — required for research recording…"
             rows={4}
           />
         </div>
+
+        {submitError ? (
+          <p className="text-sm text-amber-800 dark:text-amber-200">{submitError}</p>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-border/50 pt-4">
           <Button
@@ -166,7 +213,7 @@ export default function OfficerDecisionPanel({
                   <span className="font-medium text-foreground">
                     {DECISION_LABELS[effectiveDecision]}
                   </span>{" "}
-                  · AI-assisted mode
+                  · {savedViaApi ? "saved to decision_log" : "local research log"}
                 </p>
                 {recordId ? (
                   <p>
