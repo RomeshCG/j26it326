@@ -167,6 +167,17 @@ export async function requestRiskScore(id) {
   return request(`/applications/${id}/risk-score`, { method: "POST" })
 }
 
+/**
+ * Pre-submission risk assessment directly from M1's model / contract.
+ * Allows loan officers to see live M1 credit scores inline in the application form.
+ */
+export async function assessPreApplicationRisk(formData) {
+  return request("/applications/assess-risk", {
+    method: "POST",
+    body: JSON.stringify(formData),
+  })
+}
+
 // ── Loans & Disbursements ─────────────────────────────────────────────────────
 
 export async function getLoans(params = {}) {

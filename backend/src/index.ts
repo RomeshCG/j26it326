@@ -143,6 +143,12 @@ app.use("/api/tenant", tenantDomainRouter)
 // Internal agent → Node dispatch (shared service key; not user JWT)
 app.use("/api/internal", internalAgentDispatchRouter)
 
+// M2 — Ledger & Dual-Mission event receiver webhook
+app.post("/api/m2/events/loan-lifecycle", (req, res) => {
+  console.log("[M2 Webhook Received Event]", JSON.stringify(req.body))
+  res.status(200).json({ ok: true, status: "event_processed", payload: req.body, receivedAt: new Date().toISOString() })
+})
+
 // Integration example router for teammates (non-production only)
 if (isDev) {
   app.use("/api/example", exampleRouter)

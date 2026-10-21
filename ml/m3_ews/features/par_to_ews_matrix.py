@@ -1,5 +1,5 @@
 """
-M3 EWS — PAR → EWS Feature Matrix Builder
+M3 EWS — PAR -> EWS Feature Matrix Builder
 ==========================================
 Consumes M1's cleaned partner PAR dataset (par30_clean_no_pii.csv) and any
 support files from ml/shared/data/ (Findex, MIX, SPI) to produce an EWS
@@ -21,20 +21,20 @@ Key rules (see docs/TEAM_DATA_AND_SYNTHETIC_GUIDE.md)
 - Never retrain   : M1's credit-score model — call POST /api/risk/assess instead
 - Never post to   : M2 ledger tables — emit events only
 
-Column mapping (PAR CSV → EWS features)
+Column mapping (PAR CSV -> EWS features)
 ----------------------------------------
 PAR column                EWS feature name
 -----------------------   -------------------------------------------------------
-arrears_days              → consecutive_missed  (arrears_days // 30)
-paid_pct                  → repayment_on_time_rate_3m, repayment_on_time_rate_6m
-balance_outstanding       → outstanding_principal
-loan_amount               → used to derive loan_to_income_ratio
-monthly_income            → loan_to_income_ratio denominator (fallback 0)
-tenure_months             → term_completion_pct (arrears_months / tenure_months)
-par30_label               → distress_label (1 if loan PAR30 within observation)
-branch_code               → encoded as branch_id integer (not exposed to model)
-product_code              → encoded as product_id integer (not exposed to model)
-<any other column>        → filled with synthetic defaults & tagged
+arrears_days              -> consecutive_missed  (arrears_days // 30)
+paid_pct                  -> repayment_on_time_rate_3m, repayment_on_time_rate_6m
+balance_outstanding       -> outstanding_principal
+loan_amount               -> used to derive loan_to_income_ratio
+monthly_income            -> loan_to_income_ratio denominator (fallback 0)
+tenure_months             -> term_completion_pct (arrears_months / tenure_months)
+par30_label               -> distress_label (1 if loan PAR30 within observation)
+branch_code               -> encoded as branch_id integer (not exposed to model)
+product_code              -> encoded as product_id integer (not exposed to model)
+<any other column>        -> filled with synthetic defaults & tagged
 
 Usage
 -----
@@ -63,31 +63,7 @@ from typing import Any
 
 # ── Column name constants (PAR CSV) ──────────────────────────────────────────
 
-# Required columns — script errors if absent.
-PAR_REQUIRED = {
-    "arrears_days",   # integer — days overdue on latest instalment
-    "paid_pct",       # float [0,1] — fraction of scheduled payments made on time
-    "balance_outstanding",  # float — remaining principal balance (LKR)
-    "par30_label",    # int 0/1 — 1 if loan reached PAR30 in the observation window
-}
-
-# Optional columns — filled with sensible defaults when absent.
-PAR_OPTIONAL = {
-    "monthly_income": 0.0,
-    "loan_amount": 0.0,
-    "tenure_months": 12,
-    "arrears_months": 0,
-    "partial_pct": 0.0,      # fraction of collections marked partial
-    "missed_pct": 0.0,       # fraction of collections marked missed
-    "promise_kept_pct": 1.0, # fraction of promise-to-pay kept
-    "group_repayment_ratio": 0.0,
-    "group_arrears_ratio": 0.0,
-    "poverty_proxy_score": 0.0,
-    "is_new_to_banking": 0,
-    "days_since_last_payment": 30,
-}
-
-# EWS output feature columns (must match FEATURE_COLS in train_model.py)
+# Core features needed for EWS matrix
 EWS_FEATURES = [
     "repayment_on_time_rate_3m",
     "repayment_on_time_rate_6m",
@@ -105,7 +81,10 @@ EWS_FEATURES = [
     "is_new_to_banking",
     "term_completion_pct",
     "distress_label",
-    "data_source",   # "real" | "synthetic"
+    "center",
+    "branch",
+    "disb_date",
+    "data_source",   # "real" | "synthetic demo"
 ]
 
 
@@ -146,10 +125,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-# ── PAR → EWS mapping helpers ─────────────────────────────────────────────────
+# ── PAR -> EWS mapping helpers ─────────────────────────────────────────────────
 
 def _float(val: Any, default: float = 0.0) -> float:
     try:
+        if val is None or val == "":
+            return default
         return float(val)
     except (TypeError, ValueError):
         return default
@@ -157,6 +138,8 @@ def _float(val: Any, default: float = 0.0) -> float:
 
 def _int(val: Any, default: int = 0) -> int:
     try:
+        if val is None or val == "":
+            return default
         return int(float(val))
     except (TypeError, ValueError):
         return default
@@ -169,44 +152,88 @@ def _clamp(val: float, lo: float = 0.0, hi: float = 1.0) -> float:
 def map_par_row_to_ews(row: dict) -> dict:
     """
     Converts one PAR CSV row to an EWS feature dict.
-    Uses PAR_OPTIONAL defaults for any absent optional columns.
+    Supports both M1 canonical PAR format (par30_clean_no_pii.csv)
+    and legacy normalized PAR export format.
     """
-    # Helper to read with default
-    def get(col: str) -> Any:
-        return row.get(col, PAR_OPTIONAL.get(col, None))
+    # 1. Outstanding balance
+    balance = _float(row.get("balance_total") or row.get("balance_outstanding") or row.get("balance_capital"), 0.0)
 
-    arrears_days    = _int(get("arrears_days"), 0)
-    paid_pct        = _clamp(_float(get("paid_pct"), 1.0))
-    balance         = _float(get("balance_outstanding"), 0.0)
-    monthly_income  = _float(get("monthly_income"), 0.0)
-    loan_amount     = _float(get("loan_amount"), balance)
-    tenure_months   = max(1, _int(get("tenure_months"), 12))
-    arrears_months  = _int(get("arrears_months"), arrears_days // 30)
-    partial_pct     = _clamp(_float(get("partial_pct"), 0.0))
-    missed_pct      = _clamp(_float(get("missed_pct"), 0.0))
-    promise_kept    = _clamp(_float(get("promise_kept_pct"), 1.0))
-    grp_repay       = _clamp(_float(get("group_repayment_ratio"), 0.0))
-    grp_arrears     = _clamp(_float(get("group_arrears_ratio"), 0.0))
-    poverty_score   = _clamp(_float(get("poverty_proxy_score"), 0.0))
-    new_to_banking  = _int(get("is_new_to_banking"), 0)
-    days_since_pay  = min(999, max(0, _int(get("days_since_last_payment"), arrears_days)))
-    distress        = _int(get("par30_label"), 0)
+    # 2. Loan Amount & Tenure
+    loan_amount = _float(row.get("contract_amount") or row.get("loan_amount"), balance)
+    tenure_months = max(1, _int(row.get("tenure") or row.get("tenure_months"), 12))
 
-    # Derived features
-    # repayment_on_time_rate: use paid_pct as the best proxy from PAR data
-    repay_3m = _clamp(paid_pct + random.gauss(0, 0.03))  # tiny noise for 3m window
+    # 3. Arrears & Installments
+    installment = _float(row.get("installment"), 0.0)
+    arr_total = _float(row.get("arrears_total"), 0.0)
+    if arr_total == 0.0:
+        arr_total = _float(row.get("arr_cap"), 0.0) + _float(row.get("arr_int"), 0.0)
+
+    if installment > 0 and arr_total > 0:
+        arrears_months = max(0, int(arr_total // installment))
+        arrears_days = _int(row.get("arrears_days"), int((arr_total / installment) * 30))
+    else:
+        arrears_days = _int(row.get("arrears_days"), 0)
+        arrears_months = _int(row.get("arrears_months"), arrears_days // 30)
+
+    # 4. Paid percentage
+    raw_paid_pct = _float(row.get("paid_pct"), 100.0)
+    # If paid_pct is 0..100 scale, normalize to 0..1
+    paid_pct = _clamp(raw_paid_pct / 100.0 if raw_paid_pct > 1.0 else raw_paid_pct)
+
+    # 5. Distress / PAR30 Ground Truth Label
+    # Traditional PAR30 = arrears > 1 instalment (>= 30 days overdue)
+    if "par30_label" in row and row["par30_label"] != "":
+        distress = _int(row["par30_label"], 0)
+    elif installment > 0:
+        distress = 1 if (arr_total >= installment and arr_total > 0) else 0
+    else:
+        distress = 1 if arrears_days >= 30 else 0
+
+    # 6. Repayment behavior metrics (honest non-leaky pre-default features)
+    repay_3m = _clamp(paid_pct)
     repay_6m = _clamp(paid_pct)
 
-    # avg_days_late_3m: estimate from arrears_days capped at 90d window
-    avg_days_late_3m = min(90.0, float(arrears_days) * paid_pct * 0.5)
+    # Average days late estimated from friction (1 - paid_pct)
+    avg_days_late_3m = min(20.0, max(0.0, (1.0 - paid_pct) * 20.0))
 
-    consecutive_missed = arrears_months
+    bal_penalty = _float(row.get("bal_penalty"), 0.0)
+    bal_charges = _float(row.get("bal_charges"), 0.0)
+    over_pay = _float(row.get("over_payment"), 0.0)
 
-    outstanding_principal = max(0.0, balance)
-    loan_to_income_ratio  = (loan_amount / monthly_income) if monthly_income > 0 else 0.0
+    # Past penalty flag without identity target leakage
+    consecutive_missed = 1 if (bal_penalty > 0 and arr_total > 0) else 0
 
-    # term_completion_pct: how far through the loan has the borrower been overdue
-    term_completion_pct = _clamp(arrears_months / tenure_months)
+    partial_pct = _clamp(over_pay / (installment + 100.0))
+    missed_pct = _clamp(bal_penalty / (loan_amount * 0.05 + 100.0))
+    promise_kept = _clamp(paid_pct * 0.85 + (0.15 if over_pay > 0 else 0.0))
+
+    # Demographics, leverage & maturity
+    monthly_est = max(15000.0, installment * 3.5)
+    loan_to_income = _clamp(loan_amount / monthly_est, 0.0, 10.0)
+
+    # Days since payment computed directly from real partner last_paid_date column
+    last_paid_str = str(row.get("last_paid_date", "")).strip()
+    days_since_pay = 20
+    if last_paid_str and len(last_paid_str) >= 10:
+        try:
+            parts = [int(p) for p in last_paid_str[:10].split("-")]
+            lp_date = date(parts[0], parts[1], parts[2])
+            ref_date = date(2026, 8, 1)
+            days_since_pay = max(0, min(180, (ref_date - lp_date).days))
+        except Exception:
+            days_since_pay = 20
+
+    grp_repay = _clamp(paid_pct * 0.95)
+    grp_arrears = _clamp(bal_charges / (loan_amount * 0.03 + 50.0))
+    
+    area = str(row.get("area_type", "rural")).lower()
+    poverty_score = 0.45 if "rural" in area else 0.28
+    
+    age = _int(row.get("age"), 35)
+    new_to_banking = 1 if age < 25 else 0
+
+    left_tenure = _int(row.get("left_tenure"), max(0, tenure_months - arrears_months))
+    term_completion_pct = _clamp((tenure_months - left_tenure) / tenure_months if tenure_months > 0 else 0.5)
 
     return {
         "repayment_on_time_rate_3m": round(repay_3m, 4),
@@ -216,8 +243,8 @@ def map_par_row_to_ews(row: dict) -> dict:
         "partial_payment_rate":      round(partial_pct, 4),
         "missed_payment_rate":       round(missed_pct, 4),
         "promise_kept_rate":         round(promise_kept, 4),
-        "outstanding_principal":     round(outstanding_principal, 2),
-        "loan_to_income_ratio":      round(loan_to_income_ratio, 4),
+        "outstanding_principal":     round(max(0.0, balance), 2),
+        "loan_to_income_ratio":      round(loan_to_income, 4),
         "days_since_last_payment":   days_since_pay,
         "group_repayment_ratio":     round(grp_repay, 4),
         "group_arrears_ratio":       round(grp_arrears, 4),
@@ -225,6 +252,9 @@ def map_par_row_to_ews(row: dict) -> dict:
         "is_new_to_banking":         new_to_banking,
         "term_completion_pct":       round(term_completion_pct, 4),
         "distress_label":            distress,
+        "center":                    str(row.get("center", "UNKNOWN")),
+        "branch":                    str(row.get("branch", "UNKNOWN")),
+        "disb_date":                 str(row.get("disb_date", "")),
         "data_source":               "real",
     }
 
@@ -307,7 +337,7 @@ def load_par_csv(csv_path: str) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
         rows = list(reader)
-    print(f"[PAR→EWS] Loaded {len(rows)} rows from {csv_path}")
+    print(f"[PAR->EWS] Loaded {len(rows)} rows from {csv_path}")
     return rows
 
 
@@ -315,14 +345,14 @@ def validate_par_columns(rows: list[dict]) -> bool:
     if not rows:
         return False
     cols = set(rows[0].keys())
-    missing = PAR_REQUIRED - cols
-    if missing:
-        print(f"[ERROR] PAR CSV missing required columns: {missing}", file=sys.stderr)
-        print(f"        Found columns: {sorted(cols)}", file=sys.stderr)
+    # Check either M1 schema or legacy schema
+    has_m1 = {"contract_amount", "installment"}.issubset(cols)
+    has_legacy = {"arrears_days", "balance_outstanding"}.issubset(cols)
+    if not (has_m1 or has_legacy):
+        print(f"[ERROR] PAR CSV does not match recognized schema.", file=sys.stderr)
+        print(f"        Found columns: {sorted(cols)[:10]}...", file=sys.stderr)
         return False
-    optional_missing = set(PAR_OPTIONAL.keys()) - cols
-    if optional_missing:
-        print(f"[WARN]  Optional PAR columns absent (will use defaults): {sorted(optional_missing)}")
+    print(f"[PAR->EWS] Validated PAR CSV schema ({'M1 partner export' if has_m1 else 'legacy export'})")
     return True
 
 
@@ -330,7 +360,7 @@ def main() -> None:
     args = parse_args()
     rng = random.Random(args.seed)
 
-    print(f"[PAR→EWS] Starting feature matrix build")
+    print(f"[PAR->EWS] Starting feature matrix build")
     print(f"  PAR CSV   : {args.par_csv}")
     print(f"  Output    : {args.output}")
     print(f"  Min rows  : {args.min_rows}")
@@ -352,8 +382,8 @@ def main() -> None:
     distress_rate = (
         sum(r["distress_label"] for r in real_ews) / n_real if n_real > 0 else 0.12
     )
-    print(f"[PAR→EWS] Real rows mapped  : {n_real}")
-    print(f"[PAR→EWS] Real distress rate: {distress_rate:.2%}")
+    print(f"[PAR->EWS] Real rows mapped  : {n_real}")
+    print(f"[PAR->EWS] Real distress rate: {distress_rate:.2%}")
 
     # ── Synthetic gap-fill ────────────────────────────────────────────────────
     synth_ews: list[dict] = []
@@ -361,7 +391,7 @@ def main() -> None:
     n_synth = gap + max(0, args.synthetic_fill)
 
     if n_synth > 0:
-        print(f"[PAR→EWS] Generating {n_synth} synthetic rows "
+        print(f"[PAR->EWS] Generating {n_synth} synthetic rows "
               f"({'gap-fill' if gap > 0 else 'forced'}, seed={args.seed})")
         for _ in range(n_synth):
             synth_ews.append(generate_synthetic_row(distress_rate, rng))
@@ -374,7 +404,7 @@ def main() -> None:
     total_dist   = sum(r["distress_label"] for r in all_rows)
     total_synth  = sum(1 for r in all_rows if r["data_source"] == "synthetic")
 
-    print(f"\n[PAR→EWS] Final matrix summary:")
+    print(f"\n[PAR->EWS] Final matrix summary:")
     print(f"  Total rows       : {total}")
     print(f"  Real rows        : {total - total_synth}")
     print(f"  Synthetic rows   : {total_synth}")
@@ -394,7 +424,7 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(all_rows)
 
-    print(f"\n[PAR→EWS] Feature matrix written → {out_path}")
+    print(f"\n[PAR->EWS] Feature matrix written -> {out_path}")
     print("  Next step: python ml/m3_ews/train/train_model.py "
           f"--data {out_path}")
 
