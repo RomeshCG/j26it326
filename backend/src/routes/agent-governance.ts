@@ -60,6 +60,7 @@ import {
   buildNlqInputPayload,
   buildNlqIntentSystemPrompt,
   buildNlqToolsUsed,
+  questionSuggestsNlqCountIntent,
   resolveNlqIntentFromModel,
   roleMayRunNlqIntent,
   runNlqTool,
@@ -67,8 +68,25 @@ import {
   type NlqTenantPrisma,
 } from "../lib/agent-a4-nlq.js"
 import {
+  A4_KNOWLEDGE_DISCLAIMER,
+  A4_KNOWLEDGE_MODEL_VERSION,
+  A4_KNOWLEDGE_PROMPT_VERSION,
+  hardRefuseA4Question,
+  isA4KnowledgeStrictPromptEnabled,
+  knowledgeGenerationMetaFromOutcome,
+  resolveGroundedMicroFlowKnowledge,
+  resolveKnowledgeWithOptionalLengthRetry,
+  unsupportedMessageForReason,
+  type A4KnowledgeGenerationMeta,
+} from "../lib/agent-a4-knowledge.js"
+import {
+  domainGateTelemetry,
+  resolveA4KnowledgeDomainGate,
+} from "../lib/a4-domain-gate.js"
+import {
   OllamaUnavailableError,
   ollamaChatJson,
+  type OllamaErrorCode,
 } from "../lib/ollama-client.js"
 import type { Prisma } from "../../node_modules/.prisma/tenant-client/index.js"
 
@@ -801,11 +819,76 @@ export async function handleEvaluateBudgetThreshold(
   }
 }
 
+/** Safe 503 payload — keep legacy `error` string; add code/stage/durationMs. */
+function respondOllamaUnavailable(
+  res: Response,
+  err: OllamaUnavailableError,
+  stage: "nlq_intent" | "knowledge",
+  durationMs: number,
+  knowledgeGeneration?: A4KnowledgeGenerationMeta
+): void {
+  const code: OllamaErrorCode = err.code
+  // Log diagnostics without URLs/prompts (message already redacts URLs).
+  const kg =
+    knowledgeGeneration != null
+      ? ` attempts=${knowledgeGeneration.attempts}` +
+        ` retriedForLength=${knowledgeGeneration.retriedForLength}` +
+        ` attemptDurationsMs=${knowledgeGeneration.attemptDurationsMs.join(",")}` +
+        ` numPredict=${knowledgeGeneration.numPredict}`
+      : ""
+  console.warn(
+    `[agent-governance] Ollama unavailable stage=${stage} code=${code}` +
+      ` durationMs=${durationMs}` +
+      (err.httpStatus != null ? ` httpStatus=${err.httpStatus}` : "") +
+      kg
+  )
+  res.status(503).json({
+    error: "NLQ model unavailable",
+    code,
+    stage,
+    durationMs,
+    ...(knowledgeGeneration ? { knowledgeGeneration } : {}),
+  })
+}
+
+function knowledgeResponseBody(
+  answer: string,
+  extras?: {
+    ollamaModel?: string
+    groundedTopic?: string
+    knowledgeGeneration?: A4KnowledgeGenerationMeta
+    domainGate?: Record<string, unknown>
+  }
+) {
+  return {
+    kind: "knowledge" as const,
+    supported: true,
+    dispatched: false,
+    answer,
+    disclaimer: A4_KNOWLEDGE_DISCLAIMER,
+    modelVersion: A4_KNOWLEDGE_MODEL_VERSION,
+    promptVersion: A4_KNOWLEDGE_PROMPT_VERSION,
+    ...(isA4KnowledgeStrictPromptEnabled()
+      ? { knowledgeStrictPrompt: true }
+      : {}),
+    ...(extras?.ollamaModel ? { ollamaModel: extras.ollamaModel } : {}),
+    ...(extras?.groundedTopic
+      ? { groundedTopic: extras.groundedTopic, grounded: true }
+      : {}),
+    ...(extras?.knowledgeGeneration
+      ? { knowledgeGeneration: extras.knowledgeGeneration }
+      : {}),
+    ...(extras?.domainGate ? { domainGate: extras.domainGate } : {}),
+  }
+}
+
 /**
  * POST /agent-actions/nlq/query
  *
- * A4 v1: Ollama intent classification → per-tool RBAC → grounded Prisma count
- * → dispatch nlq_query (Tier 1). Numbers never come from the model.
+ * A4: (1) Node hard-refuse → (2) a4-intent-v2 NLQ counts + Tier 1 dispatch
+ * only when lexical count cues exist → (3) grounded MicroFlow product copy →
+ * (4) optional generative knowledge (no dispatch). Numbers never come from the
+ * model on the NLQ path. Knowledge answers are educational only.
  */
 export async function handleNlqQuery(
   req: Request,
@@ -824,91 +907,210 @@ export async function handleNlqQuery(
       return
     }
     const role = roleRaw
+    const question = validated.question
 
-    let ollamaModel: string
-    let rawContent: string
-    try {
-      const chat = await ollamaChatJson({
-        messages: [
-          { role: "system", content: buildNlqIntentSystemPrompt() },
-          { role: "user", content: validated.question },
-        ],
+    const hardRefuse = hardRefuseA4Question(question)
+    if (hardRefuse) {
+      res.status(200).json({
+        kind: "unsupported",
+        supported: false,
+        dispatched: false,
+        reason: hardRefuse,
+        message: unsupportedMessageForReason(hardRefuse),
       })
-      ollamaModel = chat.model
-      rawContent = chat.content
+      return
+    }
+
+    // P0: skip a4-intent-v2 Ollama unless lexical count evidence exists.
+    // Same fail-closed gate as post-model questionSupportsIntent — no DB
+    // counts without cues (ambiguous/mixed already hard-refused above).
+    let nlqUnsupportedReason: string | null = null
+
+    if (questionSuggestsNlqCountIntent(question)) {
+      let ollamaModel: string
+      let rawContent: string
+      const nlqStarted = Date.now()
+      try {
+        const chat = await ollamaChatJson({
+          messages: [
+            { role: "system", content: buildNlqIntentSystemPrompt() },
+            { role: "user", content: question },
+          ],
+        })
+        ollamaModel = chat.model
+        rawContent = chat.content
+      } catch (err: unknown) {
+        if (err instanceof OllamaUnavailableError) {
+          respondOllamaUnavailable(
+            res,
+            err,
+            "nlq_intent",
+            Date.now() - nlqStarted
+          )
+          return
+        }
+        throw err
+      }
+
+      const parsed = resolveNlqIntentFromModel(question, rawContent)
+      if (parsed.status === "invalid") {
+        res.status(422).json({ error: parsed.reason })
+        return
+      }
+
+      if (parsed.status === "ok") {
+        if (!roleMayRunNlqIntent(role, parsed.value.intent)) {
+          const message =
+            parsed.value.intent === "count_pending_tier3"
+              ? "Not authorized for pending Tier 3 metrics"
+              : "Not authorized for agent action metrics"
+          res.status(403).json({ error: message })
+          return
+        }
+
+        const tenantPrisma = req.tenantPrisma as TenantPrisma
+        const facts = await runNlqTool(
+          tenantPrisma as unknown as NlqTenantPrisma,
+          parsed.value
+        )
+        const answer = buildNlqAnswer(facts)
+        const inputPayload = buildNlqInputPayload({
+          question,
+          facts,
+          answer,
+          ollamaModel,
+        })
+
+        const result = await dispatchAgentAction(tenantPrisma, {
+          actionType: A4_NLQ_ACTION_TYPE,
+          action: buildNlqActionText(question, facts),
+          reason:
+            "A4 NLQ v1: grounded tenant agent_actions count; answer from template only.",
+          modelVersion: A4_NLQ_MODEL_VERSION,
+          promptVersion: A4_NLQ_PROMPT_VERSION,
+          toolsUsed: buildNlqToolsUsed(facts),
+          inputPayload,
+          ip: req.ip ?? null,
+          userAgent: (req.headers["user-agent"] as string) ?? null,
+        })
+
+        if (result.status === "ok") {
+          res.status(200).json({
+            kind: "nlq",
+            supported: true,
+            dispatched: true,
+            intent: facts.intent,
+            answer,
+            facts,
+            dispatch: result,
+          })
+          return
+        }
+        if (result.status === "conflict") {
+          res.status(409).json({ error: result.error })
+          return
+        }
+        res.status(400).json({ error: result.error })
+        return
+      }
+
+      nlqUnsupportedReason = parsed.reason
+    }
+
+    // Grounded MicroFlow product facts (no Ollama) before generative path
+    const grounded = resolveGroundedMicroFlowKnowledge(question)
+    if (grounded.ok) {
+      res.status(200).json(
+        knowledgeResponseBody(grounded.answer, {
+          groundedTopic: grounded.topic,
+        })
+      )
+      return
+    }
+
+    // Domain gate: Stage-0 (mode=off) or Stage-0+ML shadow/enforce.
+    // ML never runs on NLQ/RBAC/hardRefuse paths above. Enforce default off.
+    // Hybrid/ml_tau can rescue Stage-0 false refuses; never grants live data tools.
+    const domainGate = resolveA4KnowledgeDomainGate(question)
+    const gateMeta = domainGateTelemetry(domainGate)
+    if (domainGate.mode === "shadow") {
+      console.info(
+        "[a4-domain-gate:shadow]",
+        JSON.stringify(gateMeta)
+      )
+    }
+    if (!domainGate.allowKnowledge) {
+      res.status(200).json({
+        kind: "unsupported",
+        supported: false,
+        dispatched: false,
+        reason: "off_topic",
+        message: unsupportedMessageForReason("off_topic"),
+        ...(domainGate.mode !== "off" ? { domainGate: gateMeta } : {}),
+      })
+      return
+    }
+
+    // Generative knowledge (no agent_actions dispatch). At most one length retry.
+    const knowledgeStarted = Date.now()
+    let partialKnowledgeMeta: A4KnowledgeGenerationMeta | undefined
+    let knowledgeOutcome: Awaited<
+      ReturnType<typeof resolveKnowledgeWithOptionalLengthRetry>
+    >
+    try {
+      knowledgeOutcome = await resolveKnowledgeWithOptionalLengthRetry({
+        question,
+        onAttemptComplete: (meta) => {
+          partialKnowledgeMeta = meta
+        },
+        chat: (args) =>
+          ollamaChatJson({
+            messages: args.messages,
+            temperature: args.temperature,
+            numPredict: args.numPredict,
+            timeoutMs: args.timeoutMs,
+          }),
+      })
     } catch (err: unknown) {
       if (err instanceof OllamaUnavailableError) {
-        res.status(503).json({ error: "NLQ model unavailable" })
+        respondOllamaUnavailable(
+          res,
+          err,
+          "knowledge",
+          Date.now() - knowledgeStarted,
+          partialKnowledgeMeta
+        )
         return
       }
       throw err
     }
 
-    const parsed = resolveNlqIntentFromModel(validated.question, rawContent)
-    if (parsed.status === "invalid") {
-      res.status(422).json({ error: parsed.reason })
-      return
-    }
-    if (parsed.status === "unsupported") {
-      res.status(200).json({
-        supported: false,
-        dispatched: false,
-        reason: parsed.reason,
-      })
-      return
-    }
-
-    if (!roleMayRunNlqIntent(role, parsed.value.intent)) {
-      const message =
-        parsed.value.intent === "count_pending_tier3"
-          ? "Not authorized for pending Tier 3 metrics"
-          : "Not authorized for agent action metrics"
-      res.status(403).json({ error: message })
+    const knowledgeMeta = knowledgeGenerationMetaFromOutcome(knowledgeOutcome)
+    const knowledge = knowledgeOutcome.result
+    if (knowledge.status === "ok") {
+      res.status(200).json(
+        knowledgeResponseBody(knowledge.answer, {
+          ollamaModel: knowledgeOutcome.model,
+          knowledgeGeneration: knowledgeMeta,
+          ...(domainGate.mode !== "off" ? { domainGate: gateMeta } : {}),
+        })
+      )
       return
     }
 
-    const tenantPrisma = req.tenantPrisma as TenantPrisma
-    const facts = await runNlqTool(
-      tenantPrisma as unknown as NlqTenantPrisma,
-      parsed.value
-    )
-    const answer = buildNlqAnswer(facts)
-    const inputPayload = buildNlqInputPayload({
-      question: validated.question,
-      facts,
-      answer,
-      ollamaModel,
+    const reason =
+      knowledge.status === "unsupported" || knowledge.status === "invalid"
+        ? knowledge.reason
+        : (nlqUnsupportedReason ?? "unsupported")
+    res.status(200).json({
+      kind: "unsupported",
+      supported: false,
+      dispatched: false,
+      reason,
+      message: unsupportedMessageForReason(reason),
+      knowledgeGeneration: knowledgeMeta,
+      ...(domainGate.mode !== "off" ? { domainGate: gateMeta } : {}),
     })
-
-    const result = await dispatchAgentAction(tenantPrisma, {
-      actionType: A4_NLQ_ACTION_TYPE,
-      action: buildNlqActionText(validated.question, facts),
-      reason:
-        "A4 NLQ v1: grounded tenant agent_actions count; answer from template only.",
-      modelVersion: A4_NLQ_MODEL_VERSION,
-      promptVersion: A4_NLQ_PROMPT_VERSION,
-      toolsUsed: buildNlqToolsUsed(facts),
-      inputPayload,
-      ip: req.ip ?? null,
-      userAgent: (req.headers["user-agent"] as string) ?? null,
-    })
-
-    if (result.status === "ok") {
-      res.status(200).json({
-        supported: true,
-        dispatched: true,
-        intent: facts.intent,
-        answer,
-        facts,
-        dispatch: result,
-      })
-      return
-    }
-    if (result.status === "conflict") {
-      res.status(409).json({ error: result.error })
-      return
-    }
-    res.status(400).json({ error: result.error })
   } catch (err: unknown) {
     logSafeError("[agent-governance] NLQ query error", err)
     res.status(500).json({ error: "Failed to process NLQ query" })

@@ -4,6 +4,14 @@
 !.env.example
 backend/.zz-test-credentials.local
 **/.zz-test-credentials.local
+backend/scripts/.zz-viva-prep-manifest.local.json
+**/.zz-viva-prep-manifest.local.json
+backend/scripts/.zz-viva-inventory-readonly.json
+**/.zz-viva-inventory-readonly.json
+
+# Generated A4 live/lab result dumps under scripts/ (not fixtures or verify sources)
+backend/scripts/.a4-*.json
+**/backend/scripts/.a4-*.json
 
 # Dependencies / build
 node_modules/
@@ -38,11 +46,15 @@ ml/**/models/*.joblib
 ml/**/models/*.json
 ml/**/models/*.bst
 ml/**/models/*.bin
+ml/**/models/*.pt
+ml/**/models/*.pth
+ml/**/models/*.keras
 ml/**/*.csv
 ml/**/*.parquet
 ml/**/*.feather
 ml/**/*.xlsx
 !ml/**/.keep
+!ml/**/data/private/README.md
 
 # Allow tiny tracked samples if you ever add them explicitly under samples/
 !ml/**/data/samples/**
@@ -67,6 +79,7 @@ backend/eval-results/**
 # Optional local-only docs (uncomment if you do not want them on GitHub)
 internalDocs/
 .cursor/
+docs/code-review/
 
 # M2 private partner data (PAR extracts, raw Excel)
 ml/**/data/private/**

@@ -1,0 +1,33 @@
+meta {
+  name: 03 Save Decision
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/risk/decisions
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "assessmentId": "{{riskAssessmentId}}",
+    "decision": "override",
+    "reasoning": "Known repeat client with clean history"
+  }
+}
+
+docs {
+  # Save Decision
+  Records the officer's accept / override of a persisted assessment (decision_log). Override requires reasoning and bumps reliance_profiles.override_count.
+  Needs an assessmentId: run 02 Assess Risk with persist=true and a loanApplicationId first.
+}

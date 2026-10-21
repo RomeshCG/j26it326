@@ -9,6 +9,7 @@ import RiskAssessmentHero from "@/components/risk-report/RiskAssessmentHero"
 import ShapContributors from "@/components/risk-report/ShapContributors"
 import { useOfficerExplanationStyle } from "@/components/risk-report/useOfficerExplanationStyle"
 import { buildRiskReportFromApplication } from "@/components/risk-report/mock-data"
+import { mapFormToM1Features } from "@/lib/m1-feature-mapper"
 import { Button } from "@/components/ui/button"
 
 function findBorrowerForApplication(application) {
@@ -34,12 +35,16 @@ export default function ApplicationRiskSection({ application }) {
   })
 
   function openFullReport(state = {}) {
+    const isVehicle = application.loanType === "hire-purchase"
+    const features = application.features || mapFormToM1Features(application.form, isVehicle)
+
     navigate("/loan-officer/risk-report", {
       state: {
-        applicationId: application.id,
+        applicationId: application.uuid || application.id,
         applicant: report.applicant,
         riskScore: application.riskScore,
         product: borrower?.product ?? null,
+        features,
         ...state,
       },
     })

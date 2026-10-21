@@ -10,21 +10,53 @@
  */
 import { Router } from "express"
 import { z } from "zod"
-import { requireAuth, requireRole } from "../../lib/m3/mock-auth.js"
+import { requireAuth, requireRole } from "../../lib/m3/auth.js"
 import { resolveTenant } from "../../lib/m3/tenant-guard.js"
 import { computePar } from "../../lib/m3/par-computer.js"
 import { qs, p } from "../../lib/m3/query-helpers.js"
 
 export const ewsRouter = Router()
 
+// Input validation schemas
+const AlertsQuerySchema = z.object({
+  status: z.enum(["new", "in_progress", "resolved", "dismissed", "open"]).optional(),
+  branchId: z.string().uuid("Invalid branchId format").optional(),
+  assignedOfficerId: z.string().uuid("Invalid assignedOfficerId format").optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+  offset: z.coerce.number().int().min(0).optional().default(0),
+})
+
+const ScoresQuerySchema = z.object({
+  borrowerId: z.string().uuid("Invalid borrowerId format").optional(),
+  groupId: z.string().uuid("Invalid groupId format").optional(),
+  riskBand: z.enum(["low", "medium", "watch", "high", "critical"]).optional(),
+})
+
+const InterventionSchema = z.object({
+  actionTaken: z.string().min(1, "Action taken is required").max(1000),
+  outcome: z.string().max(1000).optional(),
+  resolveAlert: z.boolean().optional().default(false),
+})
+
+const UuidParamSchema = z.object({
+  id: z.string().uuid("Invalid alert ID format"),
+})
+
 // ── GET /api/m3/ews/alerts ────────────────────────────────────────────────────
 ewsRouter.get("/alerts", requireAuth, async (req, res) => {
   const tenant = await resolveTenant(req, res)
   if (!tenant) return
 
-  const rawStatus = qs(req.query.status as string | string[] | undefined)
-  const branchId = qs(req.query.branchId as string | string[] | undefined)
-  const assignedOfficerId = qs(req.query.assignedOfficerId as string | string[] | undefined)
+  const parsed = AlertsQuerySchema.safeParse(req.query)
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid query parameters",
+      details: parsed.error.flatten().fieldErrors,
+    })
+    return
+  }
+
+  const { status: rawStatus, branchId, assignedOfficerId, limit, offset } = parsed.data
 
   // Map 'open' alias to active statuses
   const statusFilter =
@@ -36,10 +68,10 @@ ewsRouter.get("/alerts", requireAuth, async (req, res) => {
 
   // Loan officers see their assigned alerts or unassigned alerts in pool
   const officerFilter =
-    req.auth!.role === "loan_officer"
+    req.auth?.role === "loan_officer"
       ? {
           OR: [
-            { assignedOfficerId: req.auth!.userId },
+            { assignedOfficerId: req.auth.userId },
             { assignedOfficerId: null },
           ],
         }
@@ -67,11 +99,13 @@ ewsRouter.get("/alerts", requireAuth, async (req, res) => {
         { ewsScore: { distressScore: "desc" } }, // highest distress first
         { createdAt: "desc" },
       ],
+      take: limit,
+      skip: offset,
     })
     res.json({ data: alerts })
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to list alerts"
-    res.status(500).json({ error: message })
+    console.error("[M3][EWS] alerts list error:", err)
+    res.status(500).json({ error: "Failed to retrieve distress alerts. Please try again later." })
   }
 })
 
@@ -79,6 +113,15 @@ ewsRouter.get("/alerts", requireAuth, async (req, res) => {
 ewsRouter.get("/alerts/:id", requireAuth, async (req, res) => {
   const tenant = await resolveTenant(req, res)
   if (!tenant) return
+
+  const paramParsed = UuidParamSchema.safeParse(req.params)
+  if (!paramParsed.success) {
+    res.status(400).json({
+      error: "Invalid alert ID format",
+      details: paramParsed.error.flatten().fieldErrors,
+    })
+    return
+  }
 
   try {
     const alert = await tenant.prisma.ewsAlert.findUnique({
@@ -101,8 +144,8 @@ ewsRouter.get("/alerts/:id", requireAuth, async (req, res) => {
 
     res.json({ data: alert })
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to fetch alert"
-    res.status(500).json({ error: message })
+    console.error("[M3][EWS] alert detail error:", err)
+    res.status(500).json({ error: "Failed to retrieve alert details. Please try again later." })
   }
 })
 
@@ -115,6 +158,15 @@ ewsRouter.patch(
     const tenant = await resolveTenant(req, res)
     if (!tenant) return
 
+    const paramParsed = UuidParamSchema.safeParse(req.params)
+    if (!paramParsed.success) {
+      res.status(400).json({
+        error: "Invalid alert ID format",
+        details: paramParsed.error.flatten().fieldErrors,
+      })
+      return
+    }
+
     try {
       const updated = await tenant.prisma.ewsAlert.update({
         where: { id: p(req.params.id) },
@@ -122,19 +174,13 @@ ewsRouter.patch(
       })
       res.json({ data: updated })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to acknowledge alert"
-      res.status(500).json({ error: message })
+      console.error("[M3][EWS] alert acknowledge error:", err)
+      res.status(500).json({ error: "Failed to acknowledge alert. Please try again later." })
     }
   }
 )
 
 // ── POST /api/m3/ews/alerts/:id/interventions ────────────────────────────────
-const InterventionSchema = z.object({
-  actionTaken: z.string().min(1),
-  outcome: z.string().optional(),
-  resolveAlert: z.boolean().optional().default(false),
-})
-
 ewsRouter.post(
   "/alerts/:id/interventions",
   requireAuth,
@@ -143,9 +189,21 @@ ewsRouter.post(
     const tenant = await resolveTenant(req, res)
     if (!tenant) return
 
+    const paramParsed = UuidParamSchema.safeParse(req.params)
+    if (!paramParsed.success) {
+      res.status(400).json({
+        error: "Invalid alert ID format",
+        details: paramParsed.error.flatten().fieldErrors,
+      })
+      return
+    }
+
     const parsed = InterventionSchema.safeParse(req.body)
     if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.flatten() })
+      res.status(400).json({
+        error: "Invalid intervention payload",
+        details: parsed.error.flatten().fieldErrors,
+      })
       return
     }
 
@@ -171,8 +229,8 @@ ewsRouter.post(
 
       res.status(201).json({ data: intervention })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to log intervention"
-      res.status(500).json({ error: message })
+      console.error("[M3][EWS] log intervention error:", err)
+      res.status(500).json({ error: "Failed to record intervention. Please verify inputs and retry." })
     }
   }
 )
@@ -182,9 +240,16 @@ ewsRouter.get("/scores", requireAuth, async (req, res) => {
   const tenant = await resolveTenant(req, res)
   if (!tenant) return
 
-  const borrowerId = qs(req.query.borrowerId as string | string[] | undefined)
-  const groupId = qs(req.query.groupId as string | string[] | undefined)
-  const riskBand = qs(req.query.riskBand as string | string[] | undefined)
+  const parsed = ScoresQuerySchema.safeParse(req.query)
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid query parameters",
+      details: parsed.error.flatten().fieldErrors,
+    })
+    return
+  }
+
+  const { borrowerId, groupId, riskBand } = parsed.data
 
   try {
     const scores = await tenant.prisma.ewsScore.findMany({
@@ -201,13 +266,12 @@ ewsRouter.get("/scores", requireAuth, async (req, res) => {
     })
     res.json({ data: scores })
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to fetch EWS scores"
-    res.status(500).json({ error: message })
+    console.error("[M3][EWS] scores error:", err)
+    res.status(500).json({ error: "Failed to fetch early warning risk scores." })
   }
 })
 
 // ── POST /api/m3/ews/batch-score ─────────────────────────────────────────────
-// Calls ML scoring service when available; falls back to PAR-derived heuristic.
 ewsRouter.post(
   "/batch-score",
   requireAuth,
@@ -228,19 +292,18 @@ ewsRouter.post(
         })
 
         if (!mlResponse.ok) {
-          res.status(502).json({ error: "ML service returned an error" })
+          res.status(502).json({ error: "Early warning ML service returned an error status." })
           return
         }
 
         const mlData = await mlResponse.json()
         res.json({ data: mlData, source: "ml_live" })
       } catch (err) {
-        const message = err instanceof Error ? err.message : "ML service call failed"
-        res.status(502).json({ error: message })
+        console.error("[M3][EWS] ML service batch scoring error:", err)
+        res.status(502).json({ error: "Unable to reach Early Warning ML scoring service." })
       }
     } else {
-      // ── PAR-based heuristic fallback ──────────────────────────────────────
-      // Uses PAR bucket to create EWS scores + alerts for overdue loans.
+      // ── Heuristic fallback ──────────────────────────────────────
       try {
         const parSummary = await computePar(tenant.prisma)
 
@@ -308,8 +371,8 @@ ewsRouter.post(
           note: "Set M3_ML_SERVICE_URL env var to use the trained ML model",
         })
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Batch scoring failed"
-        res.status(500).json({ error: message })
+        console.error("[M3][EWS] fallback batch-score error:", err)
+        res.status(500).json({ error: "Batch scoring failed to complete." })
       }
     }
   }

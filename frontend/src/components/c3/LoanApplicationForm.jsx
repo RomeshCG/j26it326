@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Loader2, ShieldCheck } from "lucide-react"
+import { Loader2, ShieldCheck, Activity } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SRI_LANKAN_DISTRICTS } from "@/components/c4/onboarding-wizard/Step1Institution"
+import { assessPreApplicationRisk } from "@/lib/m3-api"
 
 const PRODUCTS = [
   "Group Enterprise",
@@ -85,19 +86,47 @@ export default function LoanApplicationForm({ onProceedToDisbursement }) {
     return Object.keys(next).length === 0
   }
 
-  function runAssessment() {
+  async function runAssessment() {
     if (!validate()) return
     setLoading(true)
     setRisk(null)
-    window.setTimeout(() => {
+
+    try {
+      const res = await assessPreApplicationRisk({
+        requestedAmount: Number(form.amount),
+        termMonths: Number(form.tenure) || 12,
+        product: form.product,
+        monthlyIncome: Number(form.income),
+        existingLoans: form.existingLoans,
+        groupMember: form.groupMember,
+        district: form.district,
+        gender: "female",
+      })
+
+      const rawScore = res?.score ?? (100 - (res?.risk_pct ?? 30))
+      const score = Math.max(1, Math.min(99, Math.round(rawScore)))
+      const band = scoreBand(score)
+      const topFactors = res?.explanation?.top_factors || []
+
+      setRisk({
+        score,
+        label: res?.risk_band ? `${res.risk_band.toUpperCase()} RISK` : band.label,
+        variant: band.variant,
+        source: res?.source === "m1_live" ? "M1 Live ML Model (API Contract)" : "M1 Credit Risk Scoring Engine",
+        factors: topFactors,
+      })
+    } catch (err) {
+      console.warn("M3->M1 live call failed, using local rule:", err)
       const score = computeMockC1Score(form)
       setRisk({
         score,
         ...scoreBand(score),
-        source: "C1 origination model",
+        source: "M1 Scoring Rule (Offline Mode)",
+        factors: [],
       })
+    } finally {
       setLoading(false)
-    }, 1100)
+    }
   }
 
   return (
@@ -297,7 +326,7 @@ export default function LoanApplicationForm({ onProceedToDisbursement }) {
           </div>
 
           {risk ? (
-            <div className="rounded-xl border border-border bg-muted/50 p-4">
+            <div className="rounded-xl border border-border bg-muted/50 p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -307,20 +336,37 @@ export default function LoanApplicationForm({ onProceedToDisbursement }) {
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       {risk.source}
                     </p>
-                    <p className="text-sm font-medium">Origination risk score</p>
+                    <p className="text-sm font-medium">Origination Risk Assessment</p>
                   </div>
                 </div>
                 <Badge variant={risk.variant}>{risk.label}</Badge>
               </div>
-              <p className="mt-3 text-3xl font-semibold tabular-nums">{risk.score}</p>
-              <div className="relative mt-3 h-2 overflow-hidden rounded-full bg-background">
+              <p className="mt-2 text-3xl font-semibold tabular-nums">{risk.score} <span className="text-sm font-normal text-muted-foreground">/ 100</span></p>
+              <div className="relative h-2 overflow-hidden rounded-full bg-background">
                 <div
                   className="h-full rounded-full bg-primary"
                   style={{ width: `${risk.score}%` }}
                 />
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Score is returned from Component 1 and shown here without leaving origination.
+
+              {risk.factors && risk.factors.length > 0 && (
+                <div className="pt-2 border-t border-border/40 text-xs space-y-1.5">
+                  <p className="font-semibold text-muted-foreground">Key Risk Drivers (M1 Contract):</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {risk.factors.map((f, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-background/60 px-2 py-1 rounded border border-border/30">
+                        <span className="font-mono text-xs">{f.feature}</span>
+                        <span className={f.direction === "increases" ? "text-amber-500 font-medium" : "text-emerald-500 font-medium"}>
+                          {f.direction === "increases" ? `+${f.shap}` : `${f.shap}`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Score evaluated against M1 credit underwriting contract (POST /api/risk/assess).
               </p>
             </div>
           ) : null}

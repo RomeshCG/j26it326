@@ -73,8 +73,9 @@ def parse_args():
 
 def load_and_split_data(csv_path: str):
     """
-    Loads dataset and performs temporal cohort split:
-    70% Train, 15% Validation (for threshold selection), 15% Test (unseen holdout).
+    Loads dataset and performs honest Center-based Group split:
+    70% Train, 15% Validation (for threshold selection), 15% Test (unseen holdout centers).
+    Guarantees 0 center overlap between train and test sets to prevent peer-borrower leakage.
     """
     df = pd.read_csv(csv_path)
     print(f"[M3 Train] Loaded {len(df)} records from {csv_path}")
@@ -86,17 +87,37 @@ def load_and_split_data(csv_path: str):
     if TARGET_COL not in df.columns:
         raise ValueError(f"Missing target column '{TARGET_COL}' in CSV")
 
-    n = len(df)
-    train_end = int(n * 0.70)
-    val_end = int(n * 0.85)
+    if "center" in df.columns and df["center"].nunique() > 10:
+        from sklearn.model_selection import GroupShuffleSplit
+        # 1. Split off 15% holdout test centers
+        gss_test = GroupShuffleSplit(n_splits=1, test_size=0.15, random_state=42)
+        trainval_idx, test_idx = next(gss_test.split(df, groups=df["center"]))
+        trainval_df = df.iloc[trainval_idx].reset_index(drop=True)
+        test_df = df.iloc[test_idx].reset_index(drop=True)
 
-    train_df = df.iloc[:train_end]
-    val_df = df.iloc[train_end:val_end]
-    test_df = df.iloc[val_end:]
+        # 2. Split remaining 85% into Train (70% total) and Val (15% total -> 15/85 = ~0.176)
+        gss_val = GroupShuffleSplit(n_splits=1, test_size=0.1765, random_state=42)
+        train_idx, val_idx = next(gss_val.split(trainval_df, groups=trainval_df["center"]))
+        train_df = trainval_df.iloc[train_idx].reset_index(drop=True)
+        val_df = trainval_df.iloc[val_idx].reset_index(drop=True)
+
+        print(f"  [Center-Based Split] Train centers: {train_df['center'].nunique()}, Val centers: {val_df['center'].nunique()}, Test centers: {test_df['center'].nunique()}")
+    else:
+        n = len(df)
+        train_end = int(n * 0.70)
+        val_end = int(n * 0.85)
+        train_df = df.iloc[:train_end]
+        val_df = df.iloc[train_end:val_end]
+        test_df = df.iloc[val_end:]
 
     print(f"  Train set : {len(train_df)} rows (distress: {train_df[TARGET_COL].mean():.2%})")
     print(f"  Val set   : {len(val_df)} rows (distress: {val_df[TARGET_COL].mean():.2%})")
     print(f"  Test set  : {len(test_df)} rows (distress: {test_df[TARGET_COL].mean():.2%})")
+
+    # Save holdout test set to disk for independent evaluation
+    test_out = Path(csv_path).parent / "test_cohort.csv"
+    test_df.to_csv(test_out, index=False)
+    print(f"  [Saved] Unseen test cohort written -> {test_out}")
 
     X_train = train_df[FEATURE_COLS].values
     y_train = train_df[TARGET_COL].values

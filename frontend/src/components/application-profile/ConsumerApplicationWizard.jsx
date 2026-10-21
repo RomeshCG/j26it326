@@ -31,6 +31,8 @@ import StepClient from "./steps/StepClient"
 import StepFinancial from "./steps/StepFinancial"
 import StepIncomeReview from "./steps/StepIncomeReview"
 import StepLoanRequest from "./steps/StepLoanRequest"
+import { mapConsumerFormToM1Features, generateUuid } from "@/lib/m1-feature-mapper"
+import { assessPreApplicationRisk } from "@/lib/m3-api"
 
 function validateStep(step, form, branchContext) {
   const errors = {}
@@ -186,7 +188,7 @@ export default function ConsumerApplicationWizard() {
     goToStep(step - 1)
   }
 
-  function handleRunRiskAssessment() {
+  async function handleRunRiskAssessment() {
     if (isBranchOverridePending(form)) {
       setErrors({ branchOverride: "Branch override is pending manager approval" })
       goToStep(1)
@@ -201,29 +203,54 @@ export default function ConsumerApplicationWizard() {
     }
 
     setRunning(true)
-    window.setTimeout(() => {
-      const riskScore = computeMockRiskScore(form, summary)
-      const saved = persist({
-        ...application,
-        status: "assessed",
-        currentStep: 5,
-        riskScore,
+    const features = mapConsumerFormToM1Features(form, summary)
+    const appUuid = application.uuid || generateUuid()
+    let riskScore = computeMockRiskScore(form, summary)
+
+    try {
+      const liveRes = await assessPreApplicationRisk({
+        requestedAmount: features.contract_amount,
+        termMonths: features.tenure,
+        product: features.product,
+        monthlyIncome: features.monthly_income,
+        district: form.district || "Colombo",
+        existingLoans: form.existingLoans?.some((l) => l.amountGranted) ? "yes" : "no",
+        groupMember: form.applicantType === "group" ? "yes" : "no",
+        features,
+        loanApplicationId: appUuid,
       })
-      setRunning(false)
-      navigate("/loan-officer/risk-report", {
-        state: {
-          applicationId: saved.id,
-          applicant: {
-            name: form.fullName,
-            nic: form.nic || form.businessRegNo,
-            date: form.applicationDate || new Date().toISOString().slice(0, 10),
-          },
-          riskScore,
-          loanAmount: form.loanAmount,
-          product: "Consumer / Personal-Business",
+      if (liveRes && typeof liveRes.score === "number") {
+        riskScore = Math.round(liveRes.score)
+      }
+    } catch (err) {
+      console.warn("Live M1 scoring failed, proceeding with mapped features and local score:", err)
+    }
+
+    const saved = persist({
+      ...application,
+      uuid: appUuid,
+      status: "assessed",
+      currentStep: 5,
+      riskScore,
+      features,
+    })
+
+    setRunning(false)
+    navigate("/loan-officer/risk-report", {
+      state: {
+        applicationId: appUuid,
+        applicant: {
+          name: form.fullName,
+          nic: form.nic || form.businessRegNo,
+          date: form.applicationDate || new Date().toISOString().slice(0, 10),
         },
-      })
-    }, 900)
+        riskScore,
+        loanAmount: form.loanAmount,
+        product: form.facilityType || "Consumer / Personal-Business",
+        branch: form.branch || form.assignedBranch || "Colombo Head Office",
+        features, // M1 contract compliance
+      },
+    })
   }
 
   return (

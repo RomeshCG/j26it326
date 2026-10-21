@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   AlertTriangle,
   ArrowLeft,
@@ -9,7 +9,9 @@ import {
   Loader2,
   MapPin,
   Receipt,
+  RefreshCw,
   Wallet,
+  WifiOff,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +43,28 @@ export default function CollectionRecording({
   const [notes, setNotes] = useState("")
   const [receipt, setReceipt] = useState(null)
   const [generating, setGenerating] = useState(false)
+  const [offlineCount, setOfflineCount] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState(null)
+
+  useEffect(() => {
+    setOfflineCount(getOfflineCollections().length)
+  }, [])
+
+  async function handleSyncOffline() {
+    setSyncing(true)
+    setSyncMessage(null)
+    try {
+      const res = await syncOfflineCollections()
+      setOfflineCount(getOfflineCollections().length)
+      setSyncMessage(`Synced ${res?.synced ?? 0} entries successfully!`)
+      setTimeout(() => setSyncMessage(null), 4000)
+    } catch (err) {
+      setSyncMessage(err.message || "Failed to sync offline queue")
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const borrower = stop?.borrower ?? "Kumari Fernando"
   const due = stop?.amountDue ?? 3500
@@ -116,6 +140,7 @@ export default function CollectionRecording({
       })
     } finally {
       setGenerating(false)
+      setOfflineCount(getOfflineCollections().length)
     }
   }
 
@@ -126,6 +151,35 @@ export default function CollectionRecording({
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col px-3 py-4 sm:px-4 sm:py-6">
+      {/* Offline Status & Sync Banner */}
+      {offlineCount > 0 ? (
+        <div className="mb-4 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-800 dark:text-amber-200">
+          <div className="flex items-center gap-2">
+            <WifiOff className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              <strong>{offlineCount}</strong> payment{offlineCount > 1 ? "s" : ""} saved offline
+            </span>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleSyncOffline}
+            disabled={syncing}
+            className="h-7 cursor-pointer border-amber-500/40 bg-background px-2 text-xs hover:bg-amber-500/10"
+          >
+            <RefreshCw className={`mr-1 size-3 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing..." : "Sync now"}
+          </Button>
+        </div>
+      ) : null}
+
+      {syncMessage ? (
+        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-xs text-emerald-800 dark:text-emerald-200">
+          {syncMessage}
+        </div>
+      ) : null}
+
       <div className="mb-4 space-y-1 px-1">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Component 3 · Field collection

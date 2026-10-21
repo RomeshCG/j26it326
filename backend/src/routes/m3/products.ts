@@ -5,7 +5,7 @@
  */
 import { Router } from "express"
 import { z } from "zod"
-import { requireAuth, requireRole } from "../../lib/m3/mock-auth.js"
+import { requireAuth, requireRole } from "../../lib/m3/auth.js"
 import { resolveTenant } from "../../lib/m3/tenant-guard.js"
 
 export const productsRouter = Router()

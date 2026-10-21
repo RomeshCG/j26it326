@@ -14,6 +14,8 @@ import {
 const SUGGESTIONS_BASE = [
   "How many A3 actions were recorded in the last 7 days?",
   "How many agent actions were recorded in the last 7 days?",
+  "What is PAR30 in microfinance?",
+  "What do Agents A1–A4 do in MicroFlow?",
 ]
 
 const SUGGESTION_PENDING =
@@ -72,6 +74,9 @@ export default function AgentPanel() {
   const archiveNlqChat = useStore((state) => state.archiveNlqChat)
   const markAgentResponsesRead = useStore((state) => state.markAgentResponsesRead)
   const unreadAgentResponses = useStore((state) => state.unreadAgentResponses)
+  /** Drives re-auth when logout / login / user switch updates the store. */
+  const currentUser = useStore((state) => state.currentUser)
+  const currentUserId = currentUser?.id ?? currentUser?.userId ?? null
 
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
@@ -96,7 +101,16 @@ export default function AgentPanel() {
   }, [])
 
   // Prefer verified /auth/me session (capabilities + role) over token-only checks.
+  // Parent remounts this panel on user id change; effect only loads when a token+user exist.
   useEffect(() => {
+    const token =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("mf_auth_token")
+        : null
+    if (!token || !currentUser) {
+      return undefined
+    }
+
     let cancelled = false
     verifySessionOnce()
       .then((user) => {
@@ -112,9 +126,14 @@ export default function AgentPanel() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [currentUser, currentUserId])
 
-  const authenticated = sessionReady && !!session
+  const hasAuthToken =
+    typeof localStorage !== "undefined" &&
+    Boolean(localStorage.getItem("mf_auth_token"))
+  // currentUser from store flips on logout without waiting for local session state.
+  const authenticated =
+    Boolean(currentUser) && hasAuthToken && sessionReady && Boolean(session)
 
   const getPageName = (path) => {
     if (path.includes("/dashboard")) return "Dashboard"
@@ -183,18 +202,33 @@ export default function AgentPanel() {
         let agentText
         let meta = null
 
-        if (result?.supported === false) {
+        if (result?.kind === "knowledge" || (result?.supported === true && result?.dispatched === false && result?.disclaimer)) {
+          const body =
+            typeof result.answer === "string" && result.answer.trim()
+              ? result.answer.trim()
+              : "Agent 4 returned no educational answer."
+          const disclaimer =
+            typeof result.disclaimer === "string" && result.disclaimer.trim()
+              ? result.disclaimer.trim()
+              : "General educational information (not live institution data)."
+          agentText = `${body}\n\n${disclaimer}`
+          meta = { kind: "knowledge" }
+        } else if (result?.supported === false || result?.kind === "unsupported") {
           agentText =
+            (typeof result?.message === "string" && result.message.trim()) ||
             "I'm sorry, but that question is outside my current scope, so I'm unable to help with it right now."
-          meta = { kind: "unsupported" }
-        } else if (result?.supported === true && result?.dispatched) {
+          meta = { kind: "unsupported", reason: result?.reason ?? null }
+        } else if (
+          result?.kind === "nlq" ||
+          (result?.supported === true && result?.dispatched)
+        ) {
           agentText =
             typeof result.answer === "string" && result.answer.trim()
               ? result.answer
               : "Agent 4 returned no answer text."
           const d = result.dispatch || {}
           meta = {
-            kind: "success",
+            kind: "nlq",
             tier: d.tier,
             actionStatus: d.actionStatus,
             actionId: d.actionId,
@@ -207,7 +241,7 @@ export default function AgentPanel() {
           meta = { kind: "no_dispatch" }
         } else {
           agentText =
-            "Unexpected response from Agent 4. No answer was invented — please try again."
+            "Unexpected response from Agent 4. No answer was invented. Please try again."
           meta = { kind: "unexpected" }
         }
 
@@ -256,23 +290,40 @@ export default function AgentPanel() {
       minute: "2-digit",
     })
     if (!meta || meta.kind === "error" || meta.kind === "unsupported") {
+      const label =
+        meta?.kind === "error"
+          ? "Error"
+          : meta?.kind === "unsupported"
+            ? "Unsupported"
+            : "Reply"
       return (
         <span>
-          Agent 4 — {meta?.kind === "error" ? "Error" : meta?.kind === "unsupported" ? "Unsupported" : "Reply"} — {time}
+          Agent 4 · {label} · {time}
         </span>
       )
     }
-    if (meta.kind === "success" && meta.tier != null) {
+    if (meta.kind === "knowledge") {
+      return (
+        <span>
+          Agent 4 · General education (not live institution data) · {time}
+        </span>
+      )
+    }
+    if ((meta.kind === "nlq" || meta.kind === "success") && meta.tier != null) {
       const status = meta.actionStatus ? String(meta.actionStatus) : "ok"
       const fallback = meta.isFallback ? " · fallback policy" : ""
       return (
         <span>
-          Answered by Agent 4 — Tier {meta.tier} — {status}
-          {fallback} — {time}
+          Agent 4 · Tier {meta.tier} · {status}
+          {fallback} · {time}
         </span>
       )
     }
-    return <span>Agent 4 — {time}</span>
+    return (
+      <span>
+        Agent 4 · {time}
+      </span>
+    )
   }
 
   // Do not show FAB/panel without a verified session (avoids demo store / token-only false positives).
@@ -323,7 +374,7 @@ export default function AgentPanel() {
                 A4
               </div>
               <h2 className="text-lg font-bold tracking-tight text-foreground">
-                Agent 4 — NLQ Interface
+                Agent 4 · Ask
               </h2>
             </div>
 
@@ -392,13 +443,13 @@ export default function AgentPanel() {
                 <Sparkles size={32} />
               </div>
               <h3 className="mb-2 text-xl font-bold text-foreground">
-                Agent 4 — NLQ Interface
+                Agent 4 · Ask
               </h3>
               <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
                 Ask about agent activity in your institution. v1 answers grounded
-                Graduated Trust counts (recent actions by agent, and pending Tier 3
-                approvals if you are authorized). It does not invent loan, PAR, payroll,
-                or ledger figures.
+                Graduated Trust activity counts when authorized, plus general
+                microfinance education. Educational replies are not live institution
+                data and never invent loan, PAR, payroll, or ledger figures.
               </p>
 
               <div className="flex w-full max-w-md flex-col gap-2">
@@ -427,14 +478,7 @@ export default function AgentPanel() {
                       className="flex justify-end animate-in slide-in-from-right-4 duration-300"
                     >
                       <div className="flex max-w-[85%] flex-col items-end">
-                        <div
-                          className="px-4 py-3 text-sm shadow-sm"
-                          style={{
-                            background: "#1E3A5F",
-                            color: "#F1F5F9",
-                            borderRadius: "12px 12px 2px 12px",
-                          }}
-                        >
+                        <div className="rounded-xl rounded-br-sm bg-teal-600 px-4 py-3 text-sm text-white shadow-sm dark:bg-teal-600">
                           {msg.text}
                         </div>
                         <span className="mt-1.5 text-[10px] font-medium text-muted-foreground">
@@ -457,21 +501,13 @@ export default function AgentPanel() {
                       A4
                     </div>
                     <div className="relative flex max-w-[85%] flex-col items-start">
-                      <div
-                        className="relative px-4 py-3 pr-10 text-sm leading-relaxed"
-                        style={{
-                          background: "#1E293B",
-                          border: "1px solid #334155",
-                          color: "#F1F5F9",
-                          borderRadius: "12px 12px 12px 2px",
-                        }}
-                      >
+                      <div className="relative rounded-xl rounded-bl-sm border border-border bg-card px-4 py-3 pr-10 text-sm leading-relaxed text-foreground shadow-sm">
                         {msg.text}
 
                         <button
                           type="button"
                           onClick={() => copyToClipboard(msg.text, msg.id)}
-                          className="absolute top-2 right-2 rounded-md p-1.5 text-slate-400 opacity-0 transition-opacity hover:bg-slate-700 hover:text-white group-hover:opacity-100"
+                          className="absolute top-2 right-2 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100"
                           title="Copy to clipboard"
                         >
                           {copiedId === msg.id ? (
@@ -494,14 +530,7 @@ export default function AgentPanel() {
                   <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-500/20 text-xs font-bold text-teal-600">
                     A4
                   </div>
-                  <div
-                    className="flex items-center px-4 py-4"
-                    style={{
-                      background: "#1E293B",
-                      border: "1px solid #334155",
-                      borderRadius: "12px 12px 12px 2px",
-                    }}
-                  >
+                  <div className="flex items-center rounded-xl rounded-bl-sm border border-border bg-card px-4 py-4 shadow-sm">
                     <div className="flex gap-1.5">
                       <div
                         className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500"

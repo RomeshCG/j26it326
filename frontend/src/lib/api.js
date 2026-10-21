@@ -3,6 +3,8 @@
  * Handles JWT bearer authentication, error normalization, and session caching.
  */
 
+import { useStore } from "@/store"
+
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/+$/, "")
 
 // In-memory session verification cache (persists for the page load lifecycle)
@@ -16,6 +18,33 @@ export function getApiBaseUrl() {
 export function clearSessionCache() {
   sessionVerified = false
   sessionUser = null
+}
+
+/**
+ * Central client-side session teardown: memory cache, auth tokens, Zustand
+ * user + Agent 4 NLQ panel/history. Call on logout, expired JWT, and API 401.
+ * @param {{ redirectToLogin?: boolean }} [options]
+ */
+export function endClientSession(options = {}) {
+  const { redirectToLogin = false } = options
+  clearSessionCache()
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem("mf_auth_token")
+    localStorage.removeItem("mf_auth_role")
+    localStorage.removeItem("mf_auth_branch")
+  }
+  try {
+    useStore.getState().logout()
+  } catch {
+    // Store may be unavailable during early bootstrap; tokens/cache still cleared.
+  }
+  if (
+    redirectToLogin &&
+    typeof window !== "undefined" &&
+    !window.location.pathname.startsWith("/login")
+  ) {
+    window.location.href = "/login?expired=true"
+  }
 }
 
 export function setSessionCache(userData) {
@@ -97,14 +126,16 @@ export async function apiRequest(endpoint, options = {}) {
   const isLoginCall = endpoint.includes("/auth/login")
 
   if (response.status === 401 && !isLoginCall) {
-    clearSessionCache()
-    localStorage.removeItem("mf_auth_token")
-    localStorage.removeItem("mf_auth_role")
-    localStorage.removeItem("mf_auth_branch")
-    
-    // Redirect to login with expired flag if not already on login
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-      window.location.href = "/login?expired=true"
+    // Tear down only when this request's token is still the active session.
+    // Require `token`: a no-auth 401 must not clear a session created later.
+    // Require `latest === token`: ignore stale 401s after logout or user switch.
+    // Do not use `!latest || …` — that re-tears down after explicit logout.
+    const latest =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("mf_auth_token")
+        : null
+    if (token && latest === token) {
+      endClientSession({ redirectToLogin: true })
     }
   }
 
@@ -186,6 +217,30 @@ export async function loginUser(email, password) {
 }
 
 /**
+ * M1 credit risk assessment
+ * POST /api/risk/assess
+ * @param {{ features: Record<string, unknown>, persist?: boolean, loanApplicationId?: string }} body
+ */
+export async function assessRisk(body) {
+  return apiRequest("/api/risk/assess", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
+/**
+ * M1 officer decision (accept / override a persisted assessment)
+ * POST /api/risk/decisions
+ * @param {{ assessmentId: string, decision: 'accept' | 'override', reasoning?: string, explanationMode?: string }} body
+ */
+export async function saveRiskDecision(body) {
+  return apiRequest("/api/risk/decisions", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
+/**
  * Verify session with GET /auth/me ONCE per page load, cached in memory.
  * Does not re-fetch on every route change.
  */
@@ -229,6 +284,16 @@ export async function verifySessionOnce() {
     clearSessionCache()
     throw error
   }
+}
+
+/**
+ * Lists active branches for the caller's tenant database.
+ * GET /api/tenant/branches
+ * Success: { data: Branch[], count }
+ * Branch fields include id, name, location, district, isActive, createdAt (no manager).
+ */
+export async function fetchTenantBranches() {
+  return await apiRequest("/api/tenant/branches")
 }
 
 /**

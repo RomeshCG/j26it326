@@ -34,8 +34,11 @@ import {
   OLLAMA_TIMEOUT_MS_DEFAULT,
   OllamaUnavailableError,
   ollamaChatJson,
+  resolveOllamaNumPredict,
   resolveOllamaTimeoutMs,
+  sanitizeOllamaErrorBodyForLog,
 } from "../src/lib/ollama-client.js"
+import { A4_KNOWLEDGE_NUM_PREDICT } from "../src/lib/agent-a4-knowledge.js"
 
 let passed = 0
 let failed = 0
@@ -458,6 +461,10 @@ section("ollama client fail-closed")
       err instanceof OllamaUnavailableError,
       "throws OllamaUnavailableError when unset"
     )
+    assert(
+      err instanceof OllamaUnavailableError && err.code === "config",
+      "missing base URL → code=config"
+    )
   } finally {
     if (prev !== undefined) process.env.OLLAMA_BASE_URL = prev
   }
@@ -477,6 +484,170 @@ section("ollama client fail-closed")
     assert(
       err instanceof OllamaUnavailableError,
       "maps fetch failure to unavailable"
+    )
+    assert(
+      err instanceof OllamaUnavailableError && err.code === "network",
+      "fetch failure → code=network"
+    )
+  }
+}
+{
+  const warnings: string[] = []
+  try {
+    await ollamaChatJson({
+      baseUrl: "http://ollama.test",
+      messages: [{ role: "user", content: "hi" }],
+      warnImpl: (m) => warnings.push(m),
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            error: "runner failed http://secret.internal:11434/api/chat",
+          }),
+          { status: 502, statusText: "Bad Gateway" }
+        ),
+    })
+    assert(false, "HTTP 502 should throw")
+  } catch (err) {
+    assert(
+      err instanceof OllamaUnavailableError &&
+        err.code === "http" &&
+        err.httpStatus === 502,
+      "HTTP 502 → code=http httpStatus=502"
+    )
+    assert(
+      err instanceof OllamaUnavailableError &&
+        !err.message.includes("secret.internal"),
+      "client error message does not leak upstream host"
+    )
+    assert(warnings.length === 1, "HTTP error logs one warn line")
+    assert(
+      warnings[0].includes("body_excerpt=") &&
+        warnings[0].includes("[redacted-url]") &&
+        !warnings[0].includes("secret.internal"),
+      "warn line has sanitized body excerpt"
+    )
+  }
+}
+{
+  assert(resolveOllamaNumPredict() === null, "num_predict omitted by default")
+  assert(
+    resolveOllamaNumPredict(A4_KNOWLEDGE_NUM_PREDICT) === A4_KNOWLEDGE_NUM_PREDICT,
+    "explicit knowledge num_predict resolves"
+  )
+  assert(resolveOllamaNumPredict(10) === null, "below min num_predict ignored")
+  assert(resolveOllamaNumPredict(99999) === null, "above max num_predict ignored")
+  const prev = process.env.OLLAMA_NUM_PREDICT
+  process.env.OLLAMA_NUM_PREDICT = "256"
+  assert(resolveOllamaNumPredict() === 256, "env OLLAMA_NUM_PREDICT applies")
+  assert(
+    resolveOllamaNumPredict(A4_KNOWLEDGE_NUM_PREDICT) === A4_KNOWLEDGE_NUM_PREDICT,
+    "explicit option overrides env num_predict"
+  )
+  if (prev !== undefined) process.env.OLLAMA_NUM_PREDICT = prev
+  else delete process.env.OLLAMA_NUM_PREDICT
+}
+{
+  let capturedBody: string | null = null
+  await ollamaChatJson({
+    baseUrl: "http://ollama.test",
+    model: "qwen2.5:1.5b",
+    messages: [{ role: "user", content: "hi" }],
+    numPredict: A4_KNOWLEDGE_NUM_PREDICT,
+    fetchImpl: async (_url, init) => {
+      capturedBody =
+        typeof init?.body === "string" ? init.body : String(init?.body ?? "")
+      return new Response(
+        JSON.stringify({ message: { content: '{"intent":"unsupported"}' } }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    },
+  })
+  assert(capturedBody != null, "captured request body for num_predict")
+  const parsed = JSON.parse(capturedBody as string) as {
+    options?: { num_predict?: number; temperature?: number }
+  }
+  assert(
+    parsed.options?.num_predict === A4_KNOWLEDGE_NUM_PREDICT,
+    "num_predict propagated into Ollama options when set"
+  )
+}
+{
+  let capturedBody: string | null = null
+  await ollamaChatJson({
+    baseUrl: "http://ollama.test",
+    messages: [{ role: "user", content: "hi" }],
+    fetchImpl: async (_url, init) => {
+      capturedBody =
+        typeof init?.body === "string" ? init.body : String(init?.body ?? "")
+      return new Response(
+        JSON.stringify({ message: { content: '{"intent":"unsupported"}' } }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    },
+  })
+  const parsed = JSON.parse(capturedBody as string) as {
+    options?: { num_predict?: number }
+  }
+  assert(
+    parsed.options?.num_predict === undefined,
+    "NLQ default omits num_predict from options"
+  )
+}
+{
+  const s = sanitizeOllamaErrorBodyForLog(
+    "boom https://evil.example/x Bearer abc.def.ghi"
+  )
+  assert(
+    s.includes("[redacted-url]") && s.includes("[redacted-token]"),
+    "sanitize helper redacts URL and bearer"
+  )
+}
+{
+  try {
+    await ollamaChatJson({
+      baseUrl: "http://ollama.test",
+      messages: [{ role: "user", content: "hi" }],
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({ message: { content: "   " } }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        ),
+    })
+    assert(false, "empty content should throw")
+  } catch (err) {
+    assert(
+      err instanceof OllamaUnavailableError && err.code === "empty",
+      "empty content → code=empty"
+    )
+  }
+}
+{
+  try {
+    await ollamaChatJson({
+      baseUrl: "http://ollama.test",
+      messages: [{ role: "user", content: "hi" }],
+      timeoutMs: 20,
+      fetchImpl: async (_url, init) => {
+        await new Promise<void>((_resolve, reject) => {
+          const signal = init?.signal
+          if (!signal) {
+            reject(new Error("missing signal"))
+            return
+          }
+          signal.addEventListener("abort", () => {
+            const e = new Error("aborted")
+            e.name = "AbortError"
+            reject(e)
+          })
+        })
+        return new Response("{}")
+      },
+    })
+    assert(false, "timeout should throw")
+  } catch (err) {
+    assert(
+      err instanceof OllamaUnavailableError && err.code === "timeout",
+      "abort → code=timeout"
     )
   }
 }

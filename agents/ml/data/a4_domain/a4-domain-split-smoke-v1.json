@@ -1,0 +1,163 @@
+{
+  "spec_id": "a4-domain-split-smoke-v1",
+  "method": "group_stratified_hash_v0_reused",
+  "parent_split": "a4-domain-split-v0",
+  "seed": 42,
+  "seed_note": "Group assignment identical to a4-domain-split-v0 (deterministic hash). Seed 42 reserved for sklearn/LR reproducibility; partitions not reshuffled.",
+  "challenge_agent1": "Do not re-hash after Batch 4 — reshuffling val would invalidate smoke baselines. Recount only.",
+  "train_eligible_rows": 140,
+  "excluded_drafts": [
+    "a4d-000104"
+  ],
+  "soft_requires_human_still_eligible": [
+    "a4d-000134"
+  ],
+  "eval_vault": "a4-domain-eval-vault.v1.jsonl EXCLUDED from all splits",
+  "groups": {
+    "train": 72,
+    "validation": 15,
+    "test_reserved": 15
+  },
+  "rows": {
+    "train": {
+      "n": 94,
+      "counts": {
+        "finance": 49,
+        "off_topic": 29,
+        "mixed": 16
+      }
+    },
+    "validation": {
+      "n": 23,
+      "counts": {
+        "finance": 14,
+        "off_topic": 6,
+        "mixed": 3
+      }
+    },
+    "test_reserved": {
+      "n": 23,
+      "counts": {
+        "finance": 14,
+        "off_topic": 6,
+        "mixed": 3
+      }
+    }
+  },
+  "uncovered_eligible": [],
+  "train_group_ids": [
+    "para-group-peer-pressure-v1",
+    "process-disbursement-v1",
+    "para-overdue-balance-plain-v1",
+    "compare-savings-deposit-v1",
+    "term-roi-v1",
+    "term-npl-v1",
+    "compare-par-npl-v1",
+    "lk-rupee-pricing-v1",
+    "process-group-lending-v1",
+    "term-liquidity-v1",
+    "product-agent3-v1",
+    "product-microflow-name-v1",
+    "para-collection-quality-v1",
+    "compare-par30-par90-v1",
+    "para-principal-vs-fee-v1",
+    "product-agent2-v1",
+    "term-guarantor-v1",
+    "para-fee-time-value-v1",
+    "term-oss-v1",
+    "lk-epf-etf-v1",
+    "edge-par-short-v1",
+    "para-shop-credit-notebook-v1",
+    "para-missed-due-dates-v1",
+    "lk-cbsl-edu-v1",
+    "para-guarantee-plain-v1",
+    "compare-principal-interest-v1",
+    "product-gt-tier3-v1",
+    "product-gt-overview-v1",
+    "sports-cricket-v1",
+    "consumer-btc-price-v1",
+    "trivia-tea-v1",
+    "stuff-recipe-curry-v1",
+    "sports-cricket-asia-v1",
+    "food-icecream-define-v1",
+    "stuff-pizza-v1",
+    "weather-colombo-v1",
+    "consumer-android-v1",
+    "stuff-song-v1",
+    "consumer-iphone-v1",
+    "creative-poem-rain-v1",
+    "trivia-photosynthesis-v1",
+    "weather-galle-v1",
+    "stuff-latte-v1",
+    "stuff-meme-v1",
+    "food-salad-howto-v1",
+    "food-dinner-v1",
+    "food-bake-keyword-stuff-v1",
+    "creative-haiku-keyword-stuff-v1",
+    "sports-t20-v1",
+    "jailbreak-developer-v1",
+    "jailbreak-reveal-prompt-v1",
+    "creative-haiku-river-v1",
+    "food-kottu-v1",
+    "weather-humidity-v1",
+    "stuff-bedtime-after-mfi-v1",
+    "food-hoppers-v1",
+    "food-icecream-howto-v1",
+    "mixed-oss-edu-live-v1",
+    "mixed-a4-edu-delete-v1",
+    "mixed-par30-our-institution-v1",
+    "mixed-ambig-latepay-live-v1",
+    "mixed-live-nic-balance-v1",
+    "mixed-gt-edu-action-v1",
+    "mixed-collateral-edu-live-v1",
+    "mixed-a4-edu-delete-nlq-v1",
+    "mixed-live-borrower-account-v1",
+    "mixed-a2-edu-approve-v1",
+    "mixed-npl-edu-live-v1",
+    "mixed-par30-edu-live-v1",
+    "mixed-live-balances-branch-v1",
+    "mixed-writeoff-edu-live-v1",
+    "mixed-live-payroll-headcount-v1"
+  ],
+  "validation_group_ids": [
+    "product-agent1-v1",
+    "process-kyc-v1",
+    "para-recovery-health-v1",
+    "para-working-cash-plain-v1",
+    "term-par30-v1",
+    "lk-etf-plain-v1",
+    "stuff-travel-v1",
+    "politics-headline-v1",
+    "trivia-chess-v1",
+    "stuff-yoga-v1",
+    "sports-football-epl-v1",
+    "weather-trincomalee-v1",
+    "mixed-par90-edu-live-v1",
+    "mixed-disburse-edu-live-v1",
+    "mixed-liquidity-edu-live-v1"
+  ],
+  "test_reserved_group_ids": [
+    "product-agent4-v1",
+    "para-late-pay-colloquial-v1",
+    "edge-oss-typo-v1",
+    "para-early-warning-plain-v1",
+    "para-loss-reserve-plain-v1",
+    "process-amortization-v1",
+    "creative-pun-v1",
+    "weather-jaffna-v1",
+    "trivia-ocean-v1",
+    "stuff-football-v1",
+    "stuff-gpu-v1",
+    "creative-joke-cats-v1",
+    "mixed-tier4-edu-dispatch-v1",
+    "mixed-live-borrower-count-v1",
+    "mixed-mfi-edu-pii-v1"
+  ],
+  "usage": {
+    "train": "smoke fit TF-IDF+LR only",
+    "validation": "report metrics; C frozen at 1.0 (no grid — val too thin)",
+    "test_reserved": "do not score in smoke report for selection; optional one-shot later",
+    "eval_vault": "never train/val/select"
+  },
+  "group_overlap": []
+}

@@ -2,6 +2,8 @@ import "dotenv/config"
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
+import { exec } from "child_process"
+import cron from "node-cron"
 import cors from "cors"
 import express from "express"
 import helmet from "helmet"
@@ -21,6 +23,7 @@ import { publicDomainRouter, tenantDomainRouter } from "./routes/domains.js"
 import { registrationRouter } from "./routes/registration.js"
 import { tenantRouter } from "./routes/tenant.js"
 import { exampleRouter } from "./routes/_example.js"
+import { riskRouter } from "./routes/risk.js"
 import { internalAgentDispatchRouter } from "./routes/internal-agent-dispatch.js"
 import { authenticate, resolveTenantContext, requireRole } from "./middleware/auth.js"
 import { configureTrustProxy } from "./middleware/rate-limit.js"
@@ -140,8 +143,16 @@ app.use("/auth", registrationRouter)
 app.use("/api/tenant", tenantRouter)
 app.use("/api/tenant", tenantDomainRouter)
 
+// M1 — Credit risk (auth + tenant context required inside router)
+app.use("/api/risk", riskRouter)
 // Internal agent → Node dispatch (shared service key; not user JWT)
 app.use("/api/internal", internalAgentDispatchRouter)
+
+// M2 — Ledger & Dual-Mission event receiver webhook
+app.post("/api/m2/events/loan-lifecycle", (req, res) => {
+  console.log("[M2 Webhook Received Event]", JSON.stringify(req.body))
+  res.status(200).json({ ok: true, status: "event_processed", payload: req.body, receivedAt: new Date().toISOString() })
+})
 
 // Integration example router for teammates (non-production only)
 if (isDev) {
@@ -244,6 +255,29 @@ app.use("/api/m3", m3Router)
 // M2 - Finance & Mission (events webhook uses a shared secret, so it is mounted before the JWT-protected router)
 app.use("/api/m2/events", m2EventsRouter)
 app.use("/api/m2", m2Router)
+// Nightly 2:00 AM EWS Batch Scoring Trigger
+const repoRoot = path.resolve(__dirname, "../../")
+const venvPyWindows = path.join(repoRoot, "ml", ".venv", "Scripts", "python.exe")
+const venvPyUnix = path.join(repoRoot, "ml", ".venv", "bin", "python")
+const pyExecutable = fs.existsSync(venvPyWindows)
+  ? venvPyWindows
+  : fs.existsSync(venvPyUnix)
+  ? venvPyUnix
+  : "python"
+const batchScoreScript = path.join(repoRoot, "ml", "m3_ews", "serve", "batch_score.py")
+
+cron.schedule("0 2 * * *", () => {
+  console.log(`[M3 Cron] Initiating nightly EWS batch scoring (${new Date().toISOString()})...`)
+  exec(`"${pyExecutable}" "${batchScoreScript}"`, { cwd: repoRoot }, (err, stdout, stderr) => {
+    if (err) {
+      console.error("[M3 Cron] EWS batch scoring error:", err.message)
+      if (stderr) console.error("[M3 Cron] Stderr:", stderr)
+      return
+    }
+    console.log("[M3 Cron] Nightly EWS batch scoring completed successfully.")
+    if (stdout) console.log("[M3 Cron] Output summary:", stdout.slice(0, 300))
+  })
+})
 
 async function shutdown() {
   await centralPrisma.$disconnect()
@@ -256,7 +290,7 @@ process.on("SIGTERM", shutdown)
 
 app.listen(port, () => {
   console.log(`IMFS backend listening on http://localhost:${port}`)
-  console.log(`Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me`)
+  console.log(`Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me  POST /api/risk/assess`)
   console.log("M3 routes: /api/m3/products  /api/m3/borrowers  /api/m3/groups")
   console.log("           /api/m3/applications  /api/m3/loans  /api/m3/collections")
   console.log("           /api/m3/par  /api/m3/ews")

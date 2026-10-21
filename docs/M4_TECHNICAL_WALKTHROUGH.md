@@ -1,7 +1,7 @@
 # M4 Technical Walkthrough (study / viva)
 
-> Companion to [`M4_AGENT_HANDOVER.md`](./M4_AGENT_HANDOVER.md).  
-> **Code and Git beat this document.** Last aligned: 2026-10-16 (A1 ZZ live E2E: approve + reject + SoD; A4 UI live-verified).
+> Companion to [`M4_AGENT_HANDOVER.md`](./M4_AGENT_HANDOVER.md).
+> **Code and Git beat this document.** Last aligned: 2026-10-20 (`feature/m4-dashboard-wire`: A4 knowledge v1.2; role-home nav; ZZ viva prep design; Settings/BM UI honesty).
 
 This note explains how Component 4 (M4) runs Graduated Trust and agents A1–A4 in the IMFS / MicroFlow repo, with enough detail for a viva without pasting whole modules.
 
@@ -11,10 +11,11 @@ This note explains how Component 4 (M4) runs Graduated Trust and agents A1–A4 
 
 IMFS is split into research components. **M4 (C4)** provides:
 
-- Multi-tenant auth (JWT), RBAC capabilities, institution provisioning  
-- Tenant DB routing (`req.tenantPrisma`)  
-- Graduated Trust: policies, `dispatchAgentAction`, Agent Log, Tier 3 approve/reject, overrides  
-- Agent runtimes that M4 controls: **A1** (Node readiness rules + Tier 3), **A2** (Node rules), **A3** (Python IF + Node dispatch), **A4** (Node + Ollama intent)
+- Multi-tenant auth (JWT), RBAC capabilities, institution provisioning
+- Tenant DB routing (`req.tenantPrisma`)
+- Graduated Trust: policies, `dispatchAgentAction`, Agent Log, Tier 3 approve/reject, overrides
+- Agent runtimes that M4 controls: **A1** (Node readiness rules + Tier 3), **A2** (Node rules), **A3** (Python IF + Node dispatch), **A4** (Node + Ollama **intent** and **knowledge**)
+- Role-canonical dashboards (`getRoleRedirect`): admin/executive → `/dashboard`; BM → `/branch-manager`; finance → `/finance-manager`; HR → `/hr`; LO → `/loan-officer`
 
 **Not M4:** M1 credit risk models, M2 ledger product APIs, M3 loan lifecycle / EWS (except consuming shared auth/tenant patterns).
 
@@ -37,9 +38,9 @@ Integration API catalog for other teams: [`M4_INTEGRATION_GUIDE.md`](./M4_INTEGR
 
 **Dispatch** ([`agent-engine.ts`](../backend/src/lib/agent-engine.ts)):
 
-1. Load active policy by `actionType` (client **cannot** set tier/agentId).  
-2. Missing/inactive policy → **fallback Tier 4** (`isFallback: true`).  
-3. Tier 3: create `pending_approval` + audit; stop.  
+1. Load active policy by `actionType` (client **cannot** set tier/agentId).
+2. Missing/inactive policy → **fallback Tier 4** (`isFallback: true`).
+3. Tier 3: create `pending_approval` + audit; stop.
 4. Tier 1/2/4: create `running` + `agent_action.running` → run **handler outside** DB txn → update to terminal status + `agent_action.<status>` audit.
 
 **Handlers** ([`agent-handlers.ts`](../backend/src/lib/agent-handlers.ts)): in-process; no Prisma in context. Unregistered types use `defaultStubHandler` (`stubExecuted: true`). Production A2/A4 register real handlers at boot via `registerDefaultAgentHandlers()`.
@@ -48,7 +49,7 @@ Integration API catalog for other teams: [`M4_INTEGRATION_GUIDE.md`](./M4_INTEGR
 
 `agent_actions` has **no `actionType` column**. The type is stored in:
 
-- `inputPayload.actionType` (and related payload fields), and  
+- `inputPayload.actionType` (and related payload fields), and
 - `policyId` → `agent_tier_policies.actionType`.
 
 List/detail APIs expose agent/tier/status; full payloads only on `GET …/agent-actions/:id` (decide_tier3 roles).
@@ -72,17 +73,17 @@ UI entry is the shared Ask Agent 4 surface — not a separate chatbot:
 | Store nlq history **v2** | Local UI thread only (`source: live_a4`); archives pre-live mock as `legacyMock` |
 | Exec dashboard | CTA opens the same panel — no fabricated PAR/EPF answers |
 
-**Per turn:** user text → `queryNlq` → JSON `{ supported, answer?, dispatch?, … }`.  
-- `supported: false` → polite scope message (*outside my current scope…*); **no** Agent Log row.  
-- `supported: true` + `dispatched` → show grounded `answer` + optional tier / `actionId` / status.  
+**Per turn:** user text → `queryNlq` → JSON `{ supported, answer?, dispatch?, … }`.
+- `supported: false` → polite scope message (*outside my current scope…*); **no** Agent Log row.
+- `supported: true` + `dispatched` → show grounded `answer` + optional tier / `actionId` / status.
 - HTTP **503** → “Currently unavailable” (Ollama down).
 
 Browser never talks to Ollama. History in localStorage is **display only** — each request is a fresh question string with **no** prior turns sent to the model (**conversational memory deferred to A4 v2**).
 
 ### 3.3 HTTP entry
 
-`POST /api/tenant/agent-actions/nlq/query`  
-JWT + `resolveTenantContext` + `agents:query_nlq`  
+`POST /api/tenant/agent-actions/nlq/query`
+JWT + `resolveTenantContext` + `agents:query_nlq`
 Body: `{ "question": string }` (3–500 chars).
 
 Implementation: `handleNlqQuery` in [`agent-governance.ts`](../backend/src/routes/agent-governance.ts).
@@ -120,19 +121,21 @@ sequenceDiagram
 
 **Why tools run before GT dispatch:** `ActionHandlerContext` has no `tenantPrisma`. Same pattern as A2 (evaluate, then dispatch). GT audits the **answer action**, not each read. Failures (Ollama, unsupported, 403) **do not** create rows.
 
+**Lexical pre-filter (2026-10):** `questionSuggestsNlqCountIntent` — if the question lacks pending/count cues, Node **skips** intent Ollama and continues to the knowledge / unsupported path. Prevents greeting latency and fail-closes invented counts.
+
 ### 3.5 Ollama role + prompt v2 evidence gate
 
 [`ollama-client.ts`](../backend/src/lib/ollama-client.ts): `POST {OLLAMA_BASE_URL}/api/chat` with `format: "json"`, `options.temperature: 0`.
 
-- Env: `OLLAMA_BASE_URL` (required), `OLLAMA_MODEL` (default `qwen2.5:1.5b`), `OLLAMA_TIMEOUT_MS` (default **30000** — cold load exceeded 15s in lab).  
-- Fail-closed → `OllamaUnavailableError` → HTTP **503**.  
+- Env: `OLLAMA_BASE_URL` (required), `OLLAMA_MODEL` (default `qwen2.5:1.5b`), `OLLAMA_TIMEOUT_MS` (default **30000** — cold load exceeded 15s in lab).
+- Fail-closed → `OllamaUnavailableError` → HTTP **503**.
 - System prompt (`A4_NLQ_PROMPT_VERSION = "a4-intent-v2"`) asks for intent JSON only; **default to `unsupported`**; few-shots include greetings → unsupported; **no numeric answers**.
 
 Intent schema ([`agent-a4-nlq.ts`](../backend/src/lib/agent-a4-nlq.ts)):
 
-- `count_pending_tier3`  
-- `count_actions_window` (+ optional `days` 1–30, `agentId` A1–A4)  
-- `unsupported`  
+- `count_pending_tier3`
+- `count_actions_window` (+ optional `days` 1–30, `agentId` A1–A4)
+- `unsupported`
 
 **Post-parse evidence gate** (`resolveNlqIntentFromModel` → `questionSupportsIntent`): if the model returns a *supported* intent but the user text lacks the expected cues (pending/awaiting + approval/tier‑3, or action/agent + how‑many/count/window cues), Node **downgrades to unsupported** and does **not** dispatch. This is fail-closed validation after the LLM — **not** a greeting blacklist and **not** replacing the model with hardcoded intent matching.
 
@@ -192,31 +195,69 @@ Leader task list mentioned LangChain for A1–A4. **Current design defers it:** 
 
 `qwen2.5:1.5b` is fast on homelab but can mis-intent or return non-JSON (→ 422). Cold start can be slow (timeout raised to 30s). Prompt-only correction was **insufficient** for greeting over-fire; evidence gate + `temperature: 0` are the reliable v1 net. Remaining limits: odd valid phrasings may be rejected; no multi-turn context; aggregates only. **Safety net:** schema validation + evidence gate + grounded tools + no model numbers in answers.
 
+### 3.12 A4 Knowledge path (v1.2) — after unsupported NLQ
+
+**Problem:** Many viva questions are educational (PAR, OSS, microfinance terms) and must **not** invent tenant metrics.
+
+**Solution:** When NLQ is unsupported (or lexical cues skip intent), [`agent-a4-knowledge.ts`](../backend/src/lib/agent-a4-knowledge.ts) may call Ollama for a **JSON educational answer** (`a4-knowledge-v1.2`).
+
+| Property | Behavior |
+|----------|----------|
+| Dispatch | **No** `AgentAction` / no Tier 1 row |
+| Grounding | Product glossary for PAR/OSS; refuse agent/action instructions |
+| Length | Soft max ~900 chars; hard max 1200; **one** length-only retry inside 45s stage budget |
+| `num_predict` | Default **1024** (`A4_KNOWLEDGE_NUM_PREDICT` override; A/B candidate 512 not production default) |
+| Errors | Typed `OllamaUnavailableError` codes (`timeout` / `http` / …) → honest 503 / unsupported |
+| Verify | `npm run verify:a4-knowledge` (offline fixtures) |
+
+**Viva honesty:** A knowledge answer is **not** proof that a trained model created an audit row. Count questions that dispatch show Tier 1 `executed` in Agent Log.
+
+**Lab decision (num_predict):** 512 reduced some timeouts but degraded long-form JSON; **1024 restored** as default.
+
+**Domain boundary — Stage 0 shipped (2026-10-20, local uncommitted):** Root cause was fail-**open** generative knowledge: narrow `hardRefuse` denylist missed cooking “how to make …”, and `qwen2.5:1.5b` often set `in_scope: true` for food. **Implemented:** (1) expand `hardRefuse` with cooking/food how-tos via `looksLikeUnrelatedHowToOrFood`; (2) **fail-closed allowlist** `questionSuggestsA4KnowledgeTopic` / `hasFinanceOrProductSubstanceCue` in `handleNlqQuery` **after** NLQ + grounded MicroFlow, **before** knowledge Ollama — no finance/product substance → `200` `{ reason: "off_topic" }` (same unsupported contract). Interrogative openers alone are not enough (“what is ice cream”). **NLQ count classification and GT/auth unchanged.** Offline: `npm run verify:a4-knowledge` **225/225** (fixtures K19, K21–K23 + Stage-0 section).
+
+**Limitations (Stage 0):** Lexical allowlist can false-refuse legitimate finance paraphrases that omit cue terms (e.g. colloquial delinquency without “PAR/NPL/loan”). Ambiguous finance is **not** auto-labeled off_topic beyond missing cues. Stage 0 remains the production gate.
+
+**Domain ML (2026-10-21):** Improve-v1 TF-IDF+LR JSON + Node gate. Policy **`ml_tau` τ=0.45** + `A4_KNOWLEDGE_STRICT_PROMPT=1`. **Deployed on local MicroFlow** (Vite `5173` → API `4000`): live `domainGate.mode=enforce`, knowledge `knowledgeStrictPrompt:true`; deploy checks **11/11**. Known limitation: PAR30-class FR — threshold not changed. Shared/cloud **not** promoted (JSON artifact gitignored). [`DEPLOYMENT_LOCAL.md`](../agents/ml/data/a4_domain/DEPLOYMENT_LOCAL.md).
+
 ---
 
 ## 4. A2 Workflow (budget threshold) v1
 
-**Endpoint:** `POST /api/tenant/agent-actions/budget-threshold/evaluate`  
+**Endpoint:** `POST /api/tenant/agent-actions/budget-threshold/evaluate`
 **Code:** [`agent-a2-budget.ts`](../backend/src/lib/agent-a2-budget.ts), handler `budgetThresholdAlertHandler`.
 
-- Caller supplies `metricName`, `metricValue`, `threshold` (`source` must be `manual_api_v1`).  
-- Breach iff `metricValue >= threshold` → dispatch `budget_threshold_alert` → Tier **2** → status **`notified`** (Agent Log only; no email/SMS).  
-- Soft 24h dedupe on `dedupeKey`; `?allowDuplicate=true` bypasses.  
-- RBAC: `decide_tier3` **or** `finance:manage_ledger`.  
+- Caller supplies `metricName`, `metricValue`, `threshold` (`source` must be `manual_api_v1`).
+- Breach iff `metricValue >= threshold` → dispatch `budget_threshold_alert` → Tier **2** → status **`notified`** (Agent Log only; no email/SMS).
+- Soft 24h dedupe on `dedupeKey`; `?allowDuplicate=true` bypasses.
+- RBAC: `decide_tier3` **or** `finance:manage_ledger`.
 - Offline: `npm run verify:a2-budget`. Merged via **PR #21**.
 
 **Limit:** No automatic M2 ledger monitoring until M2 exposes budget APIs.
+
+**ZZ viva prep (additive A2 pack):** [`prepare-zz-viva-demo.ps1`](../backend/scripts/prepare-zz-viva-demo.ps1) — dry-run by default; write requires `ALLOW_ZZ_VIVA_PREP_WRITE=1` and `-Write`. Uses the **genuine** evaluate API with caller-supplied metrics and `source: manual_api_v1` (honest: **not** automatic M2 ledger monitoring). Never deletes audit rows; never Apex tenant seeds; never admin `test-dispatch` as “model ran” proof.
+
+**Verified write (historical, 2026-10-20 ~14:34Z UTC)** — local gitignored manifest:
+
+| Scenario | Outcome | Id |
+|----------|---------|-----|
+| N-A2-1 | created T2 `notified` | `dbc08d85-ab3d-49b9-8be6-48ae1ecb59ec` |
+| N-A2-2 | created T2 `notified` | `5f005608-3ee8-4e68-b338-4fdf65ccf9d7` |
+| N-A2-NB | no row | — |
+| Protected A1 | still pending | `c68649d1-eed9-4724-a187-d57c0617ab2c` |
+
+At that moment A2 count **4→6** and tenant actions **45→47** (UI-verified). **Totals are not a permanent invariant** — later activity can change them; cite action ids for viva evidence.
 
 ---
 
 ## 5. A3 Anomaly (Isolation Forest)
 
-**Runtime:** FastAPI under [`agents/`](../agents/) — score with **a3-iforest-v2** (RobustScaler → Isolation Forest).  
+**Runtime:** FastAPI under [`agents/`](../agents/) — score with **a3-iforest-v2** (RobustScaler → Isolation Forest).
 **Dispatch:** optional POST to Node `POST /api/internal/agent-actions/dispatch` with `AGENT_SERVICE_KEY`; allowlist **`volume_spike_alert` only**, Tier 4 / A3 policy required.
 
-- Scores are **non-probabilistic**; UI “Confidence %” can mislead.  
-- Known weak recall on `amount_spike`.  
-- Artifacts gitignored; train/eval under `agents/ml/`.  
+- Scores are **non-probabilistic**; UI “Confidence %” can mislead.
+- Known weak recall on `amount_spike`.
+- Artifacts gitignored; train/eval under `agents/ml/`.
 - Merged via **PR #20**. Keep `ENABLE_DISPATCH_STUB=false` unless approved.
 
 ---
@@ -229,20 +270,20 @@ Leader task list mentioned LangChain for A1–A4. **Current design defers it:** 
 
 ### Flow
 
-1. Validate period (default last 30 days).  
-2. Collect tenant facts: `tenant_info`, branches, employees (incl. missing EPF/ETF counts), payroll counts, agent/audit aggregates, optional loan/borrower/journal counts as **availability slots**.  
-3. Deterministic rules → `dataGaps` / `inferredRisks` / `recommendations` / `overallStatus` (`not_ready` | `ready_with_warnings` | `evidence_complete_for_scoped_checks`). Missing evidence is **never** “compliant.”  
-4. `dispatchAgentAction(generate_cbsl_report)` → `pending_approval` + engine audit; `inputPayload` includes `report`, `proposalHash`, **`preparedByUserId`**.  
-5. Extra audit **`a1_readiness.prepared`** (actor = preparer) stores the same `proposalHash` / preparer — binding **outside** the action row alone. **Not** cryptographic immutability against a DB admin who rewrites both.  
-6. Human reviews A1 summary on `/tier-approval` (status, period, gaps, recommendations, preparer, disclaimer); raw JSON expandable.  
+1. Validate period (default last 30 days).
+2. Collect tenant facts: `tenant_info`, branches, employees (incl. missing EPF/ETF counts), payroll counts, agent/audit aggregates, optional loan/borrower/journal counts as **availability slots**.
+3. Deterministic rules → `dataGaps` / `inferredRisks` / `recommendations` / `overallStatus` (`not_ready` | `ready_with_warnings` | `evidence_complete_for_scoped_checks`). Missing evidence is **never** “compliant.”
+4. `dispatchAgentAction(generate_cbsl_report)` → `pending_approval` + engine audit; `inputPayload` includes `report`, `proposalHash`, **`preparedByUserId`**.
+5. Extra audit **`a1_readiness.prepared`** (actor = preparer) stores the same `proposalHash` / preparer — binding **outside** the action row alone. **Not** cryptographic immutability against a DB admin who rewrites both.
+6. Human reviews A1 summary on `/tier-approval` (status, period, gaps, recommendations, preparer, disclaimer); raw JSON expandable.
 7. **Approve (A1-only gate before `decideTier3Action`):** deny if preparer missing (legacy fail-closed), approver === preparer (**SoD**), prepare audit missing, or audit/`report` hash mismatch. Then handler re-checks payload self-hash → `executed`. **Reject** unchanged (no handler). Other Tier 3 types unaffected.
 
 **RBAC:** Prepare = `agents:decide_tier3` **or** `finance:manage_ledger`. Approve/reject = `decide_tier3` only (finance can prepare but not approve). Still use **two different users** when both have decide_tier3 (e.g. admin prepare blocked from self-approve).
 
-**Offline:** `npm run verify:a1-compliance` (62/62). **Live ZZ E2E verified:**  
-- Approve/execute: `241418c5-a85a-46b6-acdb-0212daadd390` (finance prepare → admin approve; real handler; hash match).  
-- Reject: `83efcab0-5561-4954-aca9-66d8faa3c1ec` (finance → executive; no handler / no executed audit).  
-- SoD: `805a063d-fca4-4572-b475-271a9b72a8f1` (BM prepare → BM approve **403** → executive reject cleanup).  
+**Offline:** `npm run verify:a1-compliance` (62/62). **Live ZZ E2E verified:**
+- Approve/execute: `241418c5-a85a-46b6-acdb-0212daadd390` (finance prepare → admin approve; real handler; hash match).
+- Reject: `83efcab0-5561-4954-aca9-66d8faa3c1ec` (finance → executive; no handler / no executed audit).
+- SoD: `805a063d-fca4-4572-b475-271a9b72a8f1` (BM prepare → BM approve **403** → executive reject cleanup).
 
 **Limits:** `cbsl_readiness_v1` only (not official CBSL); sparse tenants often `not_ready`; prepare-audit hash binding is not DB-admin-proof.
 
@@ -257,72 +298,86 @@ Leader task list mentioned LangChain for A1–A4. **Current design defers it:** 
 | GT engine / Agent Log | yes | yes | yes | yes | real c4 screens |
 | A3 IF + dispatch | yes | yes | yes | yes | Agent Log |
 | A2 budget evaluate | yes | yes | yes | yes | Agent Log |
-| A4 NLQ (+ intent-v2 gate) | yes | yes (`verify:a4-nlq`) | yes (ZZ + UI) | **not yet** | **live AgentPanel** |
+| A4 NLQ (+ intent-v2 gate) | yes | yes (`verify:a4-nlq`) | yes (ZZ + UI) | confirm merge status | **live AgentPanel** |
+| A4 Knowledge v1.2 | yes (local) | yes (`verify:a4-knowledge`) | lab live runs | **not yet** | AgentPanel knowledge answers |
 | A4 conversational memory | no | — | — | — | deferred **A4 v2** |
-| A1 readiness (`cbsl_readiness_v1`) | yes | yes (`verify:a1-compliance`) | **yes (ZZ)** | **not yet** | Tier Approval / Agent Log |
+| A1 readiness (`cbsl_readiness_v1`) | yes | yes (`verify:a1-compliance`) | **yes (ZZ)** | confirm merge status | Tier Approval / Agent Log |
+| Role-home Dashboard nav | yes (local) | manual + unit of `getRoleRedirect` | UI walkthrough | **not yet** | sidebar / Access Denied |
 | LangChain | no | — | — | — | deferred |
 
 ---
 
-## 8. Tenant isolation reminder
+## 8. Tenant isolation + frontend routing reminder
 
-- Each MFI has its own physical DB; tenant tables do **not** store `institution_id`.  
-- Always use `req.tenantPrisma` after JWT resolution.  
-- **ZZ E2E:** resolve institution `33b6545d-…` via **central** — local `TENANT_DATABASE_URL` often points at a **different** demo tenant.
+- Each MFI has its own physical DB; tenant tables do **not** store `institution_id`.
+- Always use `req.tenantPrisma` after JWT resolution.
+- **ZZ E2E:** resolve institution `33b6545d-…` / name **ZZ Test Org 1** via **central** — local `TENANT_DATABASE_URL` often points at a **different** demo tenant.
+- **Frontend homes:** login uses `getRoleRedirect`; sidebar Dashboard + MicroFlow logo now use the same helper. Loan Officer field layout still forces `/loan-officer` while under `/loan-officer/*`.
+- **`/dashboard`** still renders `ExecutiveDashboard` for any authenticated user who types the URL — intentional deferred product decision (nav fixed; route not re-gated).
+- Institution/Agent Settings tabs remain **admin-only** in the UI; backend policy/branch APIs still enforce JWT + RBAC.
 
 ---
 
 ## 9. Practical viva Q&A
 
-**Q: Who decides the trust tier for an agent action?**  
+**Q: Who decides the trust tier for an agent action?**
 A: Only the active `agent_tier_policies` row for that `actionType`. Clients cannot send `tier`. Missing policy → fallback Tier 4.
 
-**Q: Why can A4 call Ollama but still not invent a “4”?**  
+**Q: Why can A4 call Ollama but still not invent a “4”?**
 A: Ollama returns intent JSON. Node runs `agentAction.count` and fills a template. Model `count` fields are ignored by the parser.
 
-**Q: Does Tier 1 `executed` prove the model understood the question?**  
+**Q: Does Tier 1 `executed` prove the model understood the question?**
 A: No. It proves GT auto-ran the grounded `nlq_query` handler after Node accepted an intent and computed facts. Intent quality is a separate concern (prompt v2 + evidence gate).
 
-**Q: What is the A4 evidence gate?**  
+**Q: What is the A4 evidence gate?**
 A: After Ollama returns a supported intent, `questionSupportsIntent` checks the user text for pending/approval or action/count cues. Missing evidence → `unsupported`, no dispatch. Cuts 1.5B false positives (e.g. “Hello”); may reject odd valid phrasings.
 
-**Q: Does Ask Agent 4 remember prior turns?**  
+**Q: Does Ask Agent 4 remember prior turns?**
 A: Not in v1. The panel may show a local chat thread, but each API call sends only the current question. Multi-turn / follow-ups are A4 v2.
 
-**Q: Where is `nlq_query` stored on the action row?**  
+**Q: Where is `nlq_query` stored on the action row?**
 A: Not as a column. See `inputPayload.actionType` and `policyId` → policy.actionType. Also look for `promptVersion: a4-intent-v2` in the payload / activity log.
 
-**Q: Why did Apex finance get 403 on “pending approvals” but can ask Agent Log counts?**  
+**Q: Why did Apex finance get 403 on “pending approvals” but can ask Agent Log counts?**
 A: Pending tool needs `agents:decide_tier3`; window count needs `agents:view_actions`. `agents:query_nlq` alone opens the endpoint, not every tool.
 
-**Q: Why tools before `dispatchAgentAction`?**  
+**Q: Why tools before `dispatchAgentAction`?**
 A: Handlers have no Prisma; A2 already evaluates then dispatches; failed intents must not create GT rows.
 
-**Q: Difference between A2 `notified` and A4 `executed`?**  
+**Q: Difference between A2 `notified` and A4 `executed`?**
 A: Tier 2 success → `notified` (notify semantics / Agent Log). Tier 1 success → `executed`.
 
-**Q: How does A3 reach GT without a user JWT?**  
+**Q: How does A3 reach GT without a user JWT?**
 A: Internal service key + allowlisted `volume_spike_alert` only; Node still resolves tenant and policy.
 
-**Q: Why defer LangChain?**  
+**Q: Why defer LangChain?**
 A: GT + fixed intents + Node tools already meet v1; LangChain adds weight without clear gain until multi-step agents are required.
 
-**Q: What breaks if Ollama is down?**  
+**Q: What breaks if Ollama is down?**
 A: A4 returns 503; no action row. A2/A3 unaffected.
 
-**Q: Soft dedupe race on A2?**  
+**Q: Soft dedupe race on A2?**
 A: Two concurrent breaches can both pass the soft check (TOCTOU); unique index deferred.
 
-**Q: Is A1 an official CBSL report generator?**  
+**Q: Why did Branch Manager see the executive dashboard?**
+A: Sidebar “Dashboard” used to hardcode `/dashboard`. Login already sent BM to `/branch-manager`. Fix: `getRoleRedirect` for Dashboard link + logo. BM can still open `/dashboard` by URL until product re-gates it.
+
+**Q: Does a knowledge answer prove the model wrote an audit row?**
+A: No. Knowledge turns do not dispatch. Only grounded count NLQ creates Tier 1 `executed` rows.
+
+**Q: How do we demo ZZ without Apex seed scripts?**
+A: Reuse existing ZZ `agent_actions`; add a small A2 pack via genuine evaluate (`manual_api_v1` metrics — not M2 monitoring); preserve pending A1; never present `test-dispatch` as trained-model proof. Prep write for viva 2026-10-20 created `dbc08d85-…` and `5f005608-…`.
+
+**Q: Is A1 an official CBSL report generator?**
 A: No. It produces `cbsl_readiness_v1` — facts, gaps, and recommendations from tenant evidence. Blocking gaps → `not_ready`. Never invents CBSL line items.
 
-**Q: Why is Tier 3 valuable for A1 if the report is “just JSON”?**  
+**Q: Why is Tier 3 valuable for A1 if the report is “just JSON”?**
 A: Prepare binds a proposal (`proposalHash` + preparer) in the payload and a prepare audit. A different user must approve; self-approve is rejected. Hash mismatches fail closed. This is workflow integrity, not absolute crypto against DB admins.
 
-**Q: Can the preparer approve their own A1 package?**  
+**Q: Can the preparer approve their own A1 package?**
 A: No — server returns 403 when `preparedByUserId` equals the approver.
 
-**Q: Does A1 use an LLM?**  
+**Q: Does A1 use an LLM?**
 A: Not in v1. Deterministic rules only (same honesty bar as A4’s grounded counts).
 
 ---
@@ -343,8 +398,8 @@ A3: see [`agents/README.md`](../agents/README.md).
 
 ## 11. Further reading
 
-- [`M4_AGENT_HANDOVER.md`](./M4_AGENT_HANDOVER.md) — status, ADRs, next Git steps  
-- [`M4_INTEGRATION_GUIDE.md`](./M4_INTEGRATION_GUIDE.md) §13 — API surface for M1–M3  
-- [`agents/README.md`](../agents/README.md) — A3 ops  
+- [`M4_AGENT_HANDOVER.md`](./M4_AGENT_HANDOVER.md) — status, ADRs, next Git steps
+- [`M4_INTEGRATION_GUIDE.md`](./M4_INTEGRATION_GUIDE.md) §13 — API surface for M1–M3
+- [`agents/README.md`](../agents/README.md) — A3 ops
 
 When this walkthrough disagrees with the repo, fix the walkthrough.

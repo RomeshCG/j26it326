@@ -53,7 +53,8 @@ export default function ShapInteractionMatrix() {
       <div>
         <h2 className="text-base font-semibold tracking-tight">Factor interactions</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Select an interaction in the matrix to see how factors combine
+          Illustrative prototype — how two factors might combine. Live SHAP for this loan is the
+          contributor list above (from the model). Pairwise interaction values are not computed yet.
         </p>
       </div>
 

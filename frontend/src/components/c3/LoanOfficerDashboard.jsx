@@ -1,6 +1,8 @@
-import { AlertTriangle, Building2, ChevronRight, MapPin, Wallet } from "lucide-react"
+import { useState, useEffect } from "react"
+import { AlertTriangle, Building2, ChevronRight, MapPin, RefreshCw, Wallet } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -16,6 +18,7 @@ import {
   PORTFOLIO_STATS,
   formatLkr,
 } from "./mock-data"
+import { getLoans, getEwsAlerts, getParSummary } from "@/lib/m3-api"
 
 function statusBadge(status) {
   if (status === "ews") return <Badge variant="destructive">EWS</Badge>
@@ -84,6 +87,71 @@ export default function LoanOfficerDashboard({
   onOpenCollection,
 }) {
   const officer = useLoggedInOfficer()
+  const [stats, setStats] = useState(PORTFOLIO_STATS)
+  const [loans, setLoans] = useState(ACTIVE_LOANS)
+  const [isLive, setIsLive] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  async function loadDashboardData() {
+    setLoading(true)
+    try {
+      const [loansRes, alertsRes, parRes] = await Promise.allSettled([
+        getLoans({ status: "active" }),
+        getEwsAlerts({ status: "open" }),
+        getParSummary(),
+      ])
+
+      let liveActiveCount = PORTFOLIO_STATS.activeLoans
+      let liveEwsCount = PORTFOLIO_STATS.ewsAlertCount
+      let livePar = PORTFOLIO_STATS.par30
+      let hasLive = false
+
+      if (loansRes.status === "fulfilled" && Array.isArray(loansRes.value) && loansRes.value.length > 0) {
+        liveActiveCount = loansRes.value.length
+        hasLive = true
+        const mappedLoans = loansRes.value.slice(0, 5).map((l) => ({
+          id: l.id,
+          borrower: l.borrower?.fullName || "Borrower",
+          product: l.product?.name || "Loan",
+          outstanding: Number(l.principal || 0),
+          daysLate: 0,
+          nextDue: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+          status: l.status === "active" ? "current" : l.status,
+        }))
+        setLoans(mappedLoans)
+      }
+
+      if (alertsRes.status === "fulfilled" && Array.isArray(alertsRes.value)) {
+        liveEwsCount = alertsRes.value.length
+        hasLive = true
+      }
+
+      if (parRes.status === "fulfilled" && parRes.value && typeof parRes.value.par30Ratio === "number") {
+        livePar = (parRes.value.par30Ratio * 100).toFixed(1)
+        hasLive = true
+      }
+
+      if (hasLive) {
+        setStats({
+          activeLoans: liveActiveCount,
+          ewsAlertCount: liveEwsCount,
+          overdueCount: PORTFOLIO_STATS.overdueCount,
+          par30: livePar,
+        })
+        setIsLive(true)
+      } else {
+        setIsLive(false)
+      }
+    } catch {
+      setIsLive(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
@@ -92,12 +160,33 @@ export default function LoanOfficerDashboard({
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {officer.role} · Field operations
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">{officer.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">{officer.name}</h1>
+            <Badge variant={isLive ? "default" : "secondary"}>
+              {isLive ? "Live API" : "Demo Data"}
+            </Badge>
+          </div>
+          {!Boolean(typeof window !== "undefined" && localStorage.getItem("mf_auth_token")) && (
+            <p className="text-xs text-muted-foreground">
+              No auth token — log in via M4 to see live data
+            </p>
+          )}
           <p className="text-sm text-muted-foreground">
             {officer.branch} · {officer.portfolioId}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={loadDashboardData}
+            disabled={loading}
+            className="cursor-pointer"
+          >
+            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
           <button
             type="button"
             onClick={() => onOpenBranch?.()}
@@ -112,7 +201,7 @@ export default function LoanOfficerDashboard({
             className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-transparent bg-destructive/10 px-3 text-sm font-medium text-destructive transition-colors hover:bg-destructive/15"
           >
             <AlertTriangle className="size-3.5" />
-            EWS alerts {PORTFOLIO_STATS.ewsAlertCount}
+            EWS alerts {stats.ewsAlertCount}
           </button>
         </div>
       </div>
@@ -120,25 +209,25 @@ export default function LoanOfficerDashboard({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Active loans"
-          value={PORTFOLIO_STATS.activeLoans}
+          value={stats.activeLoans}
           hint="My portfolio"
         />
         <KpiCard
           label="EWS alerts"
-          value={PORTFOLIO_STATS.ewsAlertCount}
+          value={stats.ewsAlertCount}
           hint="Open early-warning cases"
           emphasize
           onClick={() => onOpenEwsInbox?.()}
         />
         <KpiCard
           label="Overdue"
-          value={PORTFOLIO_STATS.overdueCount}
+          value={stats.overdueCount}
           hint="Accounts past due date"
           onClick={() => onOpenOverdue?.()}
         />
         <KpiCard
           label="PAR30"
-          value={`${PORTFOLIO_STATS.par30}%`}
+          value={`${stats.par30}%`}
           hint="Portfolio at risk > 30 days"
         />
       </div>
@@ -153,7 +242,7 @@ export default function LoanOfficerDashboard({
           </CardHeader>
           <CardContent className="px-0">
             <div className="divide-y divide-border">
-              {ACTIVE_LOANS.map((loan) => (
+              {loans.map((loan) => (
                 <button
                   key={loan.id}
                   type="button"

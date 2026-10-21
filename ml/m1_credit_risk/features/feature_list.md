@@ -62,3 +62,21 @@ Optional bands: low &lt; 35, medium 35–65, high &gt; 65.
 ## Drop (never train on)
 
 CUSTOMER NAME, CUSTOMER NIC, CONTACT NO., raw CUSTOMER CODE / CONTRACT NUMBER (use anonymous id only).
+
+
+---
+
+## v2 overdue model (current)
+
+**Target:** `overdue = 1` if PAR `age` > 1 (arrears age in periods; confirm meaning with partner). Positive rate ~35.8%.
+
+**Features (origination-time only):** contract_amount, interest_amount, installment, tenure, installment_ratio, interest_ratio, branch, product_category, product_type, product.
+
+**Excluded on purpose (leakage):** arrears_*, arr_*, paid_*, balance_*, utilization, left_tenure, last_paid_*, next_due_date. They define `age` arithmetically.
+**Also excluded:** gender / area_type / income_band. These are expert-prior fills (100% "unknown" in PAR), independent of repayment, so they are noise as predictors. Use for fairness slicing only.
+
+**Validation:** GroupKFold(5) by center vs prior baseline and logistic regression (`artifacts/metrics.json`). Current: AUC ~0.81 (XGB), ~0.82 (LR), PR-AUC ~0.73, baseline AUC 0.50.
+
+The v1 `risk_pct` formula target above is kept only for history; do not report its R2 (the label was computed from its own inputs).
+
+**Confirmed by the team:** `age` = arrears age (how long a payment is overdue). The PAR file is a snapshot of currently ongoing loans at the export date; two further snapshots are planned, which will allow a time-based / future-default validation.
