@@ -11,7 +11,7 @@
  */
 import { Router } from "express"
 import { z } from "zod"
-import { requireAuth, requireRole } from "../../lib/m3/mock-auth.js"
+import { requireAuth, requireRole } from "../../lib/m3/auth.js"
 import { resolveTenant } from "../../lib/m3/tenant-guard.js"
 import { generateSchedule } from "../../lib/m3/schedule-generator.js"
 import { qs, p } from "../../lib/m3/query-helpers.js"
