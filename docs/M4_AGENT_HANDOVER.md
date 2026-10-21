@@ -94,7 +94,9 @@
 | A3 IF + FastAPI | **Merged + E2E** | PR #20 → `origin/main` |
 | A2 budget threshold v1 | **Merged + E2E** | PR #21 → `origin/main` |
 | A4 NLQ + UI + intent-v2 | **On branch / prior commits** | Live ZZ + AgentPanel |
-| A4 Knowledge v1.2 + reliability | **Local uncommitted** | `agent-a4-knowledge.ts`; `verify:a4-knowledge` **202/202** offline |
+| A4 Knowledge v1.2 + reliability | **Local uncommitted** | `agent-a4-knowledge.ts`; `verify:a4-knowledge` **225/225** offline |
+| A4 Knowledge Stage-0 domain gate | **Local uncommitted** | Allowlist before knowledge Ollama; cooking hardRefuse; K19/K21–K23 |
+| A4 domain ML + Node gate | **Integrated; enforce OFF** | JSON+Node parity; modes off/shadow/enforce; default off; see INTEGRATION_EXPERIMENT.md |
 | A1 CBSL readiness v1 | **Live E2E verified (ZZ)** | Historical approve/reject/SoD; current viva pending preserved |
 | Exec / BM dashboards (honest KPIs) | **On branch** | Live pending + Agent feed; M2/M3/HR “Not connected” |
 | Role-based dashboard nav | **Local uncommitted** | `getRoleRedirect` in sidebar + Access Denied |
@@ -115,6 +117,7 @@
 ### Completed on this branch (code / UI)
 
 - A4 knowledge path (glossary, soft 900-char budget, length-only retry, typed Ollama errors, `num_predict` default **1024**).
+- **Stage 0 domain gate:** `questionSuggestsA4KnowledgeTopic` fail-closed before knowledge Ollama; cooking/food hardRefuse; NLQ path unchanged.
 - Lexical NLQ cue gate (`questionSuggestsNlqCountIntent`) before intent Ollama.
 - Role-home navigation (`getRoleRedirect`) for Dashboard link, logo, Access Denied.
 - Branch Manager: removed technical Graduated Trust info banner; live pending KPI retained.
@@ -204,6 +207,8 @@ chinookz owns Git and approvals. Agents stay in approved scope. Challenge Agent1
 - A2: soft dedupe TOCTOU; no automatic M2 monitoring; viva prep uses synthetic caller metrics.
 - A4 NLQ: intent ≠ Tier 1 correctness; evidence gate may reject odd phrasings; no multi-turn memory.
 - A4 Knowledge: 1.5B long-form limits; educational only; **no** `AgentAction` on knowledge turns; not a substitute for M2 PAR/EPF facts.
+- A4 Knowledge Stage 0: fail-closed finance/product allowlist before generative Ollama; cooking/food hardRefuse expanded. **Still lexical** — paraphrases without cue terms may false-refuse.
+- A4 domain ML: **Deployed on local MicroFlow** (frontend→`localhost:4000`): `enforce` + `ml_tau`@0.45 + strict + improve-v1 JSON. Deploy verify 11/11; PAR30 FR known. **Shared/cloud still off** (artifact gitignored). Docs: [`DEPLOYMENT_LOCAL.md`](../agents/ml/data/a4_domain/DEPLOYMENT_LOCAL.md).
 - A1: readiness ≠ official CBSL; preserve pending viva row until human decides.
 - `/dashboard` still reachable by any authenticated role by URL (nav fixed; route not re-gated).
 - HR/payroll: mock UI; payroll rows usually empty.
@@ -221,3 +226,22 @@ chinookz owns Git and approvals. Agents stay in approved scope. Challenge Agent1
 | 2026-10-16 | A4 pushed; merge hold; priorities → A1 first. |
 | 2026-10-16 | A1 readiness v1 + hardening; ZZ live E2E: approve, reject, SoD 403. |
 | 2026-10-20 | `feature/m4-dashboard-wire`: A4 knowledge v1.2 + 1024 default; ZZ viva prep script; role-home nav; BM/Settings/Tier UI cleanup; docs refresh. |
+| 2026-10-20 | AgentPanel contrast + label cleanup; removed Graduated Trust promo CTA. |
+| 2026-10-20 | **Stage 0** A4 knowledge domain gate shipped locally: cooking hardRefuse + `questionSuggestsA4KnowledgeTopic` before Ollama; verify **225/225**. Stopped before dataset/train/ONNX. |
+| 2026-10-20 | A4 domain-classifier **dataset design** doc; awaiting approval before gold set generation. |
+| 2026-10-20 | A4 domain **seed pack** (~55 labeled JSONL, splits null) under `agents/ml/data/a4_domain/`; stop before expansion/train. |
+| 2026-10-20 | A4 domain **quality review**: 54 rows; removed NLQ `a4d-000055`; Stage-0 cue checks verified; no peer second-review claimed. |
+| 2026-10-20 | A4 domain **pre-expansion finalize**: `052`→mixed/M_EDU_LIVE (Agent1/user, not audit); `O_STUFF`/`O_WEATHER`; human packet for 006/014. |
+| 2026-10-20 | A4 domain **Wave 1**: +87 labels (141 total); rewrites 006/014 cue-miss OK; eval vault 24 frozen/isolated; stop before train. |
+| 2026-10-20 | A4 domain **train readiness**: drafts excluded; HUMAN_REVIEW_QUEUE; split-v0; challenge premature train vs ≥180/human-review; stubs only. |
+| 2026-10-20 | A4 domain **Option 2**: no train; Batch 1 packet; `104`→K24; min +41 expansion proposal; split recompute later. |
+| 2026-10-20 | A4 domain **Batch 1 applied** (user): rewrites 130/061/056; 105→M_EDU_OFFTOPIC; 043→M_LIVE_ONLY; 061 cue-hit conflict logged. |
+| 2026-10-20 | A4 domain: `061`→F_PROCESS metadata fix; **Batch 2** packet (18) prepared — not approved. |
+| 2026-10-20 | A4 domain **Batch 2 applied**; rewrites 009/010/011 cue-miss; **Batch 3** (18) prepared — not approved. |
+| 2026-10-20 | A4 domain **Batch 3 applied**; rewrites 016/059/060/062 cue-miss; **Batch 4** (18 priority) prepared — not approved. |
+| 2026-10-20 | A4 domain **Batch 4 applied** (066/071/075 cue-miss); **smoke TF-IDF+LR** train/eval (val F1 0.60); stop before integrate. |
+| 2026-10-20 | A4 domain **Wave-2 +78**; improve-v1 LR min_df=1 (val F1 ~0.80 vs smoke 0.60); **NO-GO** integrate; test/vault frozen. |
+| 2026-10-21 | A4 domain **JSON export + Node parity + gate** (off/shadow/enforce, default off); strict prompt flag; verify:a4-domain-clf; enforce not activated. |
+| 2026-10-21 | Combined ML+strict isolated eval: 14→17/18 correct, FR C08; fail-closed env-path fix; **NO-GO** default-on both flags. |
+| 2026-10-21 | **Local activation** enforce+strict (user/Agent1): live API 14/15; T03 PAR30 FR; verifies green; shared deploy untouched. |
+| 2026-10-21 | **Local MicroFlow deploy** approved: FE:5173→BE:4000 enforce+strict; API 11/11; PAR30 limitation unchanged; cloud not promoted. |

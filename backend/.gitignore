@@ -4,3 +4,7 @@ dist/
 .env.local
 *.log
 .DS_Store
+
+.a4-ml-strict-activation-rollback.local
+
+.a4-deploy-env-backup.local
