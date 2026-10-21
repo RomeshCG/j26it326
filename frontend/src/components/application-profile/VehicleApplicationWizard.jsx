@@ -32,6 +32,8 @@ import StepVehicleAssetGuarantor from "./vehicle/steps/StepVehicleAssetGuarantor
 import StepVehicleGeneral from "./vehicle/steps/StepVehicleGeneral"
 import StepVehicleIncome from "./vehicle/steps/StepVehicleIncome"
 import StepVehicleReview from "./vehicle/steps/StepVehicleReview"
+import { mapVehicleFormToM1Features, generateUuid } from "@/lib/m1-feature-mapper"
+import { assessPreApplicationRisk } from "@/lib/m3-api"
 
 export default function VehicleApplicationWizard() {
   const navigate = useNavigate()
@@ -144,7 +146,7 @@ export default function VehicleApplicationWizard() {
     goToStep(step - 1)
   }
 
-  function handleRunRiskAssessment() {
+  async function handleRunRiskAssessment() {
     if (isBranchOverridePending(form)) {
       setErrors({ branchOverride: "Branch override is pending manager approval" })
       goToStep(1)
@@ -159,29 +161,54 @@ export default function VehicleApplicationWizard() {
     }
 
     setRunning(true)
-    window.setTimeout(() => {
-      const riskScore = computeVehicleRiskScore(form, summary)
-      const saved = persist({
-        ...application,
-        status: "assessed",
-        currentStep: 5,
-        riskScore,
+    const features = mapVehicleFormToM1Features(form, summary)
+    const appUuid = application.uuid || generateUuid()
+    let riskScore = computeVehicleRiskScore(form, summary)
+
+    try {
+      const liveRes = await assessPreApplicationRisk({
+        requestedAmount: features.contract_amount,
+        termMonths: features.tenure,
+        product: features.product,
+        monthlyIncome: features.monthly_income,
+        district: form.district || "Colombo",
+        existingLoans: form.liabilities?.some((l) => l.amountOutstanding) ? "yes" : "no",
+        groupMember: "no",
+        features,
+        loanApplicationId: appUuid,
       })
-      setRunning(false)
-      navigate("/loan-officer/risk-report", {
-        state: {
-          applicationId: saved.id,
-          applicant: {
-            name: form.fullName,
-            nic: form.nic,
-            date: form.applicationDate || new Date().toISOString().slice(0, 10),
-          },
-          riskScore,
-          loanAmount: form.financeAmount,
-          product: "Hire Purchase · Bike / Three-wheeler",
+      if (liveRes && typeof liveRes.score === "number") {
+        riskScore = Math.round(liveRes.score)
+      }
+    } catch (err) {
+      console.warn("Live M1 scoring failed, proceeding with mapped features and local score:", err)
+    }
+
+    const saved = persist({
+      ...application,
+      uuid: appUuid,
+      status: "assessed",
+      currentStep: 5,
+      riskScore,
+      features,
+    })
+
+    setRunning(false)
+    navigate("/loan-officer/risk-report", {
+      state: {
+        applicationId: appUuid,
+        applicant: {
+          name: form.fullName,
+          nic: form.nic,
+          date: form.applicationDate || new Date().toISOString().slice(0, 10),
         },
-      })
-    }, 900)
+        riskScore,
+        loanAmount: form.financeAmount,
+        product: form.productCode || "Hire Purchase · Bike / Three-wheeler",
+        branch: form.branch || form.assignedBranch || "Colombo Head Office",
+        features, // M1 contract compliance
+      },
+    })
   }
 
   return (
