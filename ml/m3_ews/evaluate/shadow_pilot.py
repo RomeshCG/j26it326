@@ -71,13 +71,8 @@ def main():
     # Advance warning loans: caught by EWS before PAR30 criteria
     early_rescues = int(((df["ews_flagged"] == 1) & (df["par30_flagged"] == 0) & (df["actual_default"] == 1)).sum())
     
-    # Measured lead time from early detection cohort
-    early_loans = df.loc[(df["ews_flagged"] == 1) & (df["actual_default"] == 1)]
-    if len(early_loans) > 0 and "days_since_last_payment" in early_loans.columns:
-        avg_lead_time_days = int(round(float(early_loans["days_since_last_payment"].median())))
-        avg_lead_time_days = max(14, min(30, avg_lead_time_days))
-    else:
-        avg_lead_time_days = 14
+    # Empirical lead time pending multi-snapshot longitudinal data
+    avg_lead_time_days = "Pending longitudinal snapshots"
 
     # Measured exposure flagged for early rescue
     avg_principal = float(df["outstanding_principal"].mean())

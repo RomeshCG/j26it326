@@ -461,11 +461,11 @@ applicationsRouter.post("/assess-risk", requireAuth, async (req, res) => {
         return
       }
     } catch (err) {
-      console.warn("[M3->M1] Live service unreachable, computing canonical risk score:", err)
+      console.warn("[M3->M1] Live service unreachable, falling back to heuristic estimate:", err)
     }
   }
 
-  // Canonical M1 risk computation according to features/schema.py
+  // Fallback heuristic risk computation when M1 live service is offline
   const income = d.monthlyIncome > 0 ? d.monthlyIncome : 30000
   const monthlyInstallment = (d.requestedAmount * 1.15) / d.termMonths
   const dti = monthlyInstallment / income
@@ -487,7 +487,7 @@ applicationsRouter.post("/assess-risk", requireAuth, async (req, res) => {
         ],
       },
     },
-    source: "m1_canonical_engine",
+    source: "fallback",
   })
 })
 
@@ -571,11 +571,11 @@ applicationsRouter.post(
             return
           }
         } catch (err) {
-          console.warn("[M3->M1] Live service unreachable, falling back to canonical risk engine:", err)
+          console.warn("[M3->M1] Live service unreachable, falling back to heuristic estimate:", err)
         }
       }
 
-      // Canonical formula according to features/schema.py
+      // Fallback heuristic risk computation when M1 live service is offline
       const monthlyInst = (reqAmt * 1.15) / termMonths
       const dti = monthlyInst / (income || 30000)
       let riskPct = Math.round((dti * 45) + (app.applicationType === "group" ? -6 : 4))
@@ -598,7 +598,7 @@ applicationsRouter.post(
             ],
           },
         },
-        source: "m1_canonical_engine",
+        source: "fallback",
       })
     } catch (err) {
       console.error("[M3][Applications] risk scoring error:", err)

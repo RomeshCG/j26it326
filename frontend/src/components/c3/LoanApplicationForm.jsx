@@ -112,7 +112,7 @@ export default function LoanApplicationForm({ onProceedToDisbursement }) {
         score,
         label: res?.risk_band ? `${res.risk_band.toUpperCase()} RISK` : band.label,
         variant: band.variant,
-        source: res?.source === "m1_live" ? "M1 Live ML Model (API Contract)" : "M1 Credit Risk Scoring Engine",
+        source: res?.source === "m1_live" ? "M1 Live ML Model (API Contract)" : "Fallback estimate – M1 service offline",
         factors: topFactors,
       })
     } catch (err) {
