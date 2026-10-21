@@ -1,0 +1,20 @@
+meta {
+  name: 08 Mission Drift Alerts
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/m2/alerts
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Mission Drift Alerts
+  Returns list of trigger alerts (CRITICAL, ALERT, WATCH), evidence breakdowns, resolution status, and governance workflows.
+}

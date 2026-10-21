@@ -1,0 +1,25 @@
+meta {
+  name: 03 Profit and Loss
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/m2/reports/pnl?from=2026-07-01&to=2026-07-31
+  body: none
+  auth: bearer
+}
+
+params:query {
+  from: 2026-07-01
+  to: 2026-07-31
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Profit & Loss Statement
+  Computes operating revenue, financial expense, opex, provisions, net surplus, and operational ratios (OSS, OER, Yield) directly from journal lines.
+}

@@ -1,0 +1,20 @@
+meta {
+  name: 05 Financial KPIs
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/m2/kpis
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Financial KPI Snapshots
+  Returns 12-month timeline of portfolio outstanding, PAR30, avg loan size, OSS, and OER with provenance tags (par vs synthetic).
+}

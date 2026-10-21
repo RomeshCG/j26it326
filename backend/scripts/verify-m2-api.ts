@@ -7,12 +7,13 @@
  */
 import "dotenv/config"
 import assert from "node:assert/strict"
+import { randomUUID } from "node:crypto"
 import express from "express"
 import { m2Router } from "../src/routes/m2.js"
 import { m2EventsRouter } from "../src/routes/m2-events.js"
 import { centralPrisma } from "../src/lib/prisma-central.js"
 import { defaultTenantPrisma as tenantPrisma } from "../src/lib/prisma-tenant.js"
-import { generateAccessToken } from "../src/lib/auth.js"
+import { signAccessToken } from "../src/lib/auth.js"
 
 async function main() {
   process.env.M2_INTERNAL_KEY = "test-internal-key-min-16-chars-long"
@@ -27,7 +28,7 @@ async function main() {
   const user = inst.users.find((u) => ["finance_officer", "executive", "admin"].includes(u.role.name))
   assert.ok(user, "No finance_officer / executive / admin user found")
 
-  const token = generateAccessToken({
+  const token = signAccessToken({
     userId: user.id,
     institutionId: inst.id,
     role: user.role.name as any,
@@ -46,8 +47,8 @@ async function main() {
   try {
     console.log("Testing M2 Webhook Events (M3 -> M2)...")
 
-    const sampleLoanId = "a0000000-0000-0000-0000-000000000001"
-    const sampleDisbId = "b0000000-0000-0000-0000-000000000001"
+    const sampleLoanId = randomUUID()
+    const sampleDisbId = randomUUID()
 
     // 1. Missing / wrong key
     const resAuthFail = await fetch(`${baseUrl}/api/m2/events/loan-lifecycle`, {

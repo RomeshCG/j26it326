@@ -38,6 +38,7 @@ from features.drift_features import (  # noqa: E402
     FEATURE_COLUMNS,
     TARGET_BINARY,
     TARGET_CONTINUOUS,
+    build_par_anchored_training_dataset,
     generate_branch_scenario_dataset,
 )
 
@@ -49,6 +50,8 @@ def train_drift_models(
     df: pd.DataFrame,
     artifacts_dir: Path = ARTIFACTS_DIR,
     random_seed: int = 42,
+    provenance: str = "par_anchored_real_branches",
+    disclaimer: str = "Trained on real 17-branch PAR cross-section anchored to 12-month series.",
 ) -> dict:
     """Trains and evaluates both classifier and regressor models."""
     artifacts_dir.mkdir(parents=True, exist_ok=True)
@@ -58,6 +61,7 @@ def train_drift_models(
     y_cont = df[TARGET_CONTINUOUS]
 
     print(f"[M2 ML] Dataset shape: {df.shape}")
+    print(f"[M2 ML] Data provenance: {provenance}")
     print(f"[M2 ML] Target distribution (Drift events): {y_bin.value_counts().to_dict()} ({y_bin.mean():.1%} positive)")
 
     # Stratified split for classifier
@@ -125,6 +129,8 @@ def train_drift_models(
     metadata = {
         "model_name": "M2 Mission Drift Early Warning Predictor",
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data_provenance": provenance,
+        "disclaimer": disclaimer,
         "n_samples": int(len(df)),
         "n_train": int(len(X_train)),
         "n_test": int(len(X_test)),
@@ -150,6 +156,7 @@ def train_drift_models(
     print(f"\n[M2 ML] Classifier ROC-AUC: {clf_auc:.4f} (CV Mean: {np.mean(cv_scores):.4f} +/- {np.std(cv_scores):.4f})")
     print(f"[M2 ML] Classifier F1: {clf_f1:.4f}, Precision: {clf_prec:.4f}, Recall: {clf_rec:.4f}")
     print(f"[M2 ML] Regressor MAE: {reg_mae:.4f}, R2: {reg_r2:.4f}")
+    print(f"[M2 ML] Note: {disclaimer}")
     print("\n[M2 ML] Top 5 Leading Drivers of Forward Mission Drift:")
     for item in feat_imp[:5]:
         print(f"  - {item['feature']}: {item['importance']:.2%}")
@@ -160,7 +167,13 @@ def train_drift_models(
 
 def main():
     parser = argparse.ArgumentParser(description="Train M2 Mission Drift XGBoost models")
-    parser.add_argument("--scenarios", type=int, default=50, help="Number of simulated branch-month scenarios")
+    parser.add_argument(
+        "--demo-scenarios",
+        action="store_true",
+        default=False,
+        help="Use simulated branch scenario generator (demo/exploration mode only, default OFF)",
+    )
+    parser.add_argument("--scenarios", type=int, default=50, help="Number of simulated branch-month scenarios if --demo-scenarios is set")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     args = parser.parse_args()
 
@@ -175,16 +188,28 @@ def main():
     kpi_df = pd.read_csv(kpi_file)
     soc_df = pd.read_csv(soc_file)
 
-    print("[M2 ML] Generating multi-branch scenario matrix...")
-    dataset = generate_branch_scenario_dataset(
-        borrowers_df, kpi_df, soc_df, n_scenarios=args.scenarios, random_seed=args.seed
-    )
+    if args.demo_scenarios:
+        print("[M2 ML] [DEMO MODE] Generating multi-branch synthetic scenario matrix...")
+        print("[M2 ML] NOTE: Metrics on simulated branch scenarios — exploratory prototype only, not real longitudinal partner history.")
+        dataset = generate_branch_scenario_dataset(
+            borrowers_df, kpi_df, soc_df, n_scenarios=args.scenarios, random_seed=args.seed
+        )
+        provenance = "simulated_scenarios_demo"
+        disclaimer = "Metrics on simulated branch scenarios — exploratory prototype, not real longitudinal partner history."
+    else:
+        print("[M2 ML] [DEFAULT] Building training matrix from real 17-branch PAR cross-section + PAR-anchored series...")
+        dataset = build_par_anchored_training_dataset(
+            borrowers_df, kpi_df, soc_df, random_seed=args.seed
+        )
+        provenance = "par_anchored_real_branches"
+        disclaimer = "Trained on real 17-branch PAR cross-section (7,245 loans, LKR 315.27M portfolio) anchored to 12-month series (July real PAR + synthetic history with explicit data_source provenance)."
 
     dataset.to_csv(DATA_PROC / "drift_training_matrix.csv", index=False)
     print(f"[M2 ML] Saved feature matrix to {DATA_PROC / 'drift_training_matrix.csv'}")
 
-    train_drift_models(dataset, random_seed=args.seed)
+    train_drift_models(dataset, random_seed=args.seed, provenance=provenance, disclaimer=disclaimer)
 
 
 if __name__ == "__main__":
     main()
+
