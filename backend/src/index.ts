@@ -148,12 +148,6 @@ app.use("/api/risk", riskRouter)
 // Internal agent → Node dispatch (shared service key; not user JWT)
 app.use("/api/internal", internalAgentDispatchRouter)
 
-// M2 — Ledger & Dual-Mission event receiver webhook
-app.post("/api/m2/events/loan-lifecycle", (req, res) => {
-  console.log("[M2 Webhook Received Event]", JSON.stringify(req.body))
-  res.status(200).json({ ok: true, status: "event_processed", payload: req.body, receivedAt: new Date().toISOString() })
-})
-
 // Integration example router for teammates (non-production only)
 if (isDev) {
   app.use("/api/example", exampleRouter)
@@ -291,6 +285,7 @@ process.on("SIGTERM", shutdown)
 app.listen(port, () => {
   console.log(`IMFS backend listening on http://localhost:${port}`)
   console.log(`Endpoints: GET /health  GET /health/db  POST /auth/login  GET /auth/me  POST /api/risk/assess`)
+  console.log("M2 routes: /api/m2  /api/m2/events (x-internal-key)")
   console.log("M3 routes: /api/m3/products  /api/m3/borrowers  /api/m3/groups")
   console.log("           /api/m3/applications  /api/m3/loans  /api/m3/collections")
   console.log("           /api/m3/par  /api/m3/ews")
