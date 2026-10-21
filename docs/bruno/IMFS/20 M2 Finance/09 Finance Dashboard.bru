@@ -1,0 +1,20 @@
+meta {
+  name: 09 Finance Dashboard
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/m2/dashboard/finance
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Finance Manager Dashboard
+  Aggregates summary cards: portfolio outstanding, PAR30, OSS, OER, cash position, and MDI alert banner.
+}

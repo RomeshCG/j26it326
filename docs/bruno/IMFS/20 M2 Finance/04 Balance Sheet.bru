@@ -1,0 +1,24 @@
+meta {
+  name: 04 Balance Sheet
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/m2/reports/balance-sheet?asOf=2026-07-31
+  body: none
+  auth: bearer
+}
+
+params:query {
+  asOf: 2026-07-31
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Balance Sheet
+  Returns dynamic balance sheet verifying Net Assets == Liabilities + Equity as of specified date.
+}

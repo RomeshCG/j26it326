@@ -1,0 +1,37 @@
+meta {
+  name: 11 C3 Loan Lifecycle Webhook
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/m2/events/loan-lifecycle
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  x-internal-key: {{internalServiceKey}}
+}
+
+body:json {
+  {
+    "eventType": "loan_disbursed",
+    "referenceId": "DISB-BRUNO-001",
+    "tenantId": "{{dbIdentifier}}",
+    "timestamp": "2026-10-21T10:00:00.000Z",
+    "payload": {
+      "loanId": "LOAN-TEST-001",
+      "borrowerId": "CUST-TEST-001",
+      "branchId": "COLOMBO",
+      "amount": 75000.00,
+      "disbursementMethod": "CASH"
+    }
+  }
+}
+
+docs {
+  # C3 Loan Lifecycle Webhook
+  Ingests loan lifecycle events (loan_disbursed, payment_collected) from Component 3 to auto-post balanced double-entry ledger journals.
+}

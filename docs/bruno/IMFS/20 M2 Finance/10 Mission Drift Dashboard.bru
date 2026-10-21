@@ -1,0 +1,20 @@
+meta {
+  name: 10 Mission Drift Dashboard
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/m2/dashboard/drift
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Mission Drift Dashboard
+  Provides executive overview: current MDI score, alert status, dual-mission radar metrics, and top contributing adverse trends.
+}

@@ -18,9 +18,10 @@ rural_share = 0.774
 urban_share = 0.182
 estate_share = 0.044
 # Official poverty line, LKR per person per month.
-# TODO: confirm latest Dept of Census and Statistics value and month before the report.
+# PROVISIONAL: Set to LKR 17,000 based on recent DCS basic-needs basket estimates.
+# Confirm latest Department of Census and Statistics (DCS) official bulletin before the final report.
 poverty_line_lkr = 17000
-poverty_line_month = "TODO-confirm"
+poverty_line_month = "2024-provisional"
 # Low-income = income per person below this multiple of the poverty line
 low_income_multiple = 1.5
 # PAR has only active loans -> no dropout data. Monthly rate (synthetic).

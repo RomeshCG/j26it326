@@ -1,0 +1,20 @@
+meta {
+  name: 07 MDI Timeline and Latest
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/m2/mdi
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Mission Drift Index (MDI) Timeline
+  Returns longitudinal MDI trajectory scores, threshold benchmarks (20.0), rolling change velocity, and contributing factor weights.
+}

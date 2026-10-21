@@ -1,0 +1,20 @@
+meta {
+  name: 01 Chart of Accounts
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/m2/accounts
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Chart of Accounts
+  Returns the 10 standard general ledger accounts (1000 Cash to 5300 Provision Expense) with account types and balances.
+}

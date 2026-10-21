@@ -1,0 +1,20 @@
+meta {
+  name: 06 Social Performance Indicators
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/m2/social
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Social Performance Indicators
+  Returns female borrower share, rural outreach, below-poverty-line share, low-income client ratio, and new-to-banking ratio.
+}
