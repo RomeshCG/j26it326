@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { ALERTS, BRANCH_LIST, BRANCHES } from "./mock-data"
-import { computePar, getParSummary } from "@/lib/m3-api"
+import { computePar, getParSummary, getEwsAlerts } from "@/lib/m3-api"
 
 const selectClass =
   "flex h-9 w-full max-w-xs rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"

@@ -40,8 +40,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
         userId: req.user.userId,
         role: req.user.role,
       }
+      _resolveTenantContext(req, res, next).catch(next)
+    } else {
+      next()
     }
-    next()
   })
 }
 

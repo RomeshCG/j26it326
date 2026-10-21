@@ -80,17 +80,8 @@ def main():
     ews_m = get_metrics(y_true, ews_preds)
     par_m = get_metrics(y_true, par30_preds)
 
-    # Measured lead-time advantage:
-    # EWS detects pre-default friction (partial payments, term completion, days since pay)
     advance_detected = int(np.sum((ews_preds == 1) & (par30_preds == 0) & (y_true == 1)))
-    
-    # Calculate measured lead time from actual borrower observation intervals
-    early_loans = df.loc[(ews_preds == 1) & (y_true == 1)]
-    if len(early_loans) > 0 and "days_since_last_payment" in early_loans.columns:
-        measured_lead_days = int(round(float(early_loans["days_since_last_payment"].median())))
-        measured_lead_days = max(14, min(30, measured_lead_days))
-    else:
-        measured_lead_days = 15
+    num_centers = df["center"].nunique() if "center" in df.columns else 252
 
     print("\n[M3 Evaluate] === Baseline Comparison ===")
     print(f"Metric          | PAR30 Baseline | EWS Machine Learning Model")
@@ -99,21 +90,21 @@ def main():
     print(f"Recall          | {par_m['recall']:14.2%} | {ews_m['recall']:26.2%}")
     print(f"F1 Score        | {par_m['f1']:14.4f} | {ews_m['f1']:26.4f}")
     print(f"Early Flags     | {0:14d} | {advance_detected:26d}")
-    print(f"Avg Lead Time   | 0 days (lag)   | ~{measured_lead_days} days in advance")
+    print(f"Avg Lead Time   | 0 days (reactive) | Pending multi-period snapshots")
 
     # Write Markdown Report
     report_file = report_dir / "evaluation_report.md"
     with open(report_file, "w", encoding="utf-8") as f:
         f.write("# M3 Early Warning System — Comparative Evaluation Report\n\n")
         f.write("## 1. Executive Summary\n\n")
-        f.write(f"The EWS predictive model was evaluated on an **unseen holdout test cohort of {len(df)} loans** (across 252 independent centers) against the conventional rule-based **PAR30 baseline**.\n\n")
+        f.write(f"The EWS predictive model was evaluated on an **unseen holdout test cohort of {len(df)} loans** (across {num_centers} independent centers) against the conventional rule-based **PAR30 baseline**.\n\n")
         f.write("### Benchmark Comparison (Unseen Holdout Cohort)\n\n")
         f.write("| Metric | Rule-Based PAR30 | EWS (XGBoost) | Advantage |\n")
         f.write("| :--- | :--- | :--- | :--- |\n")
         f.write(f"| **Precision** | {par_m['precision']:.2%} | {ews_m['precision']:.2%} | {(ews_m['precision'] - par_m['precision']):+.2%} |\n")
         f.write(f"| **Recall** | {par_m['recall']:.2%} | {ews_m['recall']:.2%} | {(ews_m['recall'] - par_m['recall']):+.2%} |\n")
         f.write(f"| **F1-Score** | {par_m['f1']:.4f} | {ews_m['f1']:.4f} | {(ews_m['f1'] - par_m['f1']):+.4f} |\n")
-        f.write(f"| **Prediction Lead Time** | 0 days (reactive) | **~{measured_lead_days} days** | **Early intervention enabled** |\n\n")
+        f.write("| **Prediction Lead Time** | 0 days (reactive) | *Pending longitudinal snapshots* | *Requires multi-period panel data* |\n\n")
         f.write("## 2. Top Distinguishing Distress Signals\n\n")
         for feat, weight in list(meta.get("feature_importances", {}).items())[:5]:
             f.write(f"- **`{feat}`**: {weight:.4f}\n")
@@ -123,8 +114,9 @@ def main():
         f.write(f"- **False Negatives (FN)**: {ews_m['fn']}\n")
         f.write(f"- **True Negatives (TN)**: {ews_m['tn']}\n\n")
         f.write("## 4. Methodology & Data Integrity Notes\n\n")
-        f.write("- **Dataset**: 7,245 loans from partner microfinance loan book (`par30_clean_no_pii.csv`).\n")
-        f.write("- **Split Strategy**: GroupShuffleSplit by village Center (1,172 Train centers, 252 Validation centers, 252 Test centers) with **0 center overlap** to prevent peer-borrower data leakage.\n")
+        f.write(f"- **Dataset**: {len(df)} holdout test records evaluated from partner microfinance loan book (`par30_clean_no_pii.csv`).\n")
+        f.write("- **Split Strategy**: Centre-grouped split (GroupShuffleSplit by village Center with 0 center overlap across train/val/test splits to prevent peer-borrower data leakage).\n")
+        f.write("- **Longitudinal Note**: Because the current loan book dataset is a single cross-sectional snapshot, lead-time advantage will be empirically measured once subsequent partner snapshots are integrated.\n")
         f.write("*Report generated automatically by M3 evaluation suite.*\n")
 
     print(f"\n[M3 Evaluate] Report successfully written to {report_file}")

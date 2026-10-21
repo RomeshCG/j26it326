@@ -45,6 +45,7 @@ export default function EwsAlertDetail({ alertId, onBack }) {
   const [outcome, setOutcome] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -88,6 +89,7 @@ export default function EwsAlertDetail({ alertId, onBack }) {
   async function handleSave() {
     if (!selected || !outcome.trim()) return
     setSaving(true)
+    setSaveError(null)
     try {
       await logIntervention(alertId, {
         actionTaken: selected,
@@ -103,13 +105,14 @@ export default function EwsAlertDetail({ alertId, onBack }) {
         },
         ...prev,
       ])
-    } catch {
-      // Graceful fallback during offline testing
-    } finally {
-      setSaving(false)
       setSaved(true)
       setOutcome("")
       setSelected(null)
+    } catch (err) {
+      console.error("Failed to log intervention:", err)
+      setSaveError(err?.message || "Failed to record intervention. Please check connection.")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -335,8 +338,10 @@ export default function EwsAlertDetail({ alertId, onBack }) {
           </div>
         </CardContent>
         <CardFooter className="justify-end gap-3">
-          {saved ? (
-            <p className="mr-auto text-sm text-muted-foreground">Intervention outcome recorded.</p>
+          {saveError ? (
+            <p className="mr-auto text-sm text-destructive">{saveError}</p>
+          ) : saved ? (
+            <p className="mr-auto text-sm text-emerald-600 dark:text-emerald-400">Intervention outcome recorded.</p>
           ) : null}
           <Button
             type="button"

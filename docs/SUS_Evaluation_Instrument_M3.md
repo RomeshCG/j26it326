@@ -40,7 +40,7 @@ Respondents rate each item on a 5-point Likert scale (1 = Strongly Disagree, 5 =
 ### Section A: Early Warning & Distress Interpretability
 1. **Explainability**: *“When looking at an alert card, did the plain-language rationale (e.g., 'Recent on-time payment rate dropped to 33%; group arrears ratio at 26%') provide enough context to decide on an action?”*
 2. **Actionability**: *“Did the recommended interventions (e.g., 48h field visit, loan restructuring, peer group meeting) match what you would realistically do in Sri Lankan field conditions?”*
-3. **Lead Time**: *“How valuable is receiving an alert ~40 days before an account enters PAR30 versus seeing it on the overdue list only after it is already 30 days late?”*
+3. **Lead Time**: *“How valuable is receiving an alert proactively before an account enters PAR30 versus seeing it on the overdue list only after it is already 30 days late?”*
 
 ### Section B: Field Collection & Offline Tolerance
 1. *“How was your experience entering field collections and generating digital receipts?”*

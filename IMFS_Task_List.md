@@ -95,14 +95,14 @@
 
 ### ML
 - [x] Feature engineering: repayment timing, collection-visit outcomes, disbursement/application history, group-level repayment ratio & arrears features, event-sequence encoding (ordered repayment/visit history per borrower and group)
-- [x] Train and compare two candidate model families: gradient-boosted tree (static/aggregate features) vs. LSTM/GRU (temporal event sequence)
-- [x] Temporal (time-based) train/validation/test split — not random k-fold, to avoid look-ahead bias
+- [ ] Train and compare two candidate model families: gradient-boosted tree vs. LSTM/GRU (GBT implemented; LSTM sequence model placeholder pending multi-snapshot series)
+- [ ] Temporal (time-based) train/validation/test split (Center-grouped split implemented to prevent peer leakage; temporal split pending multi-snapshot partner data)
 - [x] Class-imbalance handling (distress is a minority-class event)
 - [x] Select alert operating threshold from validation results
 - [x] Lightweight explainability layer: short plain-language rationale per alert from feature-importance/most-recent-events (distinct in scope from M1's SHAP engine)
 - [x] Nightly batch job: PAR30/overdue computation + EWS distress scoring for every active loan/group, completing within the overnight window
-- [x] Evaluate against the rule-based PAR30 baseline: Precision/Recall/F1, prediction lead-time, SUS ≥ 68
-- [x] Shadow-pilot validation: compare EWS alerts vs. what PAR30 would have flagged over the same period
+- [ ] Evaluate against the rule-based PAR30 baseline: Precision/Recall/F1 evaluated on center-split; lead-time and SUS ≥ 68 survey scheduled post-pilot
+- [ ] Shadow-pilot validation: compare EWS alerts vs. what PAR30 would have flagged over the same period (planned upon arrival of second partner snapshot)
 
 ### BE
 - [x] `borrowers`, `lending_groups`, `group_members`, `loan_applications`, `loans`, `repayment_schedules` tables in the tenant DB (coordinate with M4, the schema owner)

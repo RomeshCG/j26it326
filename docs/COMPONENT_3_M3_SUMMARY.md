@@ -14,7 +14,7 @@
 Component 3 (M3) manages the operational core of the microfinance platform:
 1. **Loan Lifecycle Operations:** Origination, application evaluation, disbursement confirmation, repayment schedules, and portfolio tracking.
 2. **Field Collections & Recovery:** Officer daily collection routing, overdue queues, group lending meetings, and offline receipt logging.
-3. **ML Early Warning System (EWS):** Proactive detection of loan distress **30–60 days before** traditional PAR30 delinquency triggers, complete with explainability signals for loan officers.
+3. **ML Early Warning System (EWS):** Proactive detection of loan distress ahead of traditional reactive PAR30 delinquency triggers, complete with explainability signals for loan officers.
 
 ---
 
@@ -67,7 +67,7 @@ All M3 backend services run on Express + TypeScript under the `/api/m3` route na
 
 ## 4. Machine Learning (ML) Implementations
 
-The EWS ML pipeline predicts borrower delinquency 30–60 days ahead of conventional PAR30 metrics.
+The EWS ML pipeline predicts borrower distress ahead of conventional reactive PAR30 metrics.
 
 ### Pipeline Components (`ml/m3_ews/`)
 

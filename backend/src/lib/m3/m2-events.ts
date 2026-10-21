@@ -35,7 +35,10 @@ async function postEvent(event: string, payload: Record<string, unknown>): Promi
 
   const response = await fetch(`${m2Url}/api/m2/events/loan-lifecycle`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-key": process.env.M2_INTERNAL_KEY ?? "",
+    },
     body: JSON.stringify({ event, payload }),
   })
 

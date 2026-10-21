@@ -217,9 +217,15 @@ def persist_live_records(db_url: str, records: list[dict], model_version: str):
     try:
         with conn:
             with conn.cursor() as cur:
-                # Clear previous demo scores/alerts to keep clean
-                cur.execute("DELETE FROM ews_alerts;")
-                cur.execute("DELETE FROM ews_scores;")
+                # Clear previous un-actioned alerts/scores while strictly preserving alerts with logged interventions
+                cur.execute("""
+                    DELETE FROM ews_alerts 
+                    WHERE id NOT IN (SELECT alert_id FROM interventions WHERE alert_id IS NOT NULL);
+                """)
+                cur.execute("""
+                    DELETE FROM ews_scores 
+                    WHERE id NOT IN (SELECT ews_score_id FROM ews_alerts);
+                """)
 
                 scores_inserted = 0
                 alerts_inserted = 0

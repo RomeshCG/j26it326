@@ -21,6 +21,8 @@ export default function DisbursementConfirm({ application, onBack, onComplete })
   const [method, setMethod] = useState(METHODS[0])
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [error, setError] = useState(null)
+  const [disbursedResult, setDisbursedResult] = useState(null)
 
   const app = application ?? {
     fullName: "Malini Rathnayake",
@@ -34,23 +36,30 @@ export default function DisbursementConfirm({ application, onBack, onComplete })
     applicationId: "APP-DEMO-010",
   }
 
-  const loanId = `LN-${Date.now().toString().slice(-5)}`
+  const loanId = disbursedResult?.loanId || app.loanId || app.applicationId || "LN-DEMO"
   const disbursedOn = new Date().toISOString().slice(0, 10)
 
   async function handleConfirm() {
     setSubmitting(true)
+    setError(null)
     try {
-      await disburseLoan(app.loanId || app.applicationId || "00000000-0000-4000-8000-000000000001", {
+      const targetId = app.loanId || app.applicationId
+      if (!targetId) {
+        throw new Error("No loan or application identifier provided")
+      }
+      const res = await disburseLoan(targetId, {
         amount: Number(app.amount),
         method: method.toLowerCase().replace(/ /g, "_"),
         referenceNumber: `TRX-${Date.now().toString().slice(-6)}`,
         notes: `Disbursed via ${method}`,
       })
+      setDisbursedResult(res?.data || { loanId: targetId })
+      setDone(true)
     } catch (err) {
-      console.warn("Disbursement offline fallback:", err)
+      console.error("Disbursement API failed:", err)
+      setError(err?.message || "Disbursement failed. The loan could not be activated.")
     } finally {
       setSubmitting(false)
-      setDone(true)
     }
   }
 
@@ -115,6 +124,12 @@ export default function DisbursementConfirm({ application, onBack, onComplete })
               </div>
             </div>
           </div>
+
+          {error ? (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
 
           {!done ? (
             <div className="space-y-2">
