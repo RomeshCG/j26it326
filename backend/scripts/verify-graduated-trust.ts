@@ -1035,6 +1035,81 @@ async function runTests() {
     "Active policy enforces policy agentName/agentId over caller-provided values"
   )
 
+  // 7b. NLQ identity hardening: caller-supplied A4/NLQ survives Tier-4 fallback
+  const emptyPolicyPrisma = createFakeTenantPrisma([])
+  const resNlqMissingPolicy = await dispatchAgentAction(emptyPolicyPrisma, {
+    actionType: "nlq_query",
+    action: "A4 NLQ (count_actions_window): identity fallback probe",
+    agentId: "A4",
+    agentName: "NLQ",
+  })
+  const missingRow = emptyPolicyPrisma
+    ._getActions()
+    .find((a) => a.id === resNlqMissingPolicy.actionId)
+  assert(
+    resNlqMissingPolicy.status === "ok" &&
+      resNlqMissingPolicy.tier === 4 &&
+      resNlqMissingPolicy.isFallback === true &&
+      resNlqMissingPolicy.actionStatus === "alert_only",
+    "Missing nlq_query policy still falls back to Tier 4 alert_only"
+  )
+  assert(
+    missingRow?.agentId === "A4" && missingRow?.agentName === "NLQ",
+    "Missing nlq_query policy keeps caller A4/NLQ identity (not Unknown)"
+  )
+
+  const inactiveNlqPrisma = createFakeTenantPrisma([])
+  inactiveNlqPrisma._setPolicy("nlq_query", {
+    actionType: "nlq_query",
+    agentId: "A4",
+    agentName: "NLQ",
+    tier: 1,
+    isActive: false,
+  })
+  const resNlqInactive = await dispatchAgentAction(inactiveNlqPrisma, {
+    actionType: "nlq_query",
+    action: "A4 NLQ inactive-policy probe",
+    agentId: "A4",
+    agentName: "NLQ",
+  })
+  const inactiveRow = inactiveNlqPrisma
+    ._getActions()
+    .find((a) => a.id === resNlqInactive.actionId)
+  assert(
+    resNlqInactive.status === "ok" &&
+      resNlqInactive.tier === 4 &&
+      resNlqInactive.isFallback === true &&
+      resNlqInactive.actionStatus === "alert_only",
+    "Inactive nlq_query policy still falls back to Tier 4 alert_only"
+  )
+  assert(
+    inactiveRow?.agentId === "A4" && inactiveRow?.agentName === "NLQ",
+    "Inactive nlq_query policy keeps caller A4/NLQ identity (not Unknown)"
+  )
+
+  const activeNlqPrisma = createFakeTenantPrisma(
+    DEFAULT_AGENT_POLICIES.filter((p) => p.actionType === "nlq_query")
+  )
+  const resNlqActive = await dispatchAgentAction(activeNlqPrisma, {
+    actionType: "nlq_query",
+    action: "A4 NLQ active-policy probe",
+    agentId: "A4",
+    agentName: "NLQ",
+  })
+  const activeNlqRow = activeNlqPrisma
+    ._getActions()
+    .find((a) => a.id === resNlqActive.actionId)
+  assert(
+    resNlqActive.status === "ok" &&
+      resNlqActive.tier === 1 &&
+      resNlqActive.isFallback === false,
+    "Active nlq_query default policy dispatches at Tier 1"
+  )
+  assert(
+    activeNlqRow?.agentId === "A4" && activeNlqRow?.agentName === "NLQ",
+    "Active nlq_query policy records A4/NLQ identity"
+  )
+
   // 8. Handler throwing -> status failed AND audit entry written
   registerActionHandler("crashing_nlq_query", () => {
     throw new Error("Simulated database timeout inside handler execution")
