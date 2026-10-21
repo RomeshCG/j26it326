@@ -58,7 +58,7 @@ All M3 backend services run on Express + TypeScript under the `/api/m3` route na
 - **`/api/m3/products`** (`products.ts`): Microfinance loan product definitions (interest rates, tenures, repayment frequencies).
 - **`/api/m3/groups`** (`groups.ts`): Group lending and village banking center management.
 
-### Authentication & Tenant Security (`backend/src/lib/m3/mock-auth.ts`)
+### Authentication & Tenant Security (`backend/src/lib/m3/auth.ts`)
 - **M4 Real Login Alignment:** Replaced static mock authentication with M4's central `authenticate`, `resolveTenantContext`, and `requireRole` middleware.
 - **RBAC Protected:** Routes enforce roles (`LOAN_OFFICER`, `BRANCH_MANAGER`, `ADMIN`) using real JWT claims.
 - **Multi-Tenant Isolation:** All database queries operate via `req.tenantPrisma` to prevent cross-tenant data leakage.

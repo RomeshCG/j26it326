@@ -199,6 +199,60 @@ export function buildRiskReport(state = {}) {
   const riskScore = state.riskScore ?? RISK_REPORT.riskScore
   const classification = scoreToClassification(riskScore)
 
+  let shapContributors = RISK_REPORT.shapContributors
+  let keyFactors = RISK_REPORT.keyFactors
+
+  if (state.features) {
+    const f = state.features
+    const income = Number(f.monthly_income) || 45000
+    const inst = Number(f.installment) || 5000
+    const dti = inst / income
+    const isNew = f.first_time_borrower === 1
+    const debt = Number(f.other_debt_payment) || 0
+    const dependants = Number(f.dependants) || 0
+
+    const dynamicContributors = []
+    const dynamicFactors = []
+
+    if (dti > 0.35) {
+      dynamicContributors.push({ feature: "Debt-to-income burden", direction: "up", impact: 3, level: "High" })
+      dynamicFactors.push({ label: `High DTI ratio (${Math.round(dti * 100)}%)`, tone: "caution" })
+    } else {
+      dynamicContributors.push({ feature: "Manageable installment ratio", direction: "down", impact: 3, level: "High" })
+      dynamicFactors.push({ label: `Healthy installment coverage (${Math.round(dti * 100)}%)`, tone: "positive" })
+    }
+
+    if (debt > 0) {
+      dynamicContributors.push({ feature: "Existing debt commitments", direction: "up", impact: 2, level: "Medium" })
+      dynamicFactors.push({ label: "Existing debt commitments", tone: "caution" })
+    } else {
+      dynamicContributors.push({ feature: "Zero existing debt reported", direction: "down", impact: 2, level: "Medium" })
+      dynamicFactors.push({ label: "Clean debt profile", tone: "positive" })
+    }
+
+    if (isNew) {
+      dynamicContributors.push({ feature: "First-time borrower profile", direction: "up", impact: 2, level: "Medium" })
+      dynamicFactors.push({ label: "First-time borrower history", tone: "caution" })
+    } else {
+      dynamicContributors.push({ feature: "Established borrower relationship", direction: "down", impact: 2, level: "Medium" })
+      dynamicFactors.push({ label: "Established track record", tone: "positive" })
+    }
+
+    if (income >= 50000) {
+      dynamicContributors.push({ feature: "Above-average income capacity", direction: "down", impact: 2, level: "Medium" })
+      dynamicFactors.push({ label: "Solid income buffer", tone: "positive" })
+    }
+
+    if (dependants >= 3) {
+      dynamicContributors.push({ feature: "Dependent count dependency", direction: "up", impact: 1, level: "Low" })
+    }
+
+    if (dynamicContributors.length > 0) {
+      shapContributors = dynamicContributors
+      keyFactors = dynamicFactors
+    }
+  }
+
   return {
     ...RISK_REPORT,
     applicant: state.applicant ?? RISK_REPORT.applicant,
@@ -208,6 +262,9 @@ export function buildRiskReport(state = {}) {
     defaultProbability: scoreToDefaultProbability(riskScore),
     classification,
     applicationId: state.applicationId ?? null,
+    features: state.features ?? null,
+    shapContributors,
+    keyFactors,
   }
 }
 
@@ -224,6 +281,7 @@ export function buildRiskReportFromApplication(application, options = {}) {
     },
     loanAmount: form.loanAmount || form.financeAmount,
     product: options.product ?? null,
+    features: application?.features ?? null,
   })
 }
 

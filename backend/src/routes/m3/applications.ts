@@ -11,7 +11,7 @@
  */
 import { Router } from "express"
 import { z } from "zod"
-import { requireAuth, requireRole } from "../../lib/m3/mock-auth.js"
+import { requireAuth, requireRole } from "../../lib/m3/auth.js"
 import { resolveTenant } from "../../lib/m3/tenant-guard.js"
 import { generateSchedule } from "../../lib/m3/schedule-generator.js"
 import { qs, p } from "../../lib/m3/query-helpers.js"
@@ -385,7 +385,7 @@ applicationsRouter.post(
 
 // ── POST /api/m3/applications/assess-risk (inline assessment before save) ─────
 const AssessRiskSchema = z.object({
-  requestedAmount: z.coerce.number().positive(),
+  requestedAmount: z.coerce.number().positive().optional().default(50000),
   termMonths: z.coerce.number().int().positive().optional().default(12),
   product: z.string().optional().default("Group Enterprise"),
   monthlyIncome: z.coerce.number().min(0).optional().default(35000),
@@ -393,6 +393,8 @@ const AssessRiskSchema = z.object({
   groupMember: z.enum(["yes", "no"]).optional().default("yes"),
   gender: z.string().optional().default("female"),
   district: z.string().optional().default("Colombo"),
+  features: z.record(z.string(), z.any()).optional(),
+  loanApplicationId: z.string().optional(),
 })
 
 applicationsRouter.post("/assess-risk", requireAuth, async (req, res) => {
@@ -440,10 +442,18 @@ applicationsRouter.post("/assess-risk", requireAuth, async (req, res) => {
 
   if (m1Url) {
     try {
+      const authHeader = req.headers.authorization
       const resp = await fetch(`${m1Url}/api/risk/assess`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(m1Payload),
+        headers: {
+          "Content-Type": "application/json",
+          ...(authHeader ? { Authorization: authHeader } : {}),
+        },
+        body: JSON.stringify({
+          features: { ...m1Payload, ...(d.features || {}) },
+          persist: Boolean(d.loanApplicationId),
+          ...(d.loanApplicationId ? { loanApplicationId: d.loanApplicationId } : {}),
+        }),
       })
       if (resp.ok) {
         const data = await resp.json()
@@ -541,10 +551,18 @@ applicationsRouter.post(
 
       if (m1Url) {
         try {
+          const authHeader = req.headers.authorization
           const m1Response = await fetch(`${m1Url}/api/risk/assess`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(m1Payload),
+            headers: {
+              "Content-Type": "application/json",
+              ...(authHeader ? { Authorization: authHeader } : {}),
+            },
+            body: JSON.stringify({
+              features: m1Payload,
+              persist: true,
+              loanApplicationId: app.id,
+            }),
           })
 
           if (m1Response.ok) {
