@@ -67,6 +67,7 @@ import {
   validateNlqQuestion,
   type NlqTenantPrisma,
 } from "../lib/agent-a4-nlq.js"
+import { DEFAULT_AGENT_POLICIES } from "../lib/agent-defaults.js"
 import {
   A4_KNOWLEDGE_DISCLAIMER,
   A4_KNOWLEDGE_MODEL_VERSION,
@@ -981,6 +982,11 @@ export async function handleNlqQuery(
           ollamaModel,
         })
 
+        // Identity for audit/Agent Log labeling. Policy still owns tier;
+        // missing/inactive nlq_query policy remains Tier 4 alert_only.
+        const nlqDefault = DEFAULT_AGENT_POLICIES.find(
+          (p) => p.actionType === A4_NLQ_ACTION_TYPE
+        )
         const result = await dispatchAgentAction(tenantPrisma, {
           actionType: A4_NLQ_ACTION_TYPE,
           action: buildNlqActionText(question, facts),
@@ -990,6 +996,8 @@ export async function handleNlqQuery(
           promptVersion: A4_NLQ_PROMPT_VERSION,
           toolsUsed: buildNlqToolsUsed(facts),
           inputPayload,
+          agentId: nlqDefault?.agentId ?? "A4",
+          agentName: nlqDefault?.agentName ?? "NLQ",
           ip: req.ip ?? null,
           userAgent: (req.headers["user-agent"] as string) ?? null,
         })
