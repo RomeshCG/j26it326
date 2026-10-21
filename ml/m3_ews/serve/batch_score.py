@@ -25,6 +25,21 @@ import joblib
 import numpy as np
 import pandas as pd
 
+# Load TENANT_DATABASE_URL from backend/.env if not set in environment
+if "TENANT_DATABASE_URL" not in os.environ:
+    env_file = Path(__file__).resolve().parents[3] / "backend" / ".env"
+    if env_file.exists():
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("TENANT_DATABASE_URL="):
+                        val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        os.environ["TENANT_DATABASE_URL"] = val
+                        break
+        except Exception:
+            pass
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="M3 EWS Nightly Batch Scoring")
@@ -34,8 +49,8 @@ def parse_args():
     parser.add_argument("--output", default="ml/m3_ews/data/scores/batch_scores_output.json", help="Output JSON path")
     parser.add_argument(
         "--db-url",
-        default=os.environ.get("TENANT_DATABASE_URL", "postgresql://imfs_app:fa87b0a054d4bd988b08b2310de2c1f1@100.98.191.25:5435/imfs_tenant_apex"),
-        help="Postgres DB URL",
+        default=os.environ.get("TENANT_DATABASE_URL"),
+        help="Postgres DB URL (defaults to TENANT_DATABASE_URL environment variable)",
     )
     parser.add_argument("--live-db", action="store_true", help="Score active loans directly from PostgreSQL tenant DB")
     return parser.parse_args()
@@ -273,6 +288,9 @@ def main():
     model_version = meta.get("model_name", "M3 EWS XGBoost Classifier v1.0")
 
     if args.live_db:
+        if not args.db_url:
+            print("[ERROR] --live-db requires --db-url or TENANT_DATABASE_URL environment variable to be set.", file=sys.stderr)
+            sys.exit(1)
         scored_records = score_from_db(args.db_url, model, meta, threshold, features)
         persist_live_records(args.db_url, scored_records, model_version)
     else:
