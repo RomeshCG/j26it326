@@ -28,9 +28,10 @@ export function getAdaptiveExplanation(report, trust) {
     return {
       mode: "caution",
       headline: "Review required",
-      lead: `The assessment predicts **${defaultRisk}% default risk**.`,
+      lead: `The assessment predicts a **${defaultRisk}% chance of becoming seriously overdue**.`,
       emphasis: "Do not rely solely on this prediction.",
-      uncertainty: "Income data is based on self-reported household cash flow.",
+      uncertainty:
+        "The model scores loan terms, branch and product only. It has not seen this borrower's income, debts or expenses.",
       verifyItems: [
         "Recent income activity",
         "Existing debt obligations",
@@ -44,9 +45,9 @@ export function getAdaptiveExplanation(report, trust) {
     return {
       mode: "evidence",
       headline: "Assessment guidance",
-      lead: `The assessment predicts **${defaultRisk}% default risk**.`,
+      lead: `The assessment predicts a **${defaultRisk}% chance of becoming seriously overdue**.`,
       emphasis:
-        "The model's strongest evidence is previous repayment behaviour and group performance.",
+        "The model's evidence is the factor list below, learned from 7,245 partner loans under grouped cross-validation (AUC 0.81).",
       uncertainty: null,
       verifyItems: [],
       tone: "confidence",
@@ -56,7 +57,7 @@ export function getAdaptiveExplanation(report, trust) {
   return {
     mode: "standard",
     headline: "Assessment summary",
-    lead: `The assessment predicts **${defaultRisk}% default risk** with a **${report.classification.toLowerCase()}** classification.`,
+    lead: `The assessment predicts a **${defaultRisk}% chance of becoming seriously overdue** (**${report.classification.toLowerCase()}** band).`,
     emphasis: report.narrative,
     uncertainty: null,
     verifyItems: [],

@@ -46,6 +46,11 @@ export default function TrustProfilePage() {
         </Badge>
       </div>
 
+      <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-800 dark:text-amber-200">
+        Illustrative – mock data. Totals, rates and the calibration chart are sample values. The
+        status follows the explanation style you pick below, not your logged decisions yet.
+      </div>
+
       <ExplanationStyleSelector styleId={styleId} onStyleChange={setStyleId} />
 
       <div className="grid gap-4 sm:grid-cols-3">

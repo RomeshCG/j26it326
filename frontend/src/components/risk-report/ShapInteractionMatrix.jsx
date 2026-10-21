@@ -51,7 +51,12 @@ export default function ShapInteractionMatrix() {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-base font-semibold tracking-tight">Factor interactions</h2>
+        <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold tracking-tight">
+          Factor interactions
+          <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+            Illustrative – mock data, not model output
+          </span>
+        </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Illustrative prototype — how two factors might combine. Live SHAP for this loan is the
           contributor list above (from the model). Pairwise interaction values are not computed yet.

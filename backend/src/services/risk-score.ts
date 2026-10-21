@@ -21,6 +21,7 @@ export type RiskFactor = {
   value: string | number
   shap_logodds: number
   direction: "increases_risk" | "reduces_risk"
+  averaged?: boolean // unseen value: effect averaged over the values the model was trained on
 }
 
 export type RiskScoreResult = {
@@ -30,11 +31,13 @@ export type RiskScoreResult = {
   model_version: string
   top_factors: RiskFactor[]
   unseen_categories: string[]
+  reliability: "normal" | "reduced"
 }
 
 export class ModelServiceError extends Error {}
 
-const MODEL_URL = () => process.env.M1_MODEL_URL ?? "http://127.0.0.1:8001"
+// `||` not `??`: .env.example ships an empty `M1_MODEL_URL=`, which must still mean "use the default".
+const MODEL_URL = () => process.env.M1_MODEL_URL || "http://127.0.0.1:8002"
 
 // Provisional: bands come from the model service; mapping to an officer-facing hint is ours.
 const RECOMMENDATION = { low: "approve", medium: "review", high: "reject" } as const
@@ -54,5 +57,11 @@ export async function scoreRisk(terms: LoanTerms): Promise<RiskScoreResult> {
   if (!res.ok) throw new ModelServiceError(`Risk model service returned ${res.status}`)
 
   const out = (await res.json()) as Omit<RiskScoreResult, "recommendation">
-  return { ...out, recommendation: RECOMMENDATION[out.risk_band] }
+  // A score that leans on averages for unseen branch/product values never auto-approves or rejects.
+  const reduced = out.unseen_categories.length > 0
+  return {
+    ...out,
+    reliability: reduced ? "reduced" : "normal",
+    recommendation: reduced ? "review" : RECOMMENDATION[out.risk_band],
+  }
 }

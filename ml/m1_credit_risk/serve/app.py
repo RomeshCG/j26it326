@@ -1,7 +1,7 @@
 """Internal M1 model service (FastAPI). Only the Express backend should call this.
 
 Run from ml/:
-  uvicorn app:app --app-dir m1_credit_risk/serve --port 8001
+  uvicorn app:app --app-dir m1_credit_risk/serve --port 8002
 Auth, tenancy and RBAC stay in Express; this service trusts its caller (bind to localhost).
 """
 
