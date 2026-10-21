@@ -557,11 +557,6 @@ export default function AgentLog() {
                                     <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider mb-1">Human Decision Reason</div>
                                     <div className="bg-background p-3 rounded-lg border border-amber-500/20 text-foreground leading-relaxed text-xs">
                                       {act.decisionReason}
-                                      {act.decidedAt && (
-                                        <div className="text-[10px] text-muted-foreground mt-1" title={act.decidedAt}>
-                                          Decided: {new Date(act.decidedAt).toLocaleString()}
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
                                 )}

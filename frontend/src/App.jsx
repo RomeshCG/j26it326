@@ -42,8 +42,8 @@ import AbExperimentPage from "@/components/ab-experiment"
 import AgentPanel from "@/components/c4/AgentPanel"
 import BorrowerManagementPage from "@/components/borrower-management/page"
 import { useStore } from "@/store"
-import { verifySessionOnce, getCachedSession, isJwtExpired, clearSessionCache } from "@/lib/api"
-import { toDisplayRole } from "@/lib/roles"
+import { verifySessionOnce, getCachedSession, isJwtExpired, endClientSession } from "@/lib/api"
+import { getRoleRedirect, toDisplayRole } from "@/lib/roles"
 
 function ProtectedRoute({ children }) {
   const location = useLocation()
@@ -99,10 +99,7 @@ function ProtectedRoute({ children }) {
 
   // All hooks executed above. Conditional checks and returns follow:
   if (location.pathname && token && isJwtExpired(token)) {
-    clearSessionCache()
-    localStorage.removeItem("mf_auth_token")
-    localStorage.removeItem("mf_auth_role")
-    localStorage.removeItem("mf_auth_branch")
+    endClientSession()
     return <Navigate to="/login?expired=true" replace />
   }
 
@@ -138,6 +135,7 @@ function RequireRole({ allowedRoles, children }) {
   const isAllowed = allowedRoles.includes(cached.role)
 
   if (!isAllowed) {
+    const roleHome = getRoleRedirect(cached.role)
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-6 text-foreground">
         <div className="w-full max-w-md bg-card border border-border rounded-xl p-8 text-center shadow-lg">
@@ -149,7 +147,7 @@ function RequireRole({ allowedRoles, children }) {
             Your role does not have authorization to view this area.
           </p>
           <Link
-            to="/dashboard"
+            to={roleHome}
             className="block w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg font-medium text-xs transition-colors"
           >
             Back to Dashboard
@@ -166,6 +164,8 @@ function OnboardingRoute() {
   const isMockAuth = import.meta.env.VITE_USE_MOCK_AUTH === "true"
   const token = localStorage.getItem("mf_auth_token")
   const cached = getCachedSession()
+  // Hook must run unconditionally (before any early return)
+  const onboardingComplete = useStore((state) => state.onboardingComplete)
 
   // Real auth mode: if an active session exists, redirect to dashboard so logged-in admins cannot register another institution
   if (!isMockAuth && (token || cached)) {
@@ -173,7 +173,6 @@ function OnboardingRoute() {
   }
 
   // In mock auth mode: allow mock admin to view/re-run onboarding in layout if complete
-  const onboardingComplete = useStore((state) => state.onboardingComplete)
   if (isMockAuth && onboardingComplete && cached) {
     return (
       <DashboardLayout>
@@ -187,6 +186,10 @@ function OnboardingRoute() {
 }
 
 function App() {
+  const currentUser = useStore((state) => state.currentUser)
+  const agentPanelKey =
+    currentUser?.id ?? currentUser?.userId ?? currentUser?.email ?? "signed-out"
+
   return (
     <ThemeProvider>
       <BrowserRouter>
@@ -204,7 +207,14 @@ function App() {
             }
           >
             <Route path="/dashboard" element={<ExecutiveDashboard />} />
-            <Route path="/branch-manager" element={<BranchManagerDashboard />} />
+            <Route
+              path="/branch-manager"
+              element={
+                <RequireRole allowedRoles={["branch_manager"]}>
+                  <BranchManagerDashboard />
+                </RequireRole>
+              }
+            />
             <Route path="/borrowers" element={<BorrowerManagementPage />} />
             <Route path="/hr" element={<HRManagement />} />
             <Route path="/payroll" element={<Payroll />} />
@@ -216,8 +226,22 @@ function App() {
                 </RequireRole>
               }
             />
-            <Route path="/graduated-trust" element={<GraduatedTrust />} />
-            <Route path="/tier-approval" element={<TierApproval />} />
+            <Route
+              path="/graduated-trust"
+              element={
+                <RequireRole allowedRoles={["admin", "executive", "branch_manager"]}>
+                  <GraduatedTrust />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/tier-approval"
+              element={
+                <RequireRole allowedRoles={["admin", "executive", "branch_manager"]}>
+                  <TierApproval />
+                </RequireRole>
+              }
+            />
             <Route path="/settings" element={<Settings />} />
             <Route path="/finance-manager" element={<FinanceManagerDashboard />} />
             <Route path="/alerts" element={<MissionDriftAlerts />} />
@@ -293,7 +317,7 @@ function App() {
             />
           </Route>
         </Routes>
-        <AgentPanel />
+        <AgentPanel key={agentPanelKey} />
       </BrowserRouter>
     </ThemeProvider>
   )

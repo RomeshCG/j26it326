@@ -34,7 +34,8 @@ export const DEFAULT_AGENT_POLICIES: readonly DefaultAgentPolicy[] = [
     agentId: "A1",
     agentName: "Compliance",
     tier: 3,
-    description: "Prepare CBSL report; human approval required",
+    description:
+      "Prepare CBSL readiness package (cbsl_readiness_v1); human approval required — not an official submission",
     isActive: true,
   },
   {

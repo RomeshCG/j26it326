@@ -1,6 +1,6 @@
 import { Router } from "express"
 import { authenticate, resolveTenantContext } from "../middleware/auth.js"
-import { validateUserId } from "../lib/auth.js"
+import { logSafeError, validateUserId } from "../lib/auth.js"
 import { agentGovernanceRouter } from "./agent-governance.js"
 import { agentPoliciesRouter } from "./agent-policies.js"
 
@@ -41,9 +41,8 @@ tenantRouter.get("/info", async (req, res) => {
       },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to retrieve tenant info"
-    console.error("[tenant-routes] /info error:", error)
-    res.status(500).json({ error: message })
+    logSafeError("[tenant-routes] /info error", error)
+    res.status(500).json({ error: "Failed to retrieve tenant info" })
   }
 })
 
@@ -66,9 +65,8 @@ tenantRouter.get("/branches", async (req, res) => {
       count: branches.length,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load branches"
-    console.error("[tenant-routes] /branches error:", error)
-    res.status(500).json({ error: message })
+    logSafeError("[tenant-routes] /branches error", error)
+    res.status(500).json({ error: "Failed to load branches" })
   }
 })
 

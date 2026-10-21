@@ -1,0 +1,44 @@
+# Mission Drift Index (MDI) settings. Higher MDI = more drift away from the social mission.
+# MDI = 100 * sum_i( weight_i * clip(drift_i / full_scale, -1, 1) )
+# drift_i = relative adverse change of indicator i: last-3-month mean vs baseline (first 3 months).
+# direction = -1: a fall is adverse (e.g. female share); +1: a rise is adverse (e.g. avg loan size, dropout).
+
+baseline_months = 3
+window_months = 3
+full_scale = 0.20        # a 20% adverse relative move on one indicator = full 100 contribution
+alert_threshold = 20.0   # MDI above this -> state "alert"
+
+[indicators.female]
+weight = 0.25
+direction = -1
+label = "Female borrowers share"
+
+[indicators.poverty]
+weight = 0.20
+direction = -1
+label = "Below-poverty-line borrowers share"
+
+[indicators.rural]
+weight = 0.15
+direction = -1
+label = "Rural borrowers share"
+
+[indicators.low_income]
+weight = 0.10
+direction = -1
+label = "Low-income borrowers share"
+
+[indicators.new_to_banking]
+weight = 0.05
+direction = -1
+label = "New-to-banking borrowers share (proxy)"
+
+[indicators.dropout]
+weight = 0.10
+direction = 1
+label = "Monthly dropout rate"
+
+[indicators.avg_loan_size]
+weight = 0.15
+direction = 1
+label = "Average loan size (mission creep to bigger loans)"

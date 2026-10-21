@@ -32,6 +32,11 @@ import {
 } from "@/components/ui/sidebar"
 import { useStore } from "@/store"
 import { BORROWER_ACCESS_ROLES } from "@/components/borrower-management/mock-data"
+import { fetchPendingAgentActions } from "@/lib/api"
+import { getRoleRedirect } from "@/lib/roles"
+
+/** Display roles that may call GET /agent-actions/pending (agents:decide_tier3). */
+const TIER3_DECIDER_ROLES = ["Institution Admin", "Executive", "Branch Manager"]
 
 const WORKSPACE_NAV = [
   {
@@ -82,13 +87,13 @@ const WORKSPACE_NAV = [
     title: "Graduated Trust",
     url: "/graduated-trust",
     icon: <ShieldCheckIcon />,
-    roles: ["Institution Admin", "Finance Officer"],
+    roles: ["Institution Admin", "Executive", "Branch Manager"],
   },
   {
     title: "Tier Approvals",
     url: "/tier-approval",
     icon: <CheckCircleIcon />,
-    roles: ["Institution Admin", "Finance Officer"],
+    roles: ["Institution Admin", "Executive", "Branch Manager"],
   },
   {
     title: "Settings",
@@ -101,6 +106,8 @@ const WORKSPACE_NAV = [
     url: "/onboarding",
     icon: <WrenchIcon />,
     roles: ["Institution Admin"],
+    // Real auth: /onboarding is public registration only (logged-in users are redirected).
+    mockAuthOnly: true,
   },
   {
     title: "A/B Experiment",
@@ -159,27 +166,64 @@ const LOAN_OFFICER_NAV = [
 export function AppSidebar({ ...props }) {
   const location = useLocation()
   const currentUser = useStore((state) => state.currentUser)
-  const institution = useStore((state) => state.institution)
-  const [tierCount, setTierCount] = React.useState(2)
+  // null = unknown / error / non-decider — never show a fake badge count
+  const [tierCount, setTierCount] = React.useState(null)
 
   const isLoanOfficerArea = location.pathname.startsWith("/loan-officer")
   const role = currentUser?.role || "Institution Admin"
+  // Prefer verified backend role; getRoleRedirect also accepts display labels.
+  const roleHome = getRoleRedirect(
+    currentUser?.backendRole || currentUser?.role || role
+  )
+  const canFetchPending = TIER3_DECIDER_ROLES.includes(role)
+  const isMockAuth = import.meta.env.VITE_USE_MOCK_AUTH === "true"
+  // Authenticated tenant label only - never persisted demo institution.name (Apex).
+  const institutionLabel =
+    (typeof currentUser?.institutionName === "string" &&
+      currentUser.institutionName.trim()) ||
+    "Your institution"
 
   React.useEffect(() => {
-    const checkCount = () => {
-      const count = localStorage.getItem("mf_tier3_count")
-      if (count !== null) setTierCount(parseInt(count, 10))
+    if (!canFetchPending) return undefined
+
+    let cancelled = false
+
+    const loadPendingCount = async () => {
+      try {
+        const res = await fetchPendingAgentActions()
+        if (cancelled) return
+        const count =
+          typeof res?.count === "number"
+            ? res.count
+            : Array.isArray(res?.data)
+              ? res.data.length
+              : null
+        setTierCount(count)
+      } catch {
+        if (cancelled) return
+        setTierCount(null)
+      }
     }
-    checkCount()
-    window.addEventListener("storage", checkCount)
-    return () => window.removeEventListener("storage", checkCount)
-  }, [])
+
+    loadPendingCount()
+    const onRefresh = () => {
+      loadPendingCount()
+    }
+    window.addEventListener("mf:tier3-pending-refresh", onRefresh)
+    return () => {
+      cancelled = true
+      window.removeEventListener("mf:tier3-pending-refresh", onRefresh)
+    }
+  }, [canFetchPending])
 
   const user = {
     name: currentUser
-      ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim()
-      : "Jane Smith",
-    email: currentUser?.email || currentUser?.role || "Institution Admin",
+      ? `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() ||
+        "User"
+      : "User",
+    email: currentUser
+      ? currentUser.email || currentUser.role || ""
+      : "",
     avatar: currentUser?.avatar || "",
   }
 
@@ -187,16 +231,28 @@ export function AppSidebar({ ...props }) {
     ? LOAN_OFFICER_NAV
     : WORKSPACE_NAV.filter(
         (item) =>
-          !item.roles ||
-          item.roles.includes("all") ||
-          item.roles.includes(role)
-      ).map((item) =>
-        item.title === "Tier Approvals"
-          ? { ...item, badge: tierCount > 0 ? tierCount : undefined }
-          : item
-      )
+          (!item.mockAuthOnly || isMockAuth) &&
+          (!item.roles ||
+            item.roles.includes("all") ||
+            item.roles.includes(role))
+      ).map((item) => {
+        let next = item
+        if (item.title === "Dashboard") {
+          next = { ...next, url: roleHome }
+        }
+        if (item.title === "Tier Approvals") {
+          next = {
+            ...next,
+            badge:
+              canFetchPending && tierCount > 0 ? tierCount : undefined,
+          }
+        }
+        return next
+      })
 
-  const homePath = isLoanOfficerArea ? "/loan-officer" : "/dashboard"
+  // Loan Officer field layout keeps an explicit /loan-officer home; all other
+  // workspace roles use the shared getRoleRedirect canonical home.
+  const homePath = isLoanOfficerArea ? "/loan-officer" : roleHome
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -210,9 +266,7 @@ export function AppSidebar({ ...props }) {
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">MicroFlow</span>
                 <span className="truncate text-xs">
-                  {isLoanOfficerArea
-                    ? "Loan Officer"
-                    : institution?.name || "IMFS"}
+                  {isLoanOfficerArea ? "Loan Officer" : institutionLabel}
                 </span>
               </div>
             </SidebarMenuButton>

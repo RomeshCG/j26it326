@@ -3,6 +3,8 @@
  * Handles JWT bearer authentication, error normalization, and session caching.
  */
 
+import { useStore } from "@/store"
+
 const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/+$/, "")
 
 // In-memory session verification cache (persists for the page load lifecycle)
@@ -16,6 +18,33 @@ export function getApiBaseUrl() {
 export function clearSessionCache() {
   sessionVerified = false
   sessionUser = null
+}
+
+/**
+ * Central client-side session teardown: memory cache, auth tokens, Zustand
+ * user + Agent 4 NLQ panel/history. Call on logout, expired JWT, and API 401.
+ * @param {{ redirectToLogin?: boolean }} [options]
+ */
+export function endClientSession(options = {}) {
+  const { redirectToLogin = false } = options
+  clearSessionCache()
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem("mf_auth_token")
+    localStorage.removeItem("mf_auth_role")
+    localStorage.removeItem("mf_auth_branch")
+  }
+  try {
+    useStore.getState().logout()
+  } catch {
+    // Store may be unavailable during early bootstrap; tokens/cache still cleared.
+  }
+  if (
+    redirectToLogin &&
+    typeof window !== "undefined" &&
+    !window.location.pathname.startsWith("/login")
+  ) {
+    window.location.href = "/login?expired=true"
+  }
 }
 
 export function setSessionCache(userData) {
@@ -97,14 +126,16 @@ export async function apiRequest(endpoint, options = {}) {
   const isLoginCall = endpoint.includes("/auth/login")
 
   if (response.status === 401 && !isLoginCall) {
-    clearSessionCache()
-    localStorage.removeItem("mf_auth_token")
-    localStorage.removeItem("mf_auth_role")
-    localStorage.removeItem("mf_auth_branch")
-    
-    // Redirect to login with expired flag if not already on login
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-      window.location.href = "/login?expired=true"
+    // Tear down only when this request's token is still the active session.
+    // Require `token`: a no-auth 401 must not clear a session created later.
+    // Require `latest === token`: ignore stale 401s after logout or user switch.
+    // Do not use `!latest || …` — that re-tears down after explicit logout.
+    const latest =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("mf_auth_token")
+        : null
+    if (token && latest === token) {
+      endClientSession({ redirectToLogin: true })
     }
   }
 
@@ -256,6 +287,30 @@ export async function verifySessionOnce() {
 }
 
 /**
+ * Lists active branches for the caller's tenant database.
+ * GET /api/tenant/branches
+ * Success: { data: Branch[], count }
+ * Branch fields include id, name, location, district, isActive, createdAt (no manager).
+ */
+export async function fetchTenantBranches() {
+  return await apiRequest("/api/tenant/branches")
+}
+
+/**
+ * A4 NLQ v1 — classify question via Node (Ollama on server) + grounded tenant tools.
+ * POST /api/tenant/agent-actions/nlq/query
+ * Body: { question: string }
+ * Success shapes include supported/dispatched answers or supported:false.
+ * Errors throw with .status (403, 422, 503, 401, …) via apiRequest.
+ */
+export async function queryNlq(question) {
+  return await apiRequest("/api/tenant/agent-actions/nlq/query", {
+    method: "POST",
+    body: JSON.stringify({ question }),
+  })
+}
+
+/**
  * Lists agent actions with optional filters and pagination
  * GET /api/tenant/agent-actions
  */
@@ -280,6 +335,41 @@ export async function fetchAgentActionById(id) {
 }
 
 /**
+ * Lists pending Tier 3 actions awaiting human approval (no payloads)
+ * GET /api/tenant/agent-actions/pending
+ * Success: { data, count }
+ */
+export async function fetchPendingAgentActions() {
+  return await apiRequest("/api/tenant/agent-actions/pending")
+}
+
+/**
+ * Approves a pending Tier 3 action
+ * POST /api/tenant/agent-actions/:id/approve
+ * Body: { reason } (10–1000 chars trimmed, enforced by server)
+ * Success: flat engine result { status, actionId, decision, actionStatus, ... } — not wrapped in { data }
+ */
+export async function approveAgentAction(id, reason) {
+  return await apiRequest(`/api/tenant/agent-actions/${encodeURIComponent(id)}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  })
+}
+
+/**
+ * Rejects a pending Tier 3 action
+ * POST /api/tenant/agent-actions/:id/reject
+ * Body: { reason } (10–1000 chars trimmed, enforced by server)
+ * Success: flat engine result { status, actionId, decision, actionStatus } — not wrapped in { data }
+ */
+export async function rejectAgentAction(id, reason) {
+  return await apiRequest(`/api/tenant/agent-actions/${encodeURIComponent(id)}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  })
+}
+
+/**
  * Records human override for executed/notified Tier 1 or Tier 2 action
  * POST /api/tenant/agent-actions/:id/override
  */
@@ -293,8 +383,40 @@ export async function overrideAgentAction(id, reason) {
 /**
  * Lists all configured agent tier policies
  * GET /api/tenant/agent-policies
+ * Success: { data, count }
  */
 export async function fetchAgentPolicies() {
   return await apiRequest("/api/tenant/agent-policies")
+}
+
+/**
+ * Updates an existing agent tier policy (admin only)
+ * PUT /api/tenant/agent-policies/:id
+ * Body: at least one of { tier, isActive, description }; reason required when tier changes (10–1000)
+ * Success: { status: "ok", policy } — not a bare engine result
+ */
+export async function updateAgentPolicy(id, body) {
+  return await apiRequest(`/api/tenant/agent-policies/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(body ?? {}),
+  })
+}
+
+/**
+ * Override / approval rate metrics (decide_tier3 roles only)
+ * GET /api/tenant/agent-actions/metrics/override-rates
+ * Optional params: { from, to } ISO-8601 strings; server defaults to last 30 days
+ * Success: { data: { ...metrics, capped }, capped }
+ */
+export async function fetchOverrideRates(params = {}) {
+  const query = new URLSearchParams()
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined && val !== null && val !== "") {
+      query.set(key, String(val))
+    }
+  }
+  const queryString = query.toString()
+  const endpoint = `/api/tenant/agent-actions/metrics/override-rates${queryString ? `?${queryString}` : ""}`
+  return await apiRequest(endpoint)
 }
 

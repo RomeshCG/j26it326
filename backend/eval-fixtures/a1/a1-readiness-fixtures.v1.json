@@ -1,0 +1,401 @@
+{
+  "specId": "a1-readiness-oracle-v1",
+  "specPath": "eval-fixtures/a1/SPEC.md",
+  "rulesetVersion": "a1-readiness-rules-v1",
+  "fixturePackVersion": "1.0.0",
+  "disclaimer": "Rule-agreement fixtures for deterministic A1 readiness analysis. Not official CBSL compliance accuracy.",
+  "fixtures": [
+    {
+      "id": "A1-F01",
+      "category": "readiness_analysis",
+      "description": "Scoped evidence complete — no dataGaps",
+      "oracleRef": "SPEC.md S0 + absence of all gap conditions",
+      "duplicateOfVerify": true,
+      "facts": {
+        "institution": {
+          "tenantInstitutionName": "Fixture MFI",
+          "centralInstitutionId": "11111111-1111-4111-8111-111111111111",
+          "tenantInfoPresent": true
+        },
+        "organizational": {
+          "activeBranchCount": 2,
+          "totalBranchCount": 2,
+          "branches": [
+            { "id": "b1", "name": "HQ", "district": "Colombo", "isActive": true },
+            { "id": "b2", "name": "Galle", "district": "Galle", "isActive": true }
+          ],
+          "employeeCount": 3,
+          "employeesByStatus": { "active": 3 },
+          "employeesMissingEpfNumber": 0,
+          "employeesMissingEtfNumber": 0,
+          "payrollRecordCount": 3,
+          "payrollRecordCountInPeriod": 3
+        },
+        "governance": {
+          "generateCbslPolicyActive": true,
+          "generateCbslPolicyTier": 3,
+          "agentActionsInPeriod": 1,
+          "tier3PendingCount": 0,
+          "tier3ApprovedInPeriod": 0,
+          "tier3RejectedInPeriod": 0,
+          "auditLogEntriesInPeriod": 2
+        },
+        "financialAndPortfolioSlots": {
+          "status": "partial",
+          "loanCount": 10,
+          "borrowerCount": 8,
+          "journalEntryCountInPeriod": 4,
+          "note": "fixture"
+        }
+      },
+      "expect": {
+        "overallStatus": "evidence_complete_for_scoped_checks",
+        "dataGaps": []
+      }
+    },
+    {
+      "id": "A1-F02",
+      "category": "readiness_analysis",
+      "description": "Multiple simultaneous blocking gaps (sparse org + unavailable portfolio/ledger)",
+      "oracleRef": "SPEC.md NO_EMPLOYEES, NO_PAYROLL_RECORDS, PORTFOLIO_*, LEDGER_*",
+      "duplicateOfVerify": true,
+      "facts": {
+        "institution": {
+          "tenantInstitutionName": "Sparse MFI",
+          "centralInstitutionId": "22222222-2222-4222-8222-222222222222",
+          "tenantInfoPresent": true
+        },
+        "organizational": {
+          "activeBranchCount": 1,
+          "totalBranchCount": 1,
+          "branches": [
+            { "id": "b1", "name": "HQ", "district": "Colombo", "isActive": true }
+          ],
+          "employeeCount": 0,
+          "employeesByStatus": {},
+          "employeesMissingEpfNumber": 0,
+          "employeesMissingEtfNumber": 0,
+          "payrollRecordCount": 0,
+          "payrollRecordCountInPeriod": 0
+        },
+        "governance": {
+          "generateCbslPolicyActive": true,
+          "generateCbslPolicyTier": 3,
+          "agentActionsInPeriod": 0,
+          "tier3PendingCount": 0,
+          "tier3ApprovedInPeriod": 0,
+          "tier3RejectedInPeriod": 0,
+          "auditLogEntriesInPeriod": 1
+        },
+        "financialAndPortfolioSlots": {
+          "status": "not_available",
+          "loanCount": 0,
+          "borrowerCount": 0,
+          "journalEntryCountInPeriod": 0,
+          "note": "fixture"
+        }
+      },
+      "expect": {
+        "overallStatus": "not_ready",
+        "dataGaps": [
+          { "code": "NO_EMPLOYEES", "severity": "blocking" },
+          { "code": "NO_PAYROLL_RECORDS", "severity": "blocking" },
+          { "code": "PORTFOLIO_EVIDENCE_UNAVAILABLE", "severity": "blocking" },
+          { "code": "LEDGER_EVIDENCE_UNAVAILABLE", "severity": "blocking" }
+        ]
+      }
+    },
+    {
+      "id": "A1-F03",
+      "category": "readiness_analysis",
+      "description": "Warning-only — employees missing ETF",
+      "oracleRef": "SPEC.md EMPLOYEES_MISSING_ETF + S0",
+      "duplicateOfVerify": false,
+      "facts": {
+        "institution": {
+          "tenantInstitutionName": "Fixture MFI",
+          "centralInstitutionId": "11111111-1111-4111-8111-111111111111",
+          "tenantInfoPresent": true
+        },
+        "organizational": {
+          "activeBranchCount": 1,
+          "totalBranchCount": 1,
+          "branches": [
+            { "id": "b1", "name": "HQ", "district": "Colombo", "isActive": true }
+          ],
+          "employeeCount": 2,
+          "employeesByStatus": { "active": 2 },
+          "employeesMissingEpfNumber": 0,
+          "employeesMissingEtfNumber": 1,
+          "payrollRecordCount": 2,
+          "payrollRecordCountInPeriod": 2
+        },
+        "governance": {
+          "generateCbslPolicyActive": true,
+          "generateCbslPolicyTier": 3,
+          "agentActionsInPeriod": 1,
+          "tier3PendingCount": 0,
+          "tier3ApprovedInPeriod": 0,
+          "tier3RejectedInPeriod": 0,
+          "auditLogEntriesInPeriod": 2
+        },
+        "financialAndPortfolioSlots": {
+          "status": "partial",
+          "loanCount": 5,
+          "borrowerCount": 5,
+          "journalEntryCountInPeriod": 2,
+          "note": "fixture"
+        }
+      },
+      "expect": {
+        "overallStatus": "ready_with_warnings",
+        "dataGaps": [
+          { "code": "EMPLOYEES_MISSING_ETF", "severity": "warning" }
+        ]
+      }
+    },
+    {
+      "id": "A1-F04",
+      "category": "readiness_analysis",
+      "description": "Blocking — employees missing EPF",
+      "oracleRef": "SPEC.md EMPLOYEES_MISSING_EPF",
+      "duplicateOfVerify": true,
+      "facts": {
+        "institution": {
+          "tenantInstitutionName": "Fixture MFI",
+          "centralInstitutionId": "11111111-1111-4111-8111-111111111111",
+          "tenantInfoPresent": true
+        },
+        "organizational": {
+          "activeBranchCount": 1,
+          "totalBranchCount": 1,
+          "branches": [
+            { "id": "b1", "name": "HQ", "district": "Colombo", "isActive": true }
+          ],
+          "employeeCount": 2,
+          "employeesByStatus": { "active": 2 },
+          "employeesMissingEpfNumber": 2,
+          "employeesMissingEtfNumber": 0,
+          "payrollRecordCount": 2,
+          "payrollRecordCountInPeriod": 2
+        },
+        "governance": {
+          "generateCbslPolicyActive": true,
+          "generateCbslPolicyTier": 3,
+          "agentActionsInPeriod": 1,
+          "tier3PendingCount": 0,
+          "tier3ApprovedInPeriod": 0,
+          "tier3RejectedInPeriod": 0,
+          "auditLogEntriesInPeriod": 2
+        },
+        "financialAndPortfolioSlots": {
+          "status": "partial",
+          "loanCount": 5,
+          "borrowerCount": 5,
+          "journalEntryCountInPeriod": 2,
+          "note": "fixture"
+        }
+      },
+      "expect": {
+        "overallStatus": "not_ready",
+        "dataGaps": [
+          { "code": "EMPLOYEES_MISSING_EPF", "severity": "blocking" }
+        ]
+      }
+    },
+    {
+      "id": "A1-F05",
+      "category": "readiness_analysis",
+      "description": "Payroll rows exist but none in period — warning",
+      "oracleRef": "SPEC.md NO_PAYROLL_IN_PERIOD",
+      "duplicateOfVerify": false,
+      "facts": {
+        "institution": {
+          "tenantInstitutionName": "Fixture MFI",
+          "centralInstitutionId": "11111111-1111-4111-8111-111111111111",
+          "tenantInfoPresent": true
+        },
+        "organizational": {
+          "activeBranchCount": 1,
+          "totalBranchCount": 1,
+          "branches": [
+            { "id": "b1", "name": "HQ", "district": "Colombo", "isActive": true }
+          ],
+          "employeeCount": 2,
+          "employeesByStatus": { "active": 2 },
+          "employeesMissingEpfNumber": 0,
+          "employeesMissingEtfNumber": 0,
+          "payrollRecordCount": 4,
+          "payrollRecordCountInPeriod": 0
+        },
+        "governance": {
+          "generateCbslPolicyActive": true,
+          "generateCbslPolicyTier": 3,
+          "agentActionsInPeriod": 1,
+          "tier3PendingCount": 0,
+          "tier3ApprovedInPeriod": 0,
+          "tier3RejectedInPeriod": 0,
+          "auditLogEntriesInPeriod": 2
+        },
+        "financialAndPortfolioSlots": {
+          "status": "partial",
+          "loanCount": 5,
+          "borrowerCount": 5,
+          "journalEntryCountInPeriod": 2,
+          "note": "fixture"
+        }
+      },
+      "expect": {
+        "overallStatus": "ready_with_warnings",
+        "dataGaps": [
+          { "code": "NO_PAYROLL_IN_PERIOD", "severity": "warning" }
+        ]
+      }
+    },
+    {
+      "id": "A1-F06",
+      "category": "readiness_analysis",
+      "description": "Confirmed zero loans/borrowers still unavailable portfolio evidence",
+      "oracleRef": "SPEC.md PORTFOLIO_EVIDENCE_UNAVAILABLE (zero ≠ complete)",
+      "duplicateOfVerify": false,
+      "facts": {
+        "institution": {
+          "tenantInstitutionName": "Fixture MFI",
+          "centralInstitutionId": "11111111-1111-4111-8111-111111111111",
+          "tenantInfoPresent": true
+        },
+        "organizational": {
+          "activeBranchCount": 1,
+          "totalBranchCount": 1,
+          "branches": [
+            { "id": "b1", "name": "HQ", "district": "Colombo", "isActive": true }
+          ],
+          "employeeCount": 2,
+          "employeesByStatus": { "active": 2 },
+          "employeesMissingEpfNumber": 0,
+          "employeesMissingEtfNumber": 0,
+          "payrollRecordCount": 2,
+          "payrollRecordCountInPeriod": 2
+        },
+        "governance": {
+          "generateCbslPolicyActive": true,
+          "generateCbslPolicyTier": 3,
+          "agentActionsInPeriod": 1,
+          "tier3PendingCount": 0,
+          "tier3ApprovedInPeriod": 0,
+          "tier3RejectedInPeriod": 0,
+          "auditLogEntriesInPeriod": 2
+        },
+        "financialAndPortfolioSlots": {
+          "status": "partial",
+          "loanCount": 0,
+          "borrowerCount": 0,
+          "journalEntryCountInPeriod": 2,
+          "note": "zeros are not evidence of compliance"
+        }
+      },
+      "expect": {
+        "overallStatus": "not_ready",
+        "dataGaps": [
+          { "code": "PORTFOLIO_EVIDENCE_UNAVAILABLE", "severity": "blocking" }
+        ]
+      }
+    },
+    {
+      "id": "A1-F07",
+      "category": "readiness_analysis",
+      "description": "Journal count zero in period — ledger evidence unavailable",
+      "oracleRef": "SPEC.md LEDGER_EVIDENCE_UNAVAILABLE",
+      "duplicateOfVerify": false,
+      "facts": {
+        "institution": {
+          "tenantInstitutionName": "Fixture MFI",
+          "centralInstitutionId": "11111111-1111-4111-8111-111111111111",
+          "tenantInfoPresent": true
+        },
+        "organizational": {
+          "activeBranchCount": 1,
+          "totalBranchCount": 1,
+          "branches": [
+            { "id": "b1", "name": "HQ", "district": "Colombo", "isActive": true }
+          ],
+          "employeeCount": 2,
+          "employeesByStatus": { "active": 2 },
+          "employeesMissingEpfNumber": 0,
+          "employeesMissingEtfNumber": 0,
+          "payrollRecordCount": 2,
+          "payrollRecordCountInPeriod": 2
+        },
+        "governance": {
+          "generateCbslPolicyActive": true,
+          "generateCbslPolicyTier": 3,
+          "agentActionsInPeriod": 1,
+          "tier3PendingCount": 0,
+          "tier3ApprovedInPeriod": 0,
+          "tier3RejectedInPeriod": 0,
+          "auditLogEntriesInPeriod": 2
+        },
+        "financialAndPortfolioSlots": {
+          "status": "partial",
+          "loanCount": 5,
+          "borrowerCount": 5,
+          "journalEntryCountInPeriod": 0,
+          "note": "fixture"
+        }
+      },
+      "expect": {
+        "overallStatus": "not_ready",
+        "dataGaps": [
+          { "code": "LEDGER_EVIDENCE_UNAVAILABLE", "severity": "blocking" }
+        ]
+      }
+    },
+    {
+      "id": "A1-F08",
+      "category": "readiness_analysis",
+      "description": "Missing blocking evidence — no active branch",
+      "oracleRef": "SPEC.md NO_ACTIVE_BRANCH",
+      "duplicateOfVerify": false,
+      "facts": {
+        "institution": {
+          "tenantInstitutionName": "Fixture MFI",
+          "centralInstitutionId": "11111111-1111-4111-8111-111111111111",
+          "tenantInfoPresent": true
+        },
+        "organizational": {
+          "activeBranchCount": 0,
+          "totalBranchCount": 0,
+          "branches": [],
+          "employeeCount": 2,
+          "employeesByStatus": { "active": 2 },
+          "employeesMissingEpfNumber": 0,
+          "employeesMissingEtfNumber": 0,
+          "payrollRecordCount": 2,
+          "payrollRecordCountInPeriod": 2
+        },
+        "governance": {
+          "generateCbslPolicyActive": true,
+          "generateCbslPolicyTier": 3,
+          "agentActionsInPeriod": 1,
+          "tier3PendingCount": 0,
+          "tier3ApprovedInPeriod": 0,
+          "tier3RejectedInPeriod": 0,
+          "auditLogEntriesInPeriod": 2
+        },
+        "financialAndPortfolioSlots": {
+          "status": "partial",
+          "loanCount": 5,
+          "borrowerCount": 5,
+          "journalEntryCountInPeriod": 2,
+          "note": "fixture"
+        }
+      },
+      "expect": {
+        "overallStatus": "not_ready",
+        "dataGaps": [
+          { "code": "NO_ACTIVE_BRANCH", "severity": "blocking" }
+        ]
+      }
+    }
+  ]
+}

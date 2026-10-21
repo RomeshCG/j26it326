@@ -68,9 +68,9 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     const payload = verifyAccessToken(token)
     req.user = payload
     next()
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid or expired token"
-    res.status(401).json({ error: message })
+  } catch {
+    // Do not echo jsonwebtoken library messages (e.g. "jwt malformed") to clients
+    res.status(401).json({ error: "Invalid or expired token" })
   }
 }
 
