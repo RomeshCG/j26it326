@@ -248,7 +248,7 @@ export default function AgentLog() {
 
   return (
     <div className="flex-1 overflow-y-auto bg-background text-foreground p-6 lg:p-8 font-sans">
-      
+
       {/* Header Area */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
         <div>
@@ -259,15 +259,15 @@ export default function AgentLog() {
             Audited execution log across all autonomous agent tiers and governance policies.
           </p>
         </div>
-      </div>
-
+        </div>
+        
       {/* Policy Warning Banner if policy list failed */}
       {policyWarning && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-500">
           <AlertTriangle className="size-4 shrink-0" />
           <span>{policyWarning}</span>
-        </div>
-      )}
+            </div>
+          )}
 
       {/* Main Filter Toolbar */}
       <div className="bg-card border border-border rounded-xl p-4 mb-6 shadow-sm">
@@ -334,15 +334,15 @@ export default function AgentLog() {
           {/* Reset Filters */}
           {(tierFilter || agentFilter || statusFilter) && (
             <div className="flex flex-col justify-end self-end">
-              <button
+            <button 
                 type="button"
-                onClick={resetFilters}
+              onClick={resetFilters}
                 className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 px-3 py-2 rounded-lg transition-colors cursor-pointer"
-              >
+            >
                 <RotateCcw className="size-3" />
                 Reset filters
-              </button>
-            </div>
+            </button>
+          </div>
           )}
         </div>
       </div>
@@ -385,10 +385,10 @@ export default function AgentLog() {
 
         {/* Action Table */}
         {!loading && !error && actions.length > 0 && (
-          <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-muted border-b border-border text-muted-foreground font-medium">
+            <thead>
+              <tr className="bg-muted border-b border-border text-muted-foreground font-medium">
                   <th className="p-3 pl-4">Timestamp / ID</th>
                   <th className="p-3">Agent</th>
                   <th className="p-3 min-w-[280px]">Action</th>
@@ -396,14 +396,14 @@ export default function AgentLog() {
                   <th className="p-3">Status</th>
                   <th className="p-3 text-center">Override</th>
                   <th className="p-3 text-right pr-4">Details</th>
-                </tr>
-              </thead>
+              </tr>
+            </thead>
               <tbody className="divide-y divide-border">
                 {actions.map((act) => {
                   const isAwaiting = act.status === "pending_approval"
                   const isExpanded = expandedRows.has(act.id)
                   const payloadState = actionPayloads[act.id]
-
+                  
                   return (
                     <React.Fragment key={act.id}>
                       <tr className={`
@@ -484,9 +484,9 @@ export default function AgentLog() {
                                 className="inline-flex items-center bg-amber-500 hover:bg-amber-400 text-amber-950 font-semibold px-2.5 py-1 rounded text-[11px] transition-colors"
                               >
                                 Review
-                              </Link>
+                            </Link>
                             )}
-                            <button
+                            <button 
                               type="button"
                               onClick={() => toggleRow(act.id)}
                               className="text-primary hover:text-primary/80 font-medium underline-offset-4 hover:underline text-[11px] cursor-pointer"
@@ -496,12 +496,12 @@ export default function AgentLog() {
                           </div>
                         </td>
                       </tr>
-
+                      
                       {/* Expanded Row Detail */}
                       {isExpanded && (
                         <tr className="bg-muted/30 border-l-4 border-l-slate-700">
                           <td colSpan="7" className="p-4 sm:p-6">
-                            <div className="space-y-4">
+                                <div className="space-y-4">
                               
                               {/* Metadata Grid */}
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -510,19 +510,19 @@ export default function AgentLog() {
                                   <div className="font-semibold text-foreground mt-0.5">
                                     {act.confidence != null ? `${Number(act.confidence).toFixed(1)}%` : "—"}
                                   </div>
-                                </div>
+                                  </div>
                                 <div className="bg-background p-2.5 rounded-lg border border-border">
                                   <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Processing Time</div>
                                   <div className="font-mono text-foreground mt-0.5">
                                     {act.processingTimeMs != null ? `${act.processingTimeMs}ms` : "—"}
-                                  </div>
                                 </div>
+                                    </div>
                                 <div className="bg-background p-2.5 rounded-lg border border-border">
                                   <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Model / Prompt</div>
                                   <div className="font-mono text-[11px] text-foreground mt-0.5 truncate" title={`Model: ${act.modelVersion || "—"} | Prompt: ${act.promptVersion || "—"}`}>
                                     {act.modelVersion || "—"} / {act.promptVersion || "—"}
+                                    </div>
                                   </div>
-                                </div>
                                 <div className="bg-background p-2.5 rounded-lg border border-border">
                                   <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">Tools Used</div>
                                   <div className="font-mono text-[11px] text-foreground mt-0.5 truncate" title={act.toolsUsed ? JSON.stringify(act.toolsUsed) : "—"}>
@@ -533,14 +533,14 @@ export default function AgentLog() {
 
                               {/* Justification & Decision Details */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
+                                  <div>
                                   <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider mb-1">Agent Justification</div>
                                   <div className="bg-background p-3 rounded-lg border border-border leading-relaxed text-foreground text-xs">
                                     {act.reason || "No explicit justification recorded."}
+                                    </div>
                                   </div>
-                                </div>
                                 {(act.approvedBy || act.decidedAt) && (
-                                  <div>
+                                    <div>
                                     <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider mb-1">Decided by (user id)</div>
                                     <div className="bg-background p-3 rounded-lg border border-border leading-relaxed text-foreground text-xs">
                                       <div>{act.approvedBy || "—"}</div>
@@ -549,18 +549,18 @@ export default function AgentLog() {
                                           Decided: {new Date(act.decidedAt).toLocaleString()}
                                         </div>
                                       )}
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
                                 {act.decisionReason && (
                                   <div className={act.approvedBy || act.decidedAt ? "md:col-span-2" : ""}>
                                     <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider mb-1">Human Decision Reason</div>
                                     <div className="bg-background p-3 rounded-lg border border-amber-500/20 text-foreground leading-relaxed text-xs">
                                       {act.decisionReason}
-                                    </div>
-                                  </div>
-                                )}
+                                </div>
                               </div>
+                                )}
+                            </div>
 
                               {/* WHY THIS TIER Panel */}
                               <div className="rounded-lg border border-border bg-card p-3.5 space-y-2">
@@ -622,13 +622,13 @@ export default function AgentLog() {
                                 {payloadState?.error && (
                                   <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-500 flex items-center justify-between">
                                     <span>{payloadState.error}</span>
-                                    <button
+                      <button 
                                       type="button"
                                       onClick={() => fetchPayload(act.id)}
                                       className="underline hover:text-red-400"
-                                    >
+                      >
                                       Retry
-                                    </button>
+                      </button>
                                   </div>
                                 )}
 
@@ -667,17 +667,17 @@ export default function AgentLog() {
                                 </div>
                               )}
 
-                            </div>
-                          </td>
-                        </tr>
-                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
 
                     </React.Fragment>
                   )
                 })}
-              </tbody>
-            </table>
-          </div>
+            </tbody>
+          </table>
+        </div>
         )}
 
         {/* Server Pagination Bar (Previous / Next with Page N, no total count) */}
@@ -687,7 +687,7 @@ export default function AgentLog() {
               Page {page}
             </span>
             <div className="flex items-center gap-2">
-              <button
+              <button 
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1 || loading}
@@ -696,7 +696,7 @@ export default function AgentLog() {
                 <ChevronLeft className="size-3.5" />
                 Previous
               </button>
-              <button
+                  <button
                 type="button"
                 onClick={() => setPage((p) => p + 1)}
                 disabled={actions.length < limit || loading}
@@ -704,7 +704,7 @@ export default function AgentLog() {
               >
                 Next
                 <ChevronRight className="size-3.5" />
-              </button>
+                  </button>
             </div>
           </div>
         )}
@@ -723,7 +723,7 @@ export default function AgentLog() {
                   Record Human Override
                 </h3>
               </div>
-              <button
+              <button 
                 type="button"
                 onClick={closeOverrideModal}
                 disabled={overrideSubmitting}
@@ -743,8 +743,8 @@ export default function AgentLog() {
             {overrideError && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-500">
                 {overrideError}
-              </div>
-            )}
+          </div>
+        )}
 
             {/* Justification Reason Input */}
             <div className="space-y-1.5">
@@ -764,7 +764,7 @@ export default function AgentLog() {
                 disabled={overrideSubmitting}
                 className="w-full bg-background border border-border rounded-lg p-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-amber-500 resize-none font-sans"
               />
-            </div>
+      </div>
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-2 pt-2 border-t border-border">

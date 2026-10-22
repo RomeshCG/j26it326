@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { AlertTriangle, ChevronRight, ClipboardList, FileText, Search, ShieldAlert } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { getApplications, getBorrowers } from "@/lib/m3-api"
 
 import {
   BORROWER_FILTERS,
@@ -19,6 +20,7 @@ import {
   filterBorrowers,
   formatLkr,
   loanCategoryMeta,
+  mapApiBorrowerToRow,
   riskBandMeta,
 } from "./mock-data"
 
@@ -37,6 +39,28 @@ function FilterButton({ active, label, count, onClick }) {
   )
 }
 
+/** Prefer demo mock when API fails, is empty, or user forces demo mode. */
+function buildLiveRows(apiBorrowers, applications) {
+  const appsByBorrower = new Map()
+  for (const app of applications || []) {
+    if (!app?.borrowerId) continue
+    const prev = appsByBorrower.get(app.borrowerId)
+    if (!prev || String(app.createdAt || "") > String(prev.createdAt || "")) {
+      appsByBorrower.set(app.borrowerId, app)
+    }
+  }
+
+  return (apiBorrowers || []).map((row) => {
+    const app = appsByBorrower.get(row.id)
+    return mapApiBorrowerToRow(row, {
+      applicationId: app?.id || null,
+      product: app?.product?.name || app?.purpose || undefined,
+      loanCategory: "consumer",
+      status: app?.status === "draft" || app?.status === "submitted" ? "pending" : undefined,
+    })
+  })
+}
+
 export default function BorrowerManagement({
   onOpenRiskReport,
   onOpenLoan,
@@ -49,28 +73,70 @@ export default function BorrowerManagement({
   const [productFilter, setProductFilter] = useState("all")
   const [search, setSearch] = useState("")
 
-  const productFilterCounts = useMemo(() => {
-    const counts = { all: BORROWERS.length }
-    for (const filter of PRODUCT_FILTERS) {
-      if (filter.id === "all") continue
-      counts[filter.id] = filterBorrowers(BORROWERS, "all", "", filter.id).length
+  const [liveRows, setLiveRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  /** "auto" = live if available else mock; "live" = live only; "mock" = force demo list */
+  const [dataMode, setDataMode] = useState("auto")
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const [borrowers, applications] = await Promise.all([
+          getBorrowers(),
+          getApplications().catch(() => []),
+        ])
+        if (cancelled) return
+        const list = Array.isArray(borrowers) ? borrowers : []
+        const apps = Array.isArray(applications) ? applications : []
+        setLiveRows(buildLiveRows(list, apps))
+      } catch (err) {
+        if (cancelled) return
+        setError(err?.message || "Failed to load borrowers")
+        setLiveRows([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-    return counts
+
+    load()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
+  const usingMock =
+    dataMode === "mock" ||
+    (dataMode === "auto" && (!loading && (error || liveRows.length === 0)))
+
+  const borrowers = usingMock ? BORROWERS : liveRows
+
+  const productFilterCounts = useMemo(() => {
+    const counts = { all: borrowers.length }
+    for (const filter of PRODUCT_FILTERS) {
+      if (filter.id === "all") continue
+      counts[filter.id] = filterBorrowers(borrowers, "all", "", filter.id).length
+    }
+    return counts
+  }, [borrowers])
+
   const filterCounts = useMemo(() => {
-    const base = filterBorrowers(BORROWERS, "all", "", productFilter)
+    const base = filterBorrowers(borrowers, "all", "", productFilter)
     const counts = { all: base.length }
     for (const filter of BORROWER_FILTERS) {
       if (filter.id === "all") continue
       counts[filter.id] = filterBorrowers(base, filter.id, "", productFilter).length
     }
     return counts
-  }, [productFilter])
+  }, [borrowers, productFilter])
 
   const filteredBorrowers = useMemo(
-    () => filterBorrowers(BORROWERS, activeFilter, search, productFilter),
-    [activeFilter, search, productFilter]
+    () => filterBorrowers(borrowers, activeFilter, search, productFilter),
+    [borrowers, activeFilter, search, productFilter]
   )
 
   function handleRowAction(borrower) {
@@ -92,19 +158,73 @@ export default function BorrowerManagement({
             Borrower Management
           </h1>
           <p className="text-sm text-muted-foreground">
-            Search and filter borrowers by product and risk band. Use{" "}
-            <span className="font-medium text-foreground">View profile</span> to open
-            pre-filled demo applications without entering data manually.
+            Live list from <span className="font-medium text-foreground">GET /api/m3/borrowers</span>
+            . Switch to demo mock when you need a full risk/EWS showcase with empty DB.
           </p>
         </div>
-        <Button
-          type="button"
-          className="cursor-pointer"
-          onClick={() => onNewApplication?.()}
-        >
-          New application
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={usingMock ? "outline" : "secondary"}
+            size="sm"
+            className="cursor-pointer"
+            disabled={loading}
+            onClick={() => setDataMode("live")}
+          >
+            Live API
+          </Button>
+          <Button
+            type="button"
+            variant={usingMock ? "secondary" : "outline"}
+            size="sm"
+            className="cursor-pointer"
+            onClick={() => setDataMode("mock")}
+          >
+            Demo mock
+          </Button>
+          <Button
+            type="button"
+            className="cursor-pointer"
+            onClick={() => onNewApplication?.()}
+          >
+            New application
+          </Button>
+        </div>
       </div>
+
+      {loading ? (
+        <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          Loading borrowers from M3 API…
+        </div>
+      ) : null}
+
+      {!loading && usingMock ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          Showing <span className="font-medium">demo mock borrowers</span>
+          {error
+            ? ` (API unavailable: ${error})`
+            : liveRows.length === 0
+              ? " (no rows in tenant DB yet — create borrowers via M3 or keep mock for the viva)"
+              : " (manual Demo mock mode)"}
+          . Risk / EWS columns are richer in mock; live list uses real NIC/name/status from the
+          database.
+        </div>
+      ) : null}
+
+      {!loading && !usingMock && error ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Live API failed: {error}. Switch to <span className="font-medium">Demo mock</span> for
+          the showcase list, or fix auth / M3 backend.
+        </div>
+      ) : null}
+
+      {!loading && !usingMock && !error ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-800 dark:text-emerald-200">
+          Live data from /api/m3/borrowers ({liveRows.length} row
+          {liveRows.length === 1 ? "" : "s"}). Risk score / EWS flags appear when M3 links loans
+          and alerts to the list.
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-xl border bg-card p-5">
@@ -112,7 +232,7 @@ export default function BorrowerManagement({
             Total borrowers
           </p>
           <p className="mt-2 text-3xl font-semibold tabular-nums">
-            {BORROWERS.length}
+            {borrowers.length}
           </p>
         </Card>
         <Card className="rounded-xl border bg-card p-5">
@@ -120,7 +240,7 @@ export default function BorrowerManagement({
             Early warning
           </p>
           <p className="mt-2 text-3xl font-semibold tabular-nums text-destructive">
-            {filterCounts.ews}
+            {filterCounts.ews ?? 0}
           </p>
         </Card>
         <Card className="rounded-xl border bg-card p-5">
@@ -128,7 +248,7 @@ export default function BorrowerManagement({
             Pending review
           </p>
           <p className="mt-2 text-3xl font-semibold tabular-nums">
-            {BORROWERS.filter((b) => b.status === "pending").length}
+            {borrowers.filter((b) => b.status === "pending").length}
           </p>
         </Card>
         <Card className="rounded-xl border bg-card p-5">
@@ -136,7 +256,7 @@ export default function BorrowerManagement({
             With application profile
           </p>
           <p className="mt-2 text-3xl font-semibold tabular-nums">
-            {BORROWERS.filter((b) => b.applicationId).length}
+            {borrowers.filter((b) => b.applicationId).length}
           </p>
         </Card>
       </div>
@@ -148,6 +268,7 @@ export default function BorrowerManagement({
             <CardDescription>
               {filteredBorrowers.length} borrower
               {filteredBorrowers.length === 1 ? "" : "s"} shown
+              {usingMock ? " · mock" : " · live"}
             </CardDescription>
           </div>
 
@@ -240,7 +361,9 @@ export default function BorrowerManagement({
                     <td className="px-4 py-3">
                       <Badge className={risk.className}>{risk.label}</Badge>
                     </td>
-                    <td className="px-4 py-3 tabular-nums">{borrower.riskScore}</td>
+                    <td className="px-4 py-3 tabular-nums">
+                      {borrower.riskScore != null ? borrower.riskScore : "—"}
+                    </td>
                     <td className="px-4 py-3 tabular-nums whitespace-nowrap">
                       {borrower.outstanding > 0
                         ? formatLkr(borrower.outstanding)

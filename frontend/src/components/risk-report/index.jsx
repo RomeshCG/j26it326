@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react"
 import { getApplication } from "@/components/application-profile/storage"
 import { Button } from "@/components/ui/button"
 import { assessRisk } from "@/lib/api"
+import { getApplication as getM3Application } from "@/lib/m3-api"
 
 import AdaptiveExplanation from "./AdaptiveExplanation"
 import AiRecommendationCard from "./AiRecommendationCard"
@@ -17,6 +18,10 @@ import { useOfficerExplanationStyle } from "./useOfficerExplanationStyle"
 import { buildRiskReport, getAiRecommendation } from "./mock-data"
 import { buildAssessFeatures, mapAssessResponseToReport } from "./map-api-report"
 import { buildDisbursementApplication } from "@/components/c3/build-disbursement-application"
+import {
+  buildContextFromM3Application,
+  isUuid,
+} from "./load-application-context"
 
 function formatReportDate(isoDate) {
   return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-LK", {
@@ -76,12 +81,23 @@ export default function RiskReportPage() {
       setError(null)
       setUsedFallback(false)
 
-      const { features, assumed } = buildAssessFeatures(reportContext)
-      // Persist needs a UUID; demo APP- ids are not UUIDs — use a fresh one for the assessment row.
-      const uuidRe =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      const loanApplicationId = uuidRe.test(reportContext.applicationId || "")
-        ? reportContext.applicationId
+      let context = { ...reportContext }
+
+      // Load real M3 application terms so we never re-score everyone as the mock LKR 150,000 case.
+      if (isUuid(reportContext.applicationId)) {
+        try {
+          const m3App = await getM3Application(reportContext.applicationId)
+          if (m3App && !cancelled) {
+            context = buildContextFromM3Application(m3App, reportContext)
+          }
+        } catch {
+          // Keep nav/local context if M3 fetch fails.
+        }
+      }
+
+      const { features, assumed } = buildAssessFeatures(context)
+      const loanApplicationId = isUuid(context.applicationId)
+        ? context.applicationId
         : crypto.randomUUID()
 
       try {
@@ -97,12 +113,17 @@ export default function RiskReportPage() {
           api = await assessRisk({ features, persist: false })
         }
         if (cancelled) return
-        setReport(mapAssessResponseToReport(api, reportContext, assumed))
+        setReport(mapAssessResponseToReport(api, context, assumed, features))
       } catch (err) {
         if (cancelled) return
         setError(err?.message || "Risk API unavailable")
         setUsedFallback(true)
-        setReport(buildRiskReport(reportContext))
+        setReport(
+          buildRiskReport({
+            ...context,
+            loanAmount: features.contract_amount || context.loanAmount,
+          })
+        )
       } finally {
         if (!cancelled) setLoading(false)
       }

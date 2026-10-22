@@ -327,6 +327,36 @@ export function riskBandMeta(band) {
   }
 }
 
+/**
+ * Map GET /api/m3/borrowers (+ optional application / loan extras) → UI row shape.
+ * Live API does not yet return risk/EWS/outstanding on the list endpoint — those stay
+ * null/defaults until M3 enriches the payload; mock rows keep full demo fields.
+ */
+export function mapApiBorrowerToRow(api, extras = {}) {
+  const statusRaw = String(api.status || "active").toLowerCase()
+  const status =
+    statusRaw === "pending" || statusRaw === "draft" ? "pending" : "active"
+
+  return {
+    id: api.id,
+    name: api.fullName || api.name || "Unnamed",
+    nic: api.nicNumber || api.nic || "—",
+    branch: extras.branchName || api.district || api.branchId || "—",
+    product: extras.product || "—",
+    loanCategory: extras.loanCategory || "consumer",
+    loanId: extras.loanId || null,
+    outstanding: Number(extras.outstanding ?? 0),
+    riskBand: extras.riskBand || "medium",
+    riskScore: extras.riskScore ?? null,
+    ews: Boolean(extras.ews),
+    alertId: extras.alertId || null,
+    status,
+    officer: extras.officer || "—",
+    applicationId: extras.applicationId || null,
+    source: "api",
+  }
+}
+
 export function filterBorrowers(
   borrowers,
   filterId,

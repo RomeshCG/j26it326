@@ -32,8 +32,22 @@ loansRouter.get("/", requireAuth, async (req, res) => {
       },
       include: {
         product: { select: { id: true, name: true } },
-        borrower: { select: { id: true, fullName: true, nicNumber: true } },
+        borrower: {
+          select: { id: true, fullName: true, nicNumber: true, district: true },
+        },
         group: { select: { id: true, groupName: true } },
+        schedules: {
+          where: { status: "overdue" },
+          orderBy: { dueDate: "asc" },
+          select: {
+            id: true,
+            installmentNo: true,
+            dueDate: true,
+            amountDue: true,
+            amountPaid: true,
+            status: true,
+          },
+        },
         _count: { select: { schedules: true, collections: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -109,7 +123,8 @@ const DisburseSchema = z.object({
 loansRouter.post(
   "/:id/disburse",
   requireAuth,
-  requireRole("branch_manager", "finance_officer", "admin"),
+  // Loan officers confirm after risk review in the LO UI; BM/finance remain authorized.
+  requireRole("loan_officer", "branch_manager", "finance_officer", "admin"),
   async (req, res) => {
     const tenant = await resolveTenant(req, res)
     if (!tenant) return

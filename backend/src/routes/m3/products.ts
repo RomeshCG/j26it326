@@ -42,7 +42,8 @@ const CreateProductSchema = z.object({
 productsRouter.post(
   "/",
   requireAuth,
-  requireRole("admin"),
+  // LO may ensure a demo product exists when wiring approve from the UI.
+  requireRole("loan_officer", "branch_manager", "admin"),
   async (req, res) => {
     const tenant = await resolveTenant(req, res)
     if (!tenant) return

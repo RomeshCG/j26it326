@@ -56,7 +56,16 @@ export function buildAssessFeatures(state = {}) {
     return fallback
   }
 
-  const amount = Number(pick("contract_amount", state.loanAmount ?? given.contract_amount, RISK_REPORT.loanAmount))
+  // Prefer explicit application terms. Avoid the mock 150k default when a real amount exists —
+  // that fallback made every risk report look the same.
+  const amount = Number(
+    pick(
+      "contract_amount",
+      state.loanAmount ?? given.contract_amount,
+      RISK_REPORT.loanAmount
+    )
+  )
+
   const tenure = Number(pick("tenure", given.tenure, DEMO_DEFAULTS.tenure))
   const interest = Number(
     pick("interest_amount", given.interest_amount, Math.round(amount * DEMO_DEFAULTS.interest_ratio))
@@ -78,7 +87,7 @@ export function buildAssessFeatures(state = {}) {
   return { features, assumed }
 }
 
-export function mapAssessResponseToReport(api, state = {}, assumed = []) {
+export function mapAssessResponseToReport(api, state = {}, assumed = [], scoredFeatures = null) {
   const riskPct = Number(api.risk_pct ?? api.overdue_prob * 100) || 0
   const band = String(api.risk_band || "medium").toLowerCase()
   const classification = band === "low" ? "LOW" : band === "high" ? "HIGH" : "MEDIUM"
@@ -95,14 +104,20 @@ export function mapAssessResponseToReport(api, state = {}, assumed = []) {
     tone: isUp(f) ? "caution" : "positive",
   }))
 
+  const scoredAmount = Number(
+    scoredFeatures?.contract_amount ?? state.loanAmount ?? state.features?.contract_amount
+  )
+
   const base = buildRiskReport({
     ...state,
-    loanAmount: state.loanAmount,
+    loanAmount: Number.isFinite(scoredAmount) && scoredAmount > 0 ? scoredAmount : state.loanAmount,
     riskScore: Math.round(100 - riskPct),
   })
 
   return {
     ...base,
+    loanAmount:
+      Number.isFinite(scoredAmount) && scoredAmount > 0 ? scoredAmount : base.loanAmount,
     riskScore: Math.round(100 - riskPct),
     defaultProbability: Math.round(riskPct),
     classification,
@@ -115,6 +130,7 @@ export function mapAssessResponseToReport(api, state = {}, assumed = []) {
     assessmentId: api.assessmentId || null,
     assumedFields: assumed,
     unseenCategories: api.explanation?.unseen_categories ?? [],
+    scoredFeatures: scoredFeatures || null,
     source: "api",
     narrative:
       `Live M1 assessment (${api.model_version || "m1"}). ` +

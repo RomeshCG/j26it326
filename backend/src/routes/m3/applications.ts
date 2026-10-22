@@ -208,7 +208,8 @@ const ApproveSchema = z.object({
 applicationsRouter.post(
   "/:id/approve",
   requireAuth,
-  requireRole("branch_manager", "admin"),
+  // Loan officers complete approve→disburse in the LO UI after risk review (demo + field path).
+  requireRole("loan_officer", "branch_manager", "admin"),
   async (req, res) => {
     const tenant = await resolveTenant(req, res)
     if (!tenant) return

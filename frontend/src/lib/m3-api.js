@@ -99,6 +99,13 @@ export async function getProducts() {
   return request("/products")
 }
 
+export async function createProduct(data) {
+  return request("/products", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
 export async function getBorrowers(params = {}) {
   const qs = new URLSearchParams(params).toString()
   return request(`/borrowers${qs ? `?${qs}` : ""}`)

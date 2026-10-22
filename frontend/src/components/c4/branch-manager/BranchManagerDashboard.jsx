@@ -4,6 +4,7 @@ import { Building2, Users, FileText, ShieldAlert } from "lucide-react"
 import { useStore } from "@/store"
 import { fetchPendingAgentActions } from "@/lib/api"
 import { toBackendRole } from "@/lib/roles"
+import PendingLoanApprovals from "./PendingLoanApprovals"
 
 /** Backend roles with agents:decide_tier3 (matches Tier Approvals / Graduated Trust). */
 const TIER3_DECIDER_ROLES = ["admin", "executive", "branch_manager"]
@@ -187,6 +188,8 @@ export default function BranchManagerDashboard() {
           <UnavailableMetric />
         </div>
       </div>
+
+      <PendingLoanApprovals />
     </div>
   )
 }
